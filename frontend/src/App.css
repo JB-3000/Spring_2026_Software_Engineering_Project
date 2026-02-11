@@ -1,0 +1,27 @@
+/* centers everything inside the main app container*/
+.App {
+  text-align: center;
+}
+/* size of react logo and prevent dragging w mouse*/
+.App-logo {
+  height: 40vmin;
+  pointer-events: none;
+}
+
+/* main header area styling */
+.App-header {
+  background-color: #282c34;
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  font-size: calc(10px + 2vmin);
+  color: white;
+}
+
+/* styling for the link to react website */
+.App-link {
+  color: #8adff6;
+}
+
