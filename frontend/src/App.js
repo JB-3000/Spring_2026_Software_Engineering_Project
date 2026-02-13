@@ -12,9 +12,16 @@ function App() {
     try {
       // TODO: replace YOUR_BACKEND_URL with actual URL
       // can also move this into a .env later so we don't hardcode it 
-      const response = await fetch('YOUR_BACKEND_URL/api.php?r=tooltip');
-      //convert backend response (json) into js object
-      const data = await response.json();
+      const BACKEND_URL = 'https://aptitude.cse.buffalo.edu/CSE442/2026-Spring/cse-442c/backend/public/api/index.php?r=tooltip';
+      const response = await fetch(BACKEND_URL, {
+        headers: {"Accept": "application/json"}
+      });
+      //getting raw text response from backend (for debugging purposes)
+      const text = await response.text(); 
+      console.log("Server response:", text);
+
+      // if valid, parse json
+      const data = JSON.parse(text);
       setMessage(data.message);
     } catch (error) {
       //show error message if backend call fails
