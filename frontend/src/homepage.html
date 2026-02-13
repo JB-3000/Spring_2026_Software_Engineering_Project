@@ -1,0 +1,434 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>LIVESTOCK EPIDEMIC TRACKER</title>
+
+<style>
+body {
+  margin: 0;
+  font-family: Arial, Helvetica, sans-serif;
+  background: #f0f4f8;
+  color: #333;
+}
+
+.main-header {
+  background: #003087;
+  color: white;
+  padding: 20px 0;
+  text-align: center;
+}
+
+.main-header h1 {
+  margin: 0;
+  font-size: 2.4rem;
+  letter-spacing: 1.5px;
+  font-weight: bold;
+}
+
+.nav-bar {
+  background: #d0d8e0;
+  padding: 10px 20px;
+  text-align: center;
+}
+
+.nav-bar button {
+  margin: 0 8px;
+  padding: 8px 16px;
+  border: none;
+  background: #e0e8f0;
+  cursor: pointer;
+  font-weight: bold;
+  border-radius: 4px;
+}
+
+.nav-bar button:hover {
+  background: #c0d0e0;
+}
+
+.filters {
+  background: #e8f0ff;
+  padding: 12px 20px;
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: center;
+}
+
+.filters button {
+  padding: 8px 16px;
+  min-width: 120px;
+  background: white;
+  border: 1px solid #aaa;
+  border-radius: 4px;
+  cursor: pointer;
+}
+
+.filters .reset {
+  background: #00aaff;
+  color: white;
+  border: none;
+  font-weight: bold;
+}
+
+.main-content {
+  padding: 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.outbreak-section {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 20px;
+}
+
+.map-box {
+  flex: 3;
+  min-width: 500px;
+  background: #e8f0ff;
+  border: 1px solid #aaa;
+  padding: 12px;
+  box-shadow: 0 2px 6px rgba(0,0,0,0.1);
+}
+
+.map-placeholder {
+  height: 420px;
+  background: #d0e0ff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.1rem;
+  color: #555;
+  border: 2px dashed #888;
+  margin-bottom: 10px;
+}
+
+.view-buttons button {
+  margin-right: 8px;
+  padding: 6px 12px;
+}
+
+.stats {
+  flex: 1;
+  min-width: 280px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.stat-card {
+  padding: 16px;
+  color: white;
+  font-weight: bold;
+  text-align: center;
+  border-radius: 8px;
+  box-shadow: 0 2px 5px rgba(0,0,0,0.2);
+}
+
+.purple  { background: #a040ff; }
+.blue    { background: #0066cc; }
+.red     { background: #d32f2f; }
+.yellow  { background: #ffaa00; color: #000; }
+
+.recent-outbreaks {
+  background: white;
+  border: 1px solid #ccc;
+  padding: 16px;
+}
+
+.recent-outbreaks h3 {
+  margin-top: 0;
+  border-bottom: 2px solid #888;
+  padding-bottom: 8px;
+}
+
+.outbreak-item {
+  margin: 12px 0;
+  padding: 10px;
+  background: #f9f9f9;
+  border-left: 5px solid #00aaff;
+}
+
+.self-report {
+  float: right;
+  background: #00aaff;
+  color: white;
+  border: none;
+  padding: 4px 10px;
+  border-radius: 4px;
+  cursor: pointer;
+}
+
+.dropdown {
+  position: relative;
+  display: inline-block;
+}
+
+.dropbtn {
+  padding: 8px 16px;
+  min-width: 120px;
+  background: white;
+  border: 1px solid #aaa;
+  border-radius: 4px;
+  cursor: pointer;
+}
+
+.dropdown-content {
+  display: none;
+  position: absolute;
+  background-color: white;
+  min-width: 160px;
+  box-shadow: 0px 4px 8px rgba(0,0,0,0.2);
+  border-radius: 4px;
+  z-index: 1;
+}
+
+.dropdown-content a {
+  color: black;
+  padding: 10px 14px;
+  text-decoration: none;
+  display: block;
+}
+
+.dropdown-content a:hover {
+  background-color: #e8f0ff;
+}
+
+.dropdown:hover .dropdown-content {
+  display: block;
+}
+
+.state-input {
+  padding: 8px 16px;
+  min-width: 160px;
+  border: 1px solid #aaa;
+  border-radius: 4px;
+}
+
+footer {
+  text-align: center;
+  padding: 12px;
+  background: #003087;
+  color: white;
+  font-size: 0.9rem;
+  margin-top: 30px;
+}
+
+.legend {
+  margin-top: 12px;
+  font-size: 0.9rem;
+}
+</style>
+</head>
+
+<body>
+
+<div id="app"></div>
+
+<script>
+const app = document.getElementById("app");
+
+app.innerHTML = `
+<div class="main-header">
+  <h1>LIVESTOCK EPIDEMIC TRACKER</h1>
+</div>
+
+<div class="nav-bar">
+  <button class="home" id="homeBtn">Home</button>
+  <button class="news" id="newsBtn">News</button>
+  <button class="FAQ" id="FAQBtn">FAQ</button>
+  <button class="Log Out" id="logoutBtn">Log out</button>
+  <button class="data" id="dataBtn">Data</button>
+  <button class="profile" id="profileBtn">Profile</button>
+</div>
+
+<div class="filters">
+    <div class="dropdown">
+    <button class="dropbtn">Diseases ▾</button>
+    <div class="dropdown-content">
+        <a href="#">Bird Flu</a>
+        <a href="#">Mad Cow Disease</a>
+    </div>
+    </div>
+    
+  <div class="dropdown">
+  <button class="dropbtn">Species ▾</button>
+  <div class="dropdown-content">
+    <a href="#">Chicken</a>
+    <a href="#">Pig</a>
+    <a href="#">Cow</a>
+  </div>
+</div>
+
+<div class="state-dropdown">
+  <input 
+    type="text" 
+    list="statesList" 
+    placeholder="Enter State (e.g. NY)" 
+    class="state-input"
+  >
+
+  <datalist id="statesList">
+    <option value="AL">
+    <option value="AK">
+    <option value="AZ">
+    <option value="AR">
+    <option value="CA">
+    <option value="CO">
+    <option value="CT">
+    <option value="DE">
+    <option value="FL">
+    <option value="GA">
+    <option value="HI">
+    <option value="ID">
+    <option value="IL">
+    <option value="IN">
+    <option value="IA">
+    <option value="KS">
+    <option value="KY">
+    <option value="LA">
+    <option value="ME">
+    <option value="MD">
+    <option value="MA">
+    <option value="MI">
+    <option value="MN">
+    <option value="MS">
+    <option value="MO">
+    <option value="MT">
+    <option value="NE">
+    <option value="NV">
+    <option value="NH">
+    <option value="NJ">
+    <option value="NM">
+    <option value="NY">
+    <option value="NC">
+    <option value="ND">
+    <option value="OH">
+    <option value="OK">
+    <option value="OR">
+    <option value="PA">
+    <option value="RI">
+    <option value="SC">
+    <option value="SD">
+    <option value="TN">
+    <option value="TX">
+    <option value="UT">
+    <option value="VT">
+    <option value="VA">
+    <option value="WA">
+    <option value="WV">
+    <option value="WI">
+    <option value="WY">
+  </datalist>
+</div>
+
+  <button>Time Period ▾</button>
+  <button class="reset" id="resetBtn">Reset</button>
+</div>
+
+<div class="main-content">
+
+  <div class="outbreak-section">
+
+    <div class="map-box">
+      <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px;">
+        <h3>Outbreak Locations</h3>
+        <div class="view-buttons">
+          <button>Map View</button>
+          <button>List View</button>
+          <button>Export</button>
+        </div>
+      </div>
+
+      <div class="map-placeholder">
+        [ United States map placeholder ]
+      </div>
+
+      <div class="legend">
+        <strong>LEGEND</strong><br>
+        ○ Self Reported ● Confirmed Case
+      </div>
+    </div>
+
+    <div class="stats">
+      <div class="stat-card purple">Total Outbreaks<br>9</div>
+      <div class="stat-card blue">Total Cases<br>123</div>
+      <div class="stat-card red">High Risk Areas<br>3</div>
+      <div class="stat-card yellow">Alerts<br>1</div>
+    </div>
+
+  </div>
+
+  <div class="recent-outbreaks">
+    <h3>Recent Outbreaks</h3>
+
+    <div class="outbreak-item">
+      <strong>Mad Cow Disease</strong>, 23,075 cases, 2007–2009
+      <button class="self-report">Self Report</button>
+    </div>
+
+    <div class="outbreak-item">
+      <strong>HSN1 (Avian Flu)</strong>, 108,500,000 cases, 2023–2025
+    </div>
+
+    <div class="outbreak-item">
+      <strong>Brucellosis</strong>, 35,871 cases, 1991–2025
+    </div>
+
+    <div class="outbreak-item">
+      <strong>Swine Flu</strong>, 95,342,120 cases, 2006
+    </div>
+
+    <p style="text-align:right; margin-top:16px;">
+      <a href="#" style="color:#0066cc; text-decoration:none;">View All →</a>
+    </p>
+  </div>
+
+</div>
+
+<footer>
+  2026 - JNWSL Corp tm.
+</footer>
+`;
+
+document.getElementById("resetBtn").addEventListener("click", () => {
+  alert("Filters reset (demo)");
+});
+
+document.getElementById("profileBtn").addEventListener("click", () => {
+    alert("Change to profile page");
+});
+
+document.getElementById("logoutBtn").addEventListener("click", () => {
+    alert("Change to sign in page");
+});
+
+document.getElementById("FAQBtn").addEventListener("click", () => {
+    alert("Change to FAQ page");
+});
+
+document.getElementById("homeBtn").addEventListener("click", () => {
+    alert("Change to home page");
+});
+
+document.getElementById("newsBtn").addEventListener("click", () => {
+    alert("Change to newsBtn page");
+});
+
+document.getElementById("dataBtn").addEventListener("click", () => {
+    alert("Change to data page");
+});
+
+document.querySelectorAll(".self-report").forEach(btn => {
+  btn.addEventListener("click", () => {
+    alert("Report submitted (demo)");
+  });
+});
+</script>
+
+</body>
+</html>
