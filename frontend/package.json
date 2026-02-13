@@ -1,6 +1,7 @@
 
 {
   "name": "frontend",
+  "homepage": "/CSE442/2026-Spring/cse-442c/frontend/build",
   "version": "0.1.0",
   "private": true,
   "dependencies": {
