@@ -5,7 +5,7 @@ function db(): PDO {
     static $pdo = null;
     if ($pdo) return $pdo;
 
-    $cfg = require __DIR__ . '/config.example.php';
+    $cfg = require __DIR__ . '/config.php';
 
     $dsn = sprintf(
         "mysql:host=%s;dbname=%s;charset=utf8mb4",
