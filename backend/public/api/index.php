@@ -9,7 +9,7 @@ header('Access-Control-Allow-Origin: *'); // ok for demo
 $route = $_GET['r'] ?? 'tooltip';
 
 try {
-    if ($route === 'tooltip') {
+    if ($route === 'tooltip' || $route === 'message') {
         $pdo = db();
 
         // Retrieve ONE message (latest or first, your choice)
@@ -33,7 +33,8 @@ try {
 
     http_response_code(404);
     echo json_encode(['error' => 'Unknown route'], JSON_UNESCAPED_SLASHES);
-} catch (Throwable $e) {
+}
+catch (Throwable $e) {
     http_response_code(500);
     echo json_encode(['error' => 'Server error'], JSON_UNESCAPED_SLASHES);
 }
