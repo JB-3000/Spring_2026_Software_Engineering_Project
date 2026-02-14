@@ -51,18 +51,18 @@ body {
   background: #e8f0ff;
   padding: 12px 20px;
   display: flex;
-  gap: 10px;
+  gap: 40px;
   flex-wrap: wrap;
   align-items: center;
   justify-content: center;
 }
 
 .filters button {
-  padding: 8px 16px;
+  padding: 8px 40px;
   min-width: 120px;
   background: white;
   border: 1px solid #aaa;
-  border-radius: 4px;
+  border-radius: 12px;
   cursor: pointer;
 }
 
@@ -132,7 +132,7 @@ body {
 .purple  { background: #a040ff; }
 .blue    { background: #0066cc; }
 .red     { background: #d32f2f; }
-.yellow  { background: #ffaa00; color: #000; }
+.yellow  { background: #ff9100; color: #ffffff; }
 
 .recent-outbreaks {
   background: white;
@@ -207,6 +207,22 @@ body {
   min-width: 160px;
   border: 1px solid #aaa;
   border-radius: 4px;
+}
+
+.legend-btn {
+  padding: 6px 12px;
+  margin-right: 8px;
+  border: 1px solid #888;
+  background: white;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 0.9rem;
+}
+
+.legend-btn.active {
+  background: #003087;
+  color: white;
+  border-color: #003087;
 }
 
 footer {
@@ -348,10 +364,18 @@ app.innerHTML = `
         [ United States map placeholder ]
       </div>
 
-      <div class="legend">
-        <strong>LEGEND</strong><br>
-        ○ Self Reported ● Confirmed Case
-      </div>
+    <div class="legend">
+    <strong>LEGEND</strong><br><br>
+
+    <button class="legend-btn active" id="selfReportedBtn">
+        Self Reported
+    </button>
+
+    <button class="legend-btn active" id="confirmedBtn">
+        Confirmed Case
+    </button>
+    </div>
+
     </div>
 
     <div class="stats">
@@ -396,7 +420,7 @@ app.innerHTML = `
 `;
 
 document.getElementById("resetBtn").addEventListener("click", () => {
-  alert("Filters reset (demo)");
+    window.location.reload();
 });
 
 document.getElementById("profileBtn").addEventListener("click", () => {
@@ -405,22 +429,29 @@ document.getElementById("profileBtn").addEventListener("click", () => {
 
 document.getElementById("logoutBtn").addEventListener("click", () => {
     alert("Change to sign in page");
+   // window.location.href = "login.html"; // replace with your actual login page URL
 });
 
 document.getElementById("FAQBtn").addEventListener("click", () => {
     alert("Change to FAQ page");
+    //window.location.href = "faq.html"; // replace with your actual login page URL
+
 });
 
 document.getElementById("homeBtn").addEventListener("click", () => {
-    alert("Change to home page");
+    window.location.reload();
 });
 
 document.getElementById("newsBtn").addEventListener("click", () => {
     alert("Change to newsBtn page");
+    //window.location.href = "news.html"; // replace with your actual login page URL
+
 });
 
 document.getElementById("dataBtn").addEventListener("click", () => {
     alert("Change to data page");
+    //window.location.href = "data.html"; // replace with your actual login page URL
+
 });
 
 document.querySelectorAll(".self-report").forEach(btn => {
@@ -428,6 +459,30 @@ document.querySelectorAll(".self-report").forEach(btn => {
     alert("Report submitted (demo)");
   });
 });
+
+const selfReportedBtn = document.getElementById("selfReportedBtn");
+const confirmedBtn = document.getElementById("confirmedBtn");
+
+selfReportedBtn.addEventListener("click", () => {
+  selfReportedBtn.classList.toggle("active");
+});
+
+confirmedBtn.addEventListener("click", () => {
+  confirmedBtn.classList.toggle("active");
+});
+
+
+ document.querySelectorAll('.dropdown').forEach(dropdown => {
+    const button = dropdown.querySelector('.dropbtn');
+    const links = dropdown.querySelectorAll('.dropdown-content a');
+
+    links.forEach(link => {
+      link.addEventListener('click', (e) => {
+        e.preventDefault(); // Prevent default link behavior
+        button.textContent = link.textContent + ' ▾'; // Update button text
+      });
+    });
+  });
 </script>
 
 </body>
