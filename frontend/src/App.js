@@ -1,44 +1,31 @@
-import React, { useState } from 'react';
-import './App.css';
+import React from 'react';
+import { Routes, Route } from 'react-router-dom';
+
+import Navbar from './homepage/Navbar';
+import HomePage from './homepage/Homepage';
+import News from './News';
+import Data from './Data';
+import FAQ from './Faq';
+import LoginPage from './pages/LoginPage';
+import ViewProfile from "./profile/ViewProfile";
+//import Profile from 'pages/ViewProfile';
 
 function App() {
-  // stores and tracks msg from backend and loading state for button
-  const [message, setMessage] = useState('');
-  const [loading, setLoading] = useState(false);
-
-  // runs when button is clicked -> calls backens -> updates message
-  const handleClick = async () => {
-    setLoading(true);
-    try {
-      // TODO: replace YOUR_BACKEND_URL with actual URL
-      // can also move this into a .env later so we don't hardcode it 
-      const BACKEND_URL = 'https://aptitude.cse.buffalo.edu/CSE442/2026-Spring/cse-442c/backend/public/api/index.php?r=tooltip';
-      const response = await fetch(BACKEND_URL, {
-        headers: {"Accept": "application/json"}
-      });
-      //getting raw text response from backend (for debugging purposes)
-      const text = await response.text(); 
-      console.log("Server response:", text);
-
-      // if valid, parse json
-      const data = JSON.parse(text);
-      setMessage(data.message);
-    } catch (error) {
-      //show error message if backend call fails
-      setMessage('Error connecting to backend: ' + error.message);
-    } finally {
-      setLoading(false);
-    }
-  };
-
   return (
-    <div className="App">
-      <button onClick={handleClick} disabled={loading}>
-        {loading ? 'Loading...' : 'Click Me'}
-      </button>
-      {message && <p className="message">{message}</p>}
+    <div>
+      <Navbar />  {/* Always visible */}
+
+      <Routes>
+        <Route path="/" element={<LoginPage />} />
+        <Route path="/home" element={<HomePage />} />
+        <Route path="/news" element={<News />} />
+        <Route path="/data" element={<Data />} />
+        <Route path="/faq" element={<FAQ />} />
+        <Route path="/profile" element={<ViewProfile />} />
+      </Routes>
+
     </div>
   );
 }
-
+//       <Route path="/profile" element={<Profile/>} />
 export default App;
