@@ -8,13 +8,12 @@ import Data from './Data';
 import FAQ from './Faq';
 import LoginPage from './pages/LoginPage';
 import ViewProfile from "./profile/ViewProfile";
+import Login from "./pages/LoginPage"
 //import Profile from 'pages/ViewProfile';
 
 function App() {
   return (
     <div>
-      <Navbar />  {/* Always visible */}
-
       <Routes>
         <Route path="/" element={<LoginPage />} />
         <Route path="/home" element={<HomePage />} />
@@ -22,6 +21,7 @@ function App() {
         <Route path="/data" element={<Data />} />
         <Route path="/faq" element={<FAQ />} />
         <Route path="/profile" element={<ViewProfile />} />
+        <Route path="/loginPage" element={<Login />} />
       </Routes>
 
     </div>
