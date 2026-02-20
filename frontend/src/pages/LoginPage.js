@@ -1,4 +1,5 @@
 import React, { useState } from "react";
+import { useNavigate } from "react-router-dom";
 import SiteHeader from "../components/SiteHeader";
 import SiteFooter from "../components/SiteFooter";
 import "./LoginPage.css";
@@ -8,12 +9,14 @@ import Logo from "../LivestockEpidemicTracker.jpeg";
 export default function LoginPage() {
 	const [email, setEmail] = useState("");
 	const [password, setPassword] = useState("");
+	const navigate = useNavigate();
 
 	const handleSubmit = (e) => {
 		e.preventDefault();
 		console.log("Login submit:", { email, password });
+		navigate("/home");
+		//pass information through navigate
 	};
-
 	return (
 		<div className="login-page">
 			<SiteHeader />
