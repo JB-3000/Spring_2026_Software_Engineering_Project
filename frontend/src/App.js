@@ -7,6 +7,7 @@ import News from './News';
 import Data from './Data';
 import FAQ from './Faq';
 import LoginPage from './pages/LoginPage';
+import ViewProfile from "./profile/ViewProfile";
 //import Profile from 'pages/ViewProfile';
 
 function App() {
@@ -15,13 +16,14 @@ function App() {
       <Navbar />  {/* Always visible */}
 
       <Routes>
-        <Route path="/login" element={<LoginPage />} />
-        <Route path="/Home" element={<HomePage />} />
+        <Route path="/" element={<LoginPage />} />
+        <Route path="/home" element={<HomePage />} />
         <Route path="/news" element={<News />} />
         <Route path="/data" element={<Data />} />
         <Route path="/faq" element={<FAQ />} />
-
+        <Route path="/profile" element={<ViewProfile />} />
       </Routes>
+
     </div>
   );
 }
