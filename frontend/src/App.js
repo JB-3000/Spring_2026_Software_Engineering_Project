@@ -6,6 +6,7 @@ import HomePage from './homepage/Homepage';
 import News from './News';
 import Data from './Data';
 import FAQ from './Faq';
+import LoginPage from './pages/LoginPage';
 //import Profile from 'pages/ViewProfile';
 
 function App() {
@@ -14,10 +15,11 @@ function App() {
       <Navbar />  {/* Always visible */}
 
       <Routes>
-        <Route path="/" element={<HomePage />} />
+        <Route path="/login" element={<LoginPage />} />
+        <Route path="/Home" element={<HomePage />} />
         <Route path="/news" element={<News />} />
         <Route path="/data" element={<Data />} />
-        <Route path="/Faq" element={<FAQ />} />
+        <Route path="/faq" element={<FAQ />} />
 
       </Routes>
     </div>
