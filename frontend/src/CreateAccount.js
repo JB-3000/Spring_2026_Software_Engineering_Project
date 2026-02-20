@@ -19,7 +19,7 @@ function CreateAccount() {
       ...prev,
       [name]: value
     }));
-    // Clear error for this field when user starts typing
+    // clear error for this field when user starts typing
     if (errors[name]) {
       setErrors(prev => ({
         ...prev,
@@ -31,7 +31,7 @@ function CreateAccount() {
   const validateForm = () => {
     const newErrors = {};
 
-    // Check empty fields
+    // check empty fields
     if (!formData.firstName.trim()) {
       newErrors.firstName = 'First name is required.';
     }
@@ -48,17 +48,17 @@ function CreateAccount() {
       newErrors.confirmPassword = 'Please confirm your password.';
     }
 
-    // Validate email format
+    // validate email format
     if (formData.email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.email)) {
       newErrors.email = 'Invalid Email Address';
     }
 
-    // Validate password length
+    // validate password length
     if (formData.password && formData.password.length < 8) {
       newErrors.password = 'Password must be at least 8 characters';
     }
 
-    // Check password match
+    // check password match
     if (formData.password && formData.confirmPassword && formData.password !== formData.confirmPassword) {
       newErrors.confirmPassword = 'Passwords do not match';
     }
@@ -68,10 +68,10 @@ function CreateAccount() {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    
-    // Validate form
+
+    // validate form
     const newErrors = validateForm();
-    
+
     if (Object.keys(newErrors).length > 0) {
       setErrors(newErrors);
       return;
@@ -80,7 +80,7 @@ function CreateAccount() {
     setIsSubmitting(true);
 
     try {
-      // Call backend API
+      // call backend API on aptitude server
       const response = await fetch('https://aptitude.cse.buffalo.edu/CSE442/2026-Spring/cse-442c/backend/api/create-account.php', {
         method: 'POST',
         headers: {
@@ -97,10 +97,10 @@ function CreateAccount() {
       const data = await response.json();
 
       if (data.success) {
-        // Redirect to homepage on success
-        window.location.href = '/';
+        // redirect to login page on successful account creation
+        window.location.href = 'https://aptitude.cse.buffalo.edu/CSE442/2026-Spring/cse-442c/';
       } else {
-        // Display error from backend (e.g., email already exists)
+        // display error from backend (e.g., email already exists)
         setErrors({ email: data.message || 'An error occurred' });
       }
     } catch (error) {
@@ -112,22 +112,22 @@ function CreateAccount() {
   };
 
   const handleLoginClick = () => {
-    // Navigate to login page (someone else is building this)
-    window.location.href = '/login';
+    // navigate to login page
+    window.location.href = 'https://aptitude.cse.buffalo.edu/CSE442/2026-Spring/cse-442c/';
   };
 
   return (
     <div className="create-account-page">
       <header className="app-header">
         <div className="logo-container">
-       <img src="/logo-clean.png" alt="JNWSL Corp Logo" className="logo-icon" />
+          <img src="/logo-clean.png" alt="JNWSL Corp Logo" className="logo-icon" />
           <h1>LIVESTOCK EPIDEMIC TRACKER</h1>
         </div>
       </header>
 
       <div className="form-container">
         <h2>Create Account</h2>
-        
+
         <form onSubmit={handleSubmit}>
           <div className="form-group">
             <label htmlFor="firstName">First Name</label>
