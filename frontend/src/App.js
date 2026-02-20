@@ -1,3 +1,14 @@
+
+import React from "react";
+import ViewProfile from "./profile/ViewProfile";
+
+export default function App() {
+  return <ViewProfile />;
+}
+
+
+/*
+
 import React, { useState } from 'react';
 import './App.css';
 
@@ -42,3 +53,5 @@ function App() {
 }
 
 export default App;
+
+*/
