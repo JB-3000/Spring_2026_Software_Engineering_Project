@@ -25,7 +25,7 @@ if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
 }
 
 // incl database connection
-require_once __DIR__ . '/../config/db.php';
+require_once __DIR__ . '/db.php';
 
 try {
     // get json input

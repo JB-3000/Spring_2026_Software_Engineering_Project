@@ -81,8 +81,7 @@ function CreateAccount() {
 
     try {
       // call backend API on aptitude server
-      const response = await fetch('https://aptitude.cse.buffalo.edu/CSE442/2026-Spring/cse-442c/backend/api/create-account.php', {
-        method: 'POST',
+      const response = await fetch('https://aptitude.cse.buffalo.edu/CSE442/2026-Spring/cse-442c/backend/src/create-account.php', {
         headers: {
           'Content-Type': 'application/json',
         },
