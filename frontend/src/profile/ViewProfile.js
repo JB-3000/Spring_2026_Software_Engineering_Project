@@ -1,15 +1,30 @@
-
 import { useState } from "react";
+import { useNavigate } from "react-router-dom";   // ← add this
 import "./ViewProfile.css";
+import Navbar from "../homepage/Navbar"; 
 
-const navLinks = ["Home", "News", "FAQ", "Log Out", "Data"];
+const navLinks = ["Home", "News", "Data", "FAQ", "Profile", "Log out"];  // order kept as in your original
 
 export default function ViewProfile() {
   const [profileImg, setProfileImg] = useState(null);
+  const navigate = useNavigate();   // ← add this
 
   const handleImgChange = (e) => {
     const file = e.target.files[0];
     if (file) setProfileImg(URL.createObjectURL(file));
+  };
+
+  // Optional: you can define path mapping if you want cleaner code
+  const getPath = (link) => {
+    const map = {
+      "Home": "/home",
+      "News": "/news",
+      "FAQ": "/faq",
+      "Data": "/data",
+      "Log Out": "/",
+      "Profile": "/profile",   // even though we're already on profile
+    };
+    return map[link] || "/";
   };
 
   return (
@@ -26,12 +41,16 @@ export default function ViewProfile() {
         <h1 className="vp-title">LIVESTOCK EPIDEMIC TRACKER</h1>
       </header>
 
-      {/* Nav */}
+      {/* Nav – now with real navigation but same styling */}
       <nav className="vp-nav">
         {navLinks.map((link) => (
-          <a key={link} href="#" className="vp-nav-link">
+          <button
+            key={link}
+            onClick={() => navigate(getPath(link))}
+            className="vp-nav-link"          // ← keep your original class
+          >
             {link}
-          </a>
+          </button>
         ))}
       </nav>
 

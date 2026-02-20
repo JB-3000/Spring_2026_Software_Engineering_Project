@@ -6,7 +6,7 @@ const Navbar = () => {
 
   return (
     <nav style={{
-      background: '#d0d8e0',
+      background: '#9999bb',
       padding: '0.75rem 1.5rem',
       textAlign: 'center',
     }}>
