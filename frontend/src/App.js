@@ -1,23 +1,21 @@
 import React from 'react';
-import { Routes, Route, Navigate } from 'react-router-dom';
-
+import { Routes, Route } from 'react-router-dom';
 import Navbar from './homepage/Navbar';
 import HomePage from './homepage/Homepage';
 import News from './News';
 import Data from './Data';
 import FAQ from './Faq';
 import ViewProfile from "./profile/ViewProfile";
-import LoginPage from "./pages/LoginPage"
+import LoginPage from "./pages/LoginPage";
 import ForgotPasswordPage from "./pages/ForgotPasswordPage";
 import ResetPasswordPage from "./pages/ResetPasswordPage";
-//import Profile from 'pages/ViewProfile';
-
+import CreateAccount from './pages/CreateAccount';
 
 function App() {
   return (
     <div>
       <Routes>
-        <Route path="/" element={<Navigate to="/login" replace />} />
+        <Route path="/" element={<LoginPage />} />
         <Route path="/login" element={<LoginPage />} />
         <Route path="/forgot-password" element={<ForgotPasswordPage />} />
         <Route path="/reset-password" element={<ResetPasswordPage />} />
@@ -26,10 +24,10 @@ function App() {
         <Route path="/data" element={<Data />} />
         <Route path="/faq" element={<FAQ />} />
         <Route path="/profile" element={<ViewProfile />} />
+        <Route path="/createAccount" element={<CreateAccount />} />
       </Routes>
-
     </div>
   );
 }
-//       <Route path="/profile" element={<Profile/>} />
+
 export default App;
