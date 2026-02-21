@@ -1,21 +1,22 @@
 import React, { useState } from "react";
+import { useNavigate } from "react-router-dom";
 import SiteHeader from "../components/SiteHeader";
 import SiteFooter from "../components/SiteFooter";
 import "./LoginPage.css";
-import CreateAccount from './CreateAccount';
 
 import Logo from "../LivestockEpidemicTracker.jpeg";
 
 export default function LoginPage() {
 	const [email, setEmail] = useState("");
 	const [password, setPassword] = useState("");
-	const [showCreateAccount, setShowCreateAccount] = useState(false);
+	const navigate = useNavigate();
 
 	const handleSubmit = (e) => {
 		e.preventDefault();
 		console.log("Login submit:", { email, password });
+		navigate("/home");
+		//pass information through navigate
 	};
-
 	return (
 		<div className="login-page">
 			<SiteHeader />
@@ -68,7 +69,7 @@ export default function LoginPage() {
 								<button
 									type="button"
 									className="link-btn link-btn--strong"
-									onClick={() => setShowCreateAccount(true)}
+									onClick={() => navigate("/createAccount") /* navigate to create account page */ }
 								>
 									Create Account
 								</button>
@@ -100,7 +101,6 @@ export default function LoginPage() {
 			</main>
 
 			<SiteFooter />
-			{showCreateAccount && <CreateAccount />}
 		</div>
 	);
 }

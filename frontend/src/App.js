@@ -9,6 +9,7 @@ import FAQ from './Faq';
 import LoginPage from './pages/LoginPage';
 import ViewProfile from "./profile/ViewProfile";
 import Login from "./pages/LoginPage"
+//import Profile from 'pages/ViewProfile';
 import CreateAccount from './pages/CreateAccount';
 
 
@@ -29,5 +30,6 @@ function App() {
     </div>
   );
 }
+//       <Route path="/profile" element={<Profile/>} />
 //       <Route path="/profile" element={<Profile/>} />
 export default App;
