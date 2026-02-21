@@ -114,7 +114,7 @@ export default function LoginPage() {
 								<button
 									type="button"
 									className="link-btn"
-									onClick={() => alert("Forgot password flow not implemented yet.")}
+									onClick={() => navigate("/forgot-password")}
 								>
 									Forgot Password?
 								</button>
