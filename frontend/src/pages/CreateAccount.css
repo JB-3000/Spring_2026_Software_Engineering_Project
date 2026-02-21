@@ -26,7 +26,6 @@
   width: 80px;
   height: 80px;
   object-fit: contain;
-  mix-blend-mode: multiply;
 }
 
 .app-header h1 {
@@ -48,21 +47,10 @@
   width: 100%;
 }
 
-.form-container h2 {
-  background-color: #a0a0a0;
-  color: black;
-  width: 100%;
-  text-align: center;
-  padding: 15px;
-  margin: 0 0 20px 0;
-  font-size: 28px;
-  border-radius: 5px 5px 0 0;
-}
-
 form {
   background-color: #d3d3d3;
   padding: 30px;
-  border-radius: 0 0 5px 5px;
+  border-radius: 5px;
   width: 100%;
   box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
 }
@@ -93,12 +81,6 @@ form {
   border-color: #dc3545;
 }
 
-.form-group input:focus {
-  outline: none;
-  border-color: #667eea;
-  box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
-}
-
 .error-message {
   display: block;
   color: #dc3545;
@@ -107,27 +89,16 @@ form {
   font-weight: 500;
 }
 
-.terms-text {
-  text-align: center;
-  font-size: 12px;
-  color: #333;
-  margin: 20px 0;
-}
-
-.terms-text a {
-  color: #667eea;
-  text-decoration: underline;
-}
-
 .button-group {
   display: flex;
+  flex-direction: column;
   gap: 15px;
   margin-top: 20px;
 }
 
 .create-btn,
 .login-btn {
-  flex: 1;
+  width: 100%;
   padding: 12px 24px;
   border: none;
   border-radius: 25px;
@@ -148,11 +119,6 @@ form {
   box-shadow: 0 4px 8px rgba(102, 126, 234, 0.3);
 }
 
-.create-btn:disabled {
-  opacity: 0.6;
-  cursor: not-allowed;
-}
-
 .login-btn {
   background-color: #f0f0f0;
   color: #333;
@@ -163,62 +129,15 @@ form {
   transform: translateY(-2px);
 }
 
-.app-footer {
-  background-color: white;
-  text-align: center;
-  padding: 15px;
-  border-top: 3px solid #667eea;
-  font-size: 14px;
-  color: #666;
-}
-
 /* Responsive Design */
 @media (max-width: 768px) {
   .app-header h1 {
     font-size: 18px;
   }
-
   .form-container {
     padding: 20px 15px;
   }
-
-  .form-container h2 {
-    font-size: 24px;
-  }
-
   form {
     padding: 20px;
-  }
-
-  .button-group {
-    flex-direction: column;
-  }
-
-  .create-btn,
-  .login-btn {
-    width: 100%;
-  }
-}
-
-@media (max-width: 480px) {
-  .app-header h1 {
-    font-size: 16px;
-  }
-
-  .logo-container {
-    gap: 10px;
-  }
-
-  .form-container h2 {
-    font-size: 20px;
-    padding: 12px;
-  }
-
-  form {
-    padding: 15px;
-  }
-
-  .form-group input {
-    font-size: 14px;
   }
 }

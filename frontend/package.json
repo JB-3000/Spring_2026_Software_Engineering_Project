@@ -2,7 +2,7 @@
   "name": "frontend",
   "version": "0.1.0",
   "private": true,
-  "homepage": "/CSE442/2026-Spring/cse-442c",
+  "homepage": "/CSE442/2026-Spring/cse-442c/frontend/build",
   "dependencies": {
     "@testing-library/dom": "^10.4.1",
     "@testing-library/jest-dom": "^6.9.1",
