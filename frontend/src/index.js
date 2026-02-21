@@ -9,7 +9,7 @@ import reportWebVitals from './reportWebVitals';
 const root = ReactDOM.createRoot(document.getElementById('root'));
 root.render(
   <React.StrictMode>
-    <BrowserRouter>
+    <BrowserRouter basename="/CSE442/2026-Spring/cse-442c/frontend">
       <App />
     </BrowserRouter>
   </React.StrictMode>
