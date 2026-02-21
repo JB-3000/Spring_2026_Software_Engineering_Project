@@ -9,7 +9,8 @@ import FAQ from './Faq';
 import LoginPage from './pages/LoginPage';
 import ViewProfile from "./profile/ViewProfile";
 import Login from "./pages/LoginPage"
-//import Profile from 'pages/ViewProfile';
+import CreateAccount from './pages/CreateAccount';
+
 
 function App() {
   return (
@@ -22,6 +23,7 @@ function App() {
         <Route path="/faq" element={<FAQ />} />
         <Route path="/profile" element={<ViewProfile />} />
         <Route path="/loginPage" element={<Login />} />
+        <Route path="/createAccount" element={<CreateAccount />} />
       </Routes>
 
     </div>
