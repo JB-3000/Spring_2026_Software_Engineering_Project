@@ -8,7 +8,10 @@ import Data from './Data';
 import FAQ from './Faq';
 import ViewProfile from "./profile/ViewProfile";
 import LoginPage from "./pages/LoginPage"
+import ForgotPasswordPage from "./pages/ForgotPasswordPage";
+import ResetPasswordPage from "./pages/ResetPasswordPage";
 //import Profile from 'pages/ViewProfile';
+
 
 function App() {
   return (
@@ -16,7 +19,8 @@ function App() {
       <Routes>
         <Route path="/" element={<Navigate to="/login" replace />} />
         <Route path="/login" element={<LoginPage />} />
-
+        <Route path="/forgot-password" element={<ForgotPasswordPage />} />
+        <Route path="/reset-password" element={<ResetPasswordPage />} />
         <Route path="/home" element={<HomePage />} />
         <Route path="/news" element={<News />} />
         <Route path="/data" element={<Data />} />
