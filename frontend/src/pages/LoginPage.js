@@ -122,7 +122,7 @@ export default function LoginPage() {
 								<button
 									type="button"
 									className="link-btn link-btn--strong"
-									onClick={() => alert("Create account flow not implemented yet.")}
+									onClick={() => navigate("/createAccount") /* navigate to create account page */ }
 								>
 									Create Account
 								</button>
