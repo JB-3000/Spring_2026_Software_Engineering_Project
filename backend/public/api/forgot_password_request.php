@@ -3,6 +3,7 @@ declare(strict_types=1);
 
 require __DIR__ . '/../../src/db.php';
 require __DIR__ . '/../../src/response.php';
+require_once '../../src/response.php';
 
 /**
  * POST JSON: { "email": "user@example.com" }
@@ -32,8 +33,29 @@ $stmt = $pdo->prepare("SELECT id, email, is_active FROM users WHERE email = ? LI
 $stmt->execute([$email]);
 $user = $stmt->fetch();
 
+// =====================
+// RATE LIMIT CHECK
+// =====================
+if ($user) {
+    $stmt = $pdo->prepare("
+        SELECT COUNT(*) FROM password_resets
+        WHERE user_id = ?
+          AND created_at > (NOW() - INTERVAL 5 MINUTE)
+    ");
+    $stmt->execute([$user['id']]);
+    $recentCount = (int)$stmt->fetchColumn();
+
+    if ($recentCount > 0) {
+        // Too many requests recently — return generic success
+        json_response([
+            'ok' => true,
+            'message' => 'If an account exists for that email, a confirmation code has been sent.'
+        ], 200);
+        exit;
+    }
+}
+
 // If user exists + active, generate & store a one-time code and attempt to email it.
-// If not, we do nothing but still return the same message.
 if ($user && (int)$user['is_active'] === 1) {
     // 6-digit numeric code
     $code = (string)random_int(100000, 999999);
@@ -61,6 +83,7 @@ if ($user && (int)$user['is_active'] === 1) {
     }
 }
 
+// Always return the same generic response
 json_response([
     'ok' => true,
     'message' => 'If an account exists for that email, a confirmation code has been sent.'
