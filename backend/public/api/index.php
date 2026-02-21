@@ -67,6 +67,18 @@ try {
         exit;
     }
 
+    // Forgot Password: request one-time confirmation code
+    if ($route === 'forgot_password_request') {
+        require __DIR__ . '/forgot_password_request.php';
+        exit;
+    }
+
+    // Forgot Password: reset password using confirmation code
+    if ($route === 'reset_password') {
+        require __DIR__ . '/reset_password.php';
+        exit;
+    }
+
     if ($route === 'health') {
         echo json_encode(['ok' => true, 'time' => date('c')], JSON_UNESCAPED_SLASHES);
         exit;
