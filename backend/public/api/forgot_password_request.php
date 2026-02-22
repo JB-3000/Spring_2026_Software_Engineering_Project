@@ -36,7 +36,10 @@ $user = $stmt->fetch();
 // If not, we do nothing but still return the same message.
 if ($user && (int)$user['is_active'] === 1) {
     // 6-digit numeric code
-    $code = (string)random_int(100000, 999999);
+    //$code = (string)random_int(100000, 999999);
+
+    // TEMP: hardcoded code for testing (remove when implementing real email)
+    $code = "123456";
 
     // Hash the code so it isn't stored in plaintext
     $code_hash = password_hash($code, PASSWORD_DEFAULT);
