@@ -14,7 +14,7 @@ export default function ForgotPasswordPage() {
 
     const API_BASE =
         process.env.NODE_ENV === "production"
-            ? "/CSE442/2026-Spring/cse-442c/backend/public/api"
+            ? "/CSE442/2026-Spring/cse-442c/backend/public/api/forgot_password_request.php"
             : "http://localhost:8000/api/forgot_password_request.php";
 
     const onSubmit = async (e) => {
