@@ -52,5 +52,26 @@ class User {
         ]);
         return (int)$pdo->lastInsertId();
     }
+    // Update profile fields for the currently logged-in user
+    public static function updateProfile(int $id, array $body): bool {
+        $allowedFields = ['username', 'first_name', 'last_name', 'state', 'city', 'address', 'zip', 'email', 'phone'];
+        $updates = [];
+        $values  = [];
+
+        foreach ($allowedFields as $field) {
+            if (isset($body[$field])) {
+                $updates[] = "$field = ?";
+                $values[]  = htmlspecialchars(strip_tags((string)$body[$field]), ENT_QUOTES, 'UTF-8');
+            }
+        }
+
+        if (empty($updates)) return false;
+
+        $values[] = $id;
+        db()->prepare("UPDATE users SET " . implode(", ", $updates) . " WHERE id = ?")
+           ->execute($values);
+
+        return true;
+    }
 }
 ?>
