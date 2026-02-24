@@ -1,5 +1,7 @@
 import { useState } from "react";
 import "./ViewProfile.css";
+///// Logo image
+import Logo from "../LivestockEpidemicTracker.jpeg";
 
 const navLinks = ["Home", "News", "FAQ", "Log Out", "Data"];
 
