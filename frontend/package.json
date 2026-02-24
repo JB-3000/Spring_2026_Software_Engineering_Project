@@ -1,17 +1,16 @@
-
 {
   "name": "frontend",
-  "homepage": "/CSE442/2026-Spring/cse-442c/frontend/build",
   "version": "0.1.0",
   "private": true,
+  "homepage": "/CSE442/2026-Spring/cse-442c/frontend/build",
   "dependencies": {
     "@testing-library/dom": "^10.4.1",
     "@testing-library/jest-dom": "^6.9.1",
     "@testing-library/react": "^16.3.2",
     "@testing-library/user-event": "^13.5.0",
-    "express": "^5.2.1",
     "react": "^19.2.4",
     "react-dom": "^19.2.4",
+    "react-router-dom": "^7.13.0",
     "react-scripts": "5.0.1",
     "web-vitals": "^2.1.4"
   },

@@ -1,28 +1,29 @@
 /* === RESET === */
-*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+*, *::before, *::after { 
+  box-sizing: border-box; 
+  margin: 0; 
+  padding: 0; 
+}
 
 /* === PAGE === */
 .vp-page {
   min-height: 100vh;
+  width: 100%;
   background-color: #d9d9d9;
   font-family: Arial, sans-serif;
   display: flex;
   flex-direction: column;
-  align-items: center;
-  padding: 20px;
 }
 
 /* === HEADER === */
 .vp-header {
   background: #d4d4d4;
-  border: 2px solid #555;
+  border-bottom: 3px solid #5555cc;
   width: 100%;
-  max-width: 1260px;
   display: flex;
   align-items: center;
-  padding: 16px 24px;
+  padding: 16px 40px;
   gap: 20px;
-  border-bottom: 3px solid #5555cc;
 }
 
 .vp-logo-box {
@@ -57,13 +58,10 @@
 .vp-nav {
   background: #9999bb;
   width: 100%;
-  max-width: 1260px;
   display: flex;
   justify-content: center;
   gap: 8px;
   padding: 10px 16px;
-  border-left: 2px solid #555;
-  border-right: 2px solid #555;
   border-bottom: 3px solid #5555cc;
 }
 
@@ -71,11 +69,11 @@
   font-family: Arial, sans-serif;
   font-size: 0.9rem;
   color: #111;
-  text-decoration: none;
-  padding: 5px 16px;
+  padding: 6px 18px;
   border: 1px solid #888;
   background: #e8e8e8;
   border-radius: 3px;
+  cursor: pointer;
   transition: background 0.15s;
 }
 
@@ -87,12 +85,8 @@
 .vp-content-box {
   background: #fff;
   width: 100%;
-  max-width: 1260px;
-  border-left: 2px solid #555;
-  border-right: 2px solid #555;
-  border-bottom: 2px solid #555;
-  padding: 40px 60px 50px;
   flex: 1;
+  padding: 40px 80px 60px;
 }
 
 /* === TOP ROW === */
@@ -100,7 +94,7 @@
   display: flex;
   justify-content: space-between;
   align-items: flex-start;
-  margin-bottom: 40px;
+  margin-bottom: 50px;
 }
 
 /* === EDIT BUTTON === */
@@ -110,7 +104,6 @@
   border: none;
   border-radius: 50px;
   padding: 14px 46px;
-  font-family: Arial, sans-serif;
   font-size: 1.1rem;
   font-weight: bold;
   cursor: pointer;
@@ -138,8 +131,8 @@
 }
 
 .vp-avatar {
-  width: 150px;
-  height: 150px;
+  width: 160px;
+  height: 160px;
   border-radius: 50%;
   overflow: hidden;
   position: relative;
@@ -167,7 +160,6 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  font-family: Arial, sans-serif;
   font-size: 1rem;
   font-weight: bold;
   text-align: center;
@@ -190,34 +182,31 @@
 .vp-form-grid {
   display: grid;
   grid-template-columns: 1fr 1fr;
-  gap: 20px 80px;
-  max-width: 900px;
+  gap: 25px 100px;
+  max-width: 1000px;
   margin: 0 auto;
 }
 
 .vp-field {
   display: flex;
   flex-direction: column;
-  gap: 5px;
+  gap: 6px;
 }
 
 .vp-label {
-  font-family: Arial, sans-serif;
   font-size: 0.95rem;
-  font-weight: normal;
   color: #222;
 }
 
 .vp-input {
   background: #d9d9d9;
   border: none;
-  border-radius: 2px;
+  border-radius: 4px;
   padding: 8px 10px;
-  font-family: Arial, sans-serif;
-  font-size: 0.9rem;
+  font-size: 0.95rem;
   color: #111;
   outline: none;
-  height: 32px;
+  height: 34px;
   transition: box-shadow 0.15s;
 }
 
@@ -229,35 +218,28 @@
 .vp-footer {
   background: #d4d4d4;
   width: 100%;
-  max-width: 1260px;
-  border: 2px solid #555;
   border-top: 3px solid #5555cc;
   text-align: center;
-  padding: 10px;
-  font-family: Arial, sans-serif;
+  padding: 12px;
   font-size: 0.8rem;
   font-weight: bold;
   color: #222;
 }
 
 /* === RESPONSIVE === */
-@media (max-width: 700px) {
+@media (max-width: 900px) {
   .vp-content-box {
-    padding: 24px 20px 32px;
+    padding: 30px 30px 40px;
   }
 
   .vp-top-row {
     flex-direction: column;
     align-items: center;
-    gap: 24px;
+    gap: 30px;
   }
 
   .vp-form-grid {
     grid-template-columns: 1fr;
-    gap: 16px;
-  }
-
-  .vp-title {
-    font-size: 1.2rem;
+    gap: 18px;
   }
 }
