@@ -1,0 +1,37 @@
+.site-header {
+	padding: 0;
+	margin: 0;
+	background: #fff;
+}
+
+.site-header__inner {
+	display: flex;
+	align-items: center;
+	justify-content: center; /* centers logo+title group */
+	gap: 14px;
+	padding: 10px 16px;
+	background: var(--header-gray);
+}
+
+.site-header__logo {
+	width: 38px;
+	height: 38px;
+	display: block;
+	object-fit: contain;
+}
+
+.site-header__title {
+	margin: 0;
+	font-size: 2rem;
+	letter-spacing: 1.5px;
+	font-weight: 800;
+	color: #000;
+	text-transform: uppercase;
+	text-align: center;
+}
+
+.site-header__rule {
+	height: 4px;            /* match figma thickness */
+	background: var(--primary);
+	width: 100%;
+}
