@@ -26,8 +26,8 @@ export default function ResetPasswordPage() {
 
     const API_BASE =
         process.env.NODE_ENV === "production"
-            ? "/CSE442/2026-Spring/cse-442c/backend/public/api/index.php"
-            : "http://localhost:8000/api/index.php";
+            ? "/CSE442/2026-Spring/cse-442c/backend/public/api/reset_password.php"
+            : "http://localhost:8000/api/reset_password.php";
 
     useEffect(() => {
         if (!email) setErrorMsg("Please request a confirmation code first.");
@@ -49,7 +49,7 @@ export default function ResetPasswordPage() {
                 body: JSON.stringify({ email, code, password }),
             });
 
-            let data = null;
+            let data;
             try {
                 data = await res.json();
             } catch {
