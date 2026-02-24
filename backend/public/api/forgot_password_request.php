@@ -12,6 +12,7 @@ $raw = file_get_contents('php://input');
 $data = json_decode($raw ?: '', true);
 
 $email = isset($data['email']) ? trim((string)$data['email']) : '';
+
 if ($email === '' || !filter_var($email, FILTER_VALIDATE_EMAIL)) {
     json_response([
         'ok' => true,
@@ -26,6 +27,40 @@ $stmt->execute([$email]);
 $user = $stmt->fetch(PDO::FETCH_ASSOC);
 
 if ($user && (int)$user['is_active'] === 1) {
+
+    $user_id = (int)$user['id'];
+
+    // ==============================
+    // 5 MINUTE RATE LIMIT CHECK
+    // ==============================
+    $rate = $pdo->prepare("
+        SELECT created_at
+        FROM password_resets
+        WHERE user_id = ?
+        ORDER BY id DESC
+        LIMIT 1
+    ");
+    $rate->execute([$user_id]);
+    $last = $rate->fetch(PDO::FETCH_ASSOC);
+
+    if ($last) {
+        $lastTime = new DateTimeImmutable($last['created_at']);
+        $now = new DateTimeImmutable();
+
+        $diffSeconds = $now->getTimestamp() - $lastTime->getTimestamp();
+
+        if ($diffSeconds < 300) { // 300 seconds = 5 minutes
+            json_response([
+                'ok' => false,
+                'error' => 'You must wait 5 minutes before requesting another reset.'
+            ], 429);
+        }
+    }
+
+    // ==============================
+    // CREATE RESET CODE
+    // ==============================
+
     // Hardcoded code for testing
     $code = "123456";
 
@@ -36,7 +71,7 @@ if ($user && (int)$user['is_active'] === 1) {
         INSERT INTO password_resets (user_id, code_hash, expires_at, used_at, created_at)
         VALUES (?, ?, ?, NULL, NOW())
     ");
-    $ins->execute([(int)$user['id'], $code_hash, $expires_at]);
+    $ins->execute([$user_id, $code_hash, $expires_at]);
 
     /*
     // EMAIL SENDING — DISABLED FOR NOW
@@ -48,6 +83,7 @@ if ($user && (int)$user['is_active'] === 1) {
     }
     */
 }
+
 
 json_response([
     'ok' => true,
