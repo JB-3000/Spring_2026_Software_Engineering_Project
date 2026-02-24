@@ -7,6 +7,7 @@ const navLinks = ["Home", "News", "Data", "FAQ", "Profile", "Log out"];
 
 export default function ViewProfile() {
   const [profileImg, setProfileImg] = useState(null);
+  const [isEditing, setIsEditing] = useState(false);
   const [userData, setUserData] = useState({
     username: "",
     firstName: "",
@@ -18,6 +19,7 @@ export default function ViewProfile() {
     email: "",
     phone: "",
   });
+  const [editData, setEditData] = useState({ ...userData });
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -29,18 +31,19 @@ export default function ViewProfile() {
         });
         const data = await res.json();
         if (data.ok) {
-          setUserData({
-            username: DOMPurify.sanitize(data.username || ""),
+          const sanitized = {
+            username:  DOMPurify.sanitize(data.username  || ""),
             firstName: DOMPurify.sanitize(data.firstName || ""),
-            lastName: DOMPurify.sanitize(data.lastName || ""),
-            state: DOMPurify.sanitize(data.state || ""),
-            city: DOMPurify.sanitize(data.city || ""),
-            address: DOMPurify.sanitize(data.address || ""),
-            zip: DOMPurify.sanitize(data.zip || ""),
-            email: DOMPurify.sanitize(data.email || ""),
-            phone: DOMPurify.sanitize(data.phone || ""),
-          });
-
+            lastName:  DOMPurify.sanitize(data.lastName  || ""),
+            state:     DOMPurify.sanitize(data.state     || ""),
+            city:      DOMPurify.sanitize(data.city      || ""),
+            address:   DOMPurify.sanitize(data.address   || ""),
+            zip:       DOMPurify.sanitize(data.zip       || ""),
+            email:     DOMPurify.sanitize(data.email     || ""),
+            phone:     DOMPurify.sanitize(data.phone     || ""),
+          };
+          setUserData(sanitized);
+          setEditData(sanitized);
           if (data.profileImg) setProfileImg(data.profileImg);
         }
       } catch (err) {
@@ -55,6 +58,50 @@ export default function ViewProfile() {
     if (file) setProfileImg(URL.createObjectURL(file));
   };
 
+  const handleEditClick = () => {
+    setEditData({ ...userData });
+    setIsEditing(true);
+  };
+
+  const handleCancelClick = () => {
+    setEditData({ ...userData });
+    setIsEditing(false);
+  };
+
+  const handleChange = (field, value) => {
+    setEditData((prev) => ({ ...prev, [field]: value }));
+  };
+
+  const handleSave = async () => {
+    try {
+      const res = await fetch("/api/editUserProfile.php", {
+        method: "POST",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          username:   editData.username,
+          first_name: editData.firstName,
+          last_name:  editData.lastName,
+          state:      editData.state,
+          city:       editData.city,
+          address:    editData.address,
+          zip:        editData.zip,
+          email:      editData.email,
+          phone:      editData.phone,
+        }),
+      });
+      const data = await res.json();
+      if (data.ok) {
+        setUserData({ ...editData });
+        setIsEditing(false);
+      } else {
+        alert("Failed to save: " + data.error);
+      }
+    } catch (err) {
+      console.error("Failed to save profile:", err);
+    }
+  };
+
   const getPath = (link) => {
     const map = {
       "Home": "/home",
@@ -66,6 +113,17 @@ export default function ViewProfile() {
     };
     return map[link] || "/";
   };
+
+  const fields = [
+    { label: "First Name", key: "firstName", type: "text" },
+    { label: "Last Name",  key: "lastName",  type: "text" },
+    { label: "State",      key: "state",     type: "text" },
+    { label: "City",       key: "city",      type: "text" },
+    { label: "Address",    key: "address",   type: "text" },
+    { label: "ZIP",        key: "zip",       type: "text" },
+    { label: "E-mail",     key: "email",     type: "email" },
+    { label: "Phone Number", key: "phone",   type: "tel" },
+  ];
 
   return (
     <div className="vp-page">
@@ -89,7 +147,14 @@ export default function ViewProfile() {
 
       <div className="vp-content-box">
         <div className="vp-top-row">
-          <button className="vp-edit-btn">Edit</button>
+          {!isEditing ? (
+            <button className="vp-edit-btn" onClick={handleEditClick}>Edit</button>
+          ) : (
+            <div className="vp-edit-actions">
+              <button className="vp-save-btn" onClick={handleSave}>Save</button>
+              <button className="vp-cancel-btn" onClick={handleCancelClick}>Cancel</button>
+            </div>
+          )}
 
           <div className="vp-profile-right">
             <label className="vp-avatar-wrap" htmlFor="avatar-upload">
@@ -114,19 +179,16 @@ export default function ViewProfile() {
         </div>
 
         <div className="vp-form-grid">
-          {[
-            { label: "First Name", value: userData.firstName, type: "text" },
-            { label: "Last Name", value: userData.lastName, type: "text" },
-            { label: "State", value: userData.state, type: "text" },
-            { label: "City", value: userData.city, type: "text" },
-            { label: "Address", value: userData.address, type: "text" },
-            { label: "ZIP", value: userData.zip, type: "text" },
-            { label: "E-mail", value: userData.email, type: "email" },
-            { label: "Phone Number", value: userData.phone, type: "tel" },
-          ].map((field) => (
+          {fields.map((field) => (
             <div className="vp-field" key={field.label}>
               <label className="vp-label">{field.label}</label>
-              <input className="vp-input" type={field.type} value={field.value} readOnly />
+              <input
+                className="vp-input"
+                type={field.type}
+                value={isEditing ? editData[field.key] : userData[field.key]}
+                readOnly={!isEditing}
+                onChange={(e) => handleChange(field.key, e.target.value)}
+              />
             </div>
           ))}
         </div>
