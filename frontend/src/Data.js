@@ -1,8 +1,7 @@
 import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import axios from 'axios';
 import {
-  LineChart, Line, XAxis, YAxis, CartesianGrid,
-  Tooltip, Legend, ResponsiveContainer,
+  ResponsiveContainer, Legend,
   PieChart, Pie, Cell, Sector,
 } from 'recharts';
 import { MapContainer, TileLayer, GeoJSON } from 'react-leaflet';
@@ -11,8 +10,14 @@ import logo from './LivestockEpidemicTracker.jpeg';
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
-const API_BASE = 'http://localhost/s26-jnswl-corp/backend/public/api/index.php'; // local XAMPP
-// const API_BASE = 'https://aptitude.cse.buffalo.edu/CSE442/2026-Spring/cse-442c/backend/public/api/index.php'; // server
+const IS_LOCAL = window.location.hostname === 'localhost'
+              || window.location.hostname === '127.0.0.1';
+
+const API_BASE = IS_LOCAL
+  ? 'http://localhost/s26-jnswl-corp/backend/public/api/index.php'
+  : 'https://aptitude.cse.buffalo.edu/CSE442/2026-Spring/cse-442c/backend/public/api/index.php';
+
+const DEBUG_API = true;
 
 const MAX_DISEASES  = 5;
 const CURRENT_YEAR  = new Date().getFullYear();
@@ -32,14 +37,21 @@ const MONTHS      = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct'
 const GEOJSON_URL     = 'https://raw.githubusercontent.com/PublicaMundi/MappingAPI/master/data/geojson/us-states.json';
 const GEOJSON_ALL_URL = 'https://cdn.jsdelivr.net/npm/us-atlas@3/states-10m.json';
 
+// Recharts uses dataKey strings as JS property accessors internally.
+// Parentheses and spaces in disease names like "H5N1 (Avian Flu)" can break
+// that lookup in some Recharts versions. Sanitize to a safe key and keep a
+// reverse map so we can display the real name in tooltips/legends.
+function safeKey(disease) {
+  return disease.replace(/[^a-zA-Z0-9_]/g, '_');
+}
+// e.g. "H5N1 (Avian Flu)" → "H5N1__Avian_Flu_"
+
 const YEAR_OPTIONS = [];
 for (let y = 2005; y <= CURRENT_YEAR; y++) YEAR_OPTIONS.push(String(y));
 
 // ─── Mock Fallback Data ───────────────────────────────────────────────────────
-// CRITICAL: all mock objects are module-level constants, NOT defined inside
-// the component or useAPI. If they were created inside the component they'd be
-// new object references every render → useAPI's useEffect would see a changed
-// `fallback` dep → infinite refetch loop → mock always wins over real DB data.
+// MODULE-LEVEL CONSTANTS only — never defined inside a component or they cause
+// infinite re-render loops via useEffect dependency changes.
 
 const MOCK_SUMMARY = {
   totalOutbreaks: 119,    totalDelta:    '+19 last 30 days',
@@ -65,20 +77,25 @@ const MOCK_BY_STATE = [
   { state: 'Alaska',       outbreaks: 2 }, { state: 'Hawaii',     outbreaks: 1 },
 ];
 
-// Mock trends give each disease a distinct value so lines aren't identical.
-// Only generates months up to CURRENT_MONTH for 2026 — no fake future data.
+// Mock trends: cover a wide year range (2005-present) with distinct per-disease values.
+// Each disease uses a unique seed so lines never overlap.
+// FIX: expanded year range so mock data is visible when user selects 2005-2026.
 const MOCK_TRENDS = DISEASE_LIST.flatMap((disease, di) =>
-  ['2024', '2025', '2026'].flatMap((year) =>
-    MONTHS.slice(0, year === String(CURRENT_YEAR) ? CURRENT_MONTH + 1 : 12).map((month, mi) => ({
+  YEAR_OPTIONS.flatMap((year) => {
+    const y = parseInt(year);
+    const monthsToShow = y === CURRENT_YEAR ? MONTHS.slice(0, CURRENT_MONTH + 1) : MONTHS;
+    return monthsToShow.map((month, mi) => ({
       month,
-      year,
+      year: y,
       disease,
+      // Each disease gets a distinct multiplier and phase so lines are clearly different
       cases: Math.floor(
-        Math.abs(Math.sin((disease.charCodeAt(0) * 7 + di * 31) * (mi + 1) * 0.7)) * 8000
-        + (di + 1) * 1200  // offset per disease so every line sits at a different baseline
+        Math.abs(Math.sin((disease.charCodeAt(0) * 13 + di * 47) * (mi + 1) * 0.5 + di)) * 9000
+        + (di + 1) * 800
+        + Math.abs(Math.cos(y * 0.3 + di)) * 500
       ),
-    }))
-  )
+    }));
+  })
 );
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
@@ -103,51 +120,61 @@ function choroplethColor(value, max) {
 }
 
 // ─── API Hook ─────────────────────────────────────────────────────────────────
-// BUG FIX — the old version had `fallback` in useEffect's dependency array.
-// Since MOCK objects were defined inside the component (new reference each render),
-// this caused: render → new fallback ref → effect re-runs → setData(fallback) →
-// re-render → repeat forever. Real DB data was immediately overwritten by mock.
+// Returns { data, source } where source is 'loading' | 'db' | 'mock'
 //
-// Fix has two parts:
-//   1. Mock objects are module-level constants (stable references, above).
-//   2. `fallback` is removed from useEffect deps — it's only used on error,
-//      not as a trigger for re-fetching.
-//   3. params object is JSON-serialized to a stable string so changing
-//      activeFilter correctly triggers exactly one new fetch, not an infinite loop.
+// FIX: The previous version fell back to mock for EMPTY arrays from the DB
+// (e.g. no outbreaks in selected date range). Now only explicit {error:...}
+// responses and network failures trigger the mock fallback.
+// Empty arrays are legitimate DB responses and are returned as-is.
 
 function useAPI(route, fallback, params = {}) {
-  const [data, setData] = useState(null);
+  const [data,   setData]   = useState(null);
+  const [source, setSource] = useState('loading');
 
-  // stable string dep — only changes when params content actually changes
+  // Stable serialisation: only re-fetches when params content actually changes
   // eslint-disable-next-line react-hooks/exhaustive-deps
   const paramStr = useMemo(() => new URLSearchParams(params).toString(), [JSON.stringify(params)]);
 
   useEffect(() => {
     let cancelled = false;
     setData(null);
+    setSource('loading');
 
     const url = paramStr
       ? `${API_BASE}?r=${route}&${paramStr}`
       : `${API_BASE}?r=${route}`;
 
-    axios.get(url, { timeout: 6000 })
+    axios.get(url, { timeout: 10000 })
       .then((r) => {
         if (cancelled) return;
         const d = r.data;
-        const hasData = Array.isArray(d)
-          ? d.length > 0
-          : (d && typeof d === 'object' && !d.error);
-        setData(hasData ? d : fallback);
+
+        // Only fall back to mock on an explicit server-side error object.
+        // Empty arrays [] and empty objects {} are valid DB responses.
+        const isError = d && typeof d === 'object' && !Array.isArray(d) && d.error;
+
+        if (!isError && d != null) {
+          setData(d);
+          setSource('db');
+        } else {
+          if (DEBUG_API) console.warn(`[API] ${route} returned error/null → mock`, d);
+          setData(fallback);
+          setSource('mock');
+        }
       })
-      .catch(() => { if (!cancelled) setData(fallback); });
+      .catch((err) => {
+        if (cancelled) return;
+        if (DEBUG_API) console.error(`[API] ${route} FAILED → mock\n  URL: ${url}\n  Error: ${err.message}`);
+        setData(fallback);
+        setSource('mock');
+      });
 
     return () => { cancelled = true; };
-    // `fallback` intentionally not in deps — it never changes (module-level const)
-    // and including it would cause an infinite loop if it were ever recreated
+    // fallback is a module-level constant — safe to omit from deps
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [route, paramStr]);
 
-  return data ?? fallback;
+  return { data: data ?? fallback, source };
 }
 
 // ─── Styles ───────────────────────────────────────────────────────────────────
@@ -174,7 +201,7 @@ const S = {
   filterBox:   { display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 7, background: '#fff', border: '1px solid #ddd', borderRadius: 8, padding: '10px 14px', margin: '14px 0', boxShadow: '0 1px 3px rgba(0,0,0,0.06)' },
   filterLabel: { fontSize: 12, color: '#555', fontWeight: 600, marginRight: 4 },
   statsGrid:   { display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: 12, marginBottom: 18 },
-  statCard:    (color) => ({ background: '#fff', border: '1px solid #e0e3ec', borderLeft: `4px solid ${color}`, borderRadius: 8, padding: '14px 18px', display: 'flex', flexDirection: 'column', gap: 3, boxShadow: '0 1px 4px rgba(0,0,0,0.06)' }),
+  statCard:    (color) => ({ background: '#fff', border: '1px solid #e0e3ec', borderLeft: `4px solid ${color}`, borderRadius: 8, padding: '14px 18px', display: 'flex', flexDirection: 'column', gap: 3, boxShadow: '0 1px 4px rgba(0,0,0,0.06)', position: 'relative' }),
   statLabel:   { fontSize: 10, color: '#888', textTransform: 'uppercase', letterSpacing: '0.1em' },
   statValue:   { fontSize: 34, fontWeight: 700, color: '#1a1a2e', lineHeight: 1.1 },
   card:        { background: '#fff', border: '1px solid #e0e3ec', borderRadius: 10, padding: '18px 22px', marginBottom: 18, boxShadow: '0 1px 4px rgba(0,0,0,0.06)' },
@@ -190,14 +217,34 @@ const S = {
   pillX:       { cursor: 'pointer', color: '#aaa', fontWeight: 700, fontSize: 14, lineHeight: 1, marginLeft: 2 },
   errorBox:    { background: '#fff5f5', border: '1px solid #e63946', color: '#c0000a', borderRadius: 5, padding: '7px 13px', fontSize: 13, fontWeight: 600, marginBottom: 10 },
   infoBox:     { background: '#f0f4ff', border: '1px solid #c0cbf7', color: '#3d5af1', borderRadius: 5, padding: '6px 12px', fontSize: 11, marginBottom: 10 },
+  warnBox:     { background: '#fff8e1', border: '1px solid #f59e0b', color: '#b45309', borderRadius: 5, padding: '6px 12px', fontSize: 11, marginBottom: 10 },
   footer:      { textAlign: 'center', fontSize: 12, color: '#666', padding: '12px', borderTop: `3px solid ${PURPLE}`, background: '#c4c9d8' },
 };
 
+// ─── Debug Source Badge ────────────────────────────────────────────────────────
+
+function SourceBadge({ source }) {
+  if (!DEBUG_API) return null;
+  const cfg = {
+    db:      { bg: '#dcfce7', color: '#166534', text: 'DB ✓'   },
+    mock:    { bg: '#fff3cd', color: '#92400e', text: 'MOCK ⚠' },
+    loading: { bg: '#f3f4f6', color: '#9ca3af', text: '...'    },
+  }[source] || { bg: '#f3f4f6', color: '#9ca3af', text: '?' };
+  return (
+    <span style={{
+      fontSize: 9, fontWeight: 700, padding: '2px 6px', borderRadius: 10,
+      background: cfg.bg, color: cfg.color, letterSpacing: '0.05em',
+      position: 'absolute', top: 8, right: 10,
+    }}>{cfg.text}</span>
+  );
+}
+
 // ─── Stat Card ────────────────────────────────────────────────────────────────
 
-function StatCard({ label, value, delta, neg = true, accent = PURPLE }) {
+function StatCard({ label, value, delta, neg = true, accent = PURPLE, source }) {
   return (
     <div style={S.statCard(accent)}>
+      <SourceBadge source={source} />
       <span style={S.statLabel}>{label}</span>
       <span style={S.statValue}>{value ?? '—'}</span>
       <span style={{ fontSize: 13, fontWeight: 600, color: neg ? RED : BLUE }}>{delta}</span>
@@ -230,26 +277,203 @@ function FilterBar({ active, onChange }) {
   );
 }
 
+// ─── Custom SVG Line Chart ────────────────────────────────────────────────────
+// Recharts <Line> silently refuses to render when data has only 1-2 points.
+// This lightweight SVG chart handles any number of points correctly.
+
+function formatVal(v, logScale) {
+  const real = logScale ? Math.pow(10, v) : v;
+  if (real >= 1_000_000) return `${(real / 1_000_000).toFixed(1)}M`;
+  if (real >= 1_000)     return `${(real / 1_000).toFixed(0)}k`;
+  return Math.round(real).toLocaleString();
+}
+
+function SparseLineChart({ data, diseases, logScale, height = 300 }) {
+  const [tooltip, setTooltip] = useState(null);
+  const containerRef = useRef(null);
+  // Initialize to null so we don't render until we have real width
+  const [width, setWidth] = useState(null);
+
+  useEffect(() => {
+    const el = containerRef.current;
+    if (!el) return;
+    // Measure immediately on mount
+    const measure = () => {
+      const w = el.getBoundingClientRect().width;
+      if (w > 0) setWidth(w);
+    };
+    measure();
+    const ro = new ResizeObserver(measure);
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, []);
+
+  const PAD = { top: 20, right: 30, bottom: 44, left: 76 };
+  const w = width ?? 800;
+  const innerW = w   - PAD.left - PAD.right;
+  const innerH = height - PAD.top  - PAD.bottom;
+
+  const allVals = useMemo(() => {
+    const vals = [];
+    data.forEach(row => diseases.forEach(d => {
+      const v = row[safeKey(d)];
+      if (v != null && isFinite(v)) vals.push(v);
+    }));
+    return vals;
+  }, [data, diseases]);
+
+  const rawMin = allVals.length ? Math.min(...allVals) : 0;
+  const rawMax = allVals.length ? Math.max(...allVals) : 1;
+  const span   = rawMax - rawMin || 1;
+  // Give 15% padding above AND below so dots at extremes are never clipped
+  const minV   = rawMin - span * 0.15;
+  const maxV   = rawMax + span * 0.15;
+  const rangeV = maxV - minV;
+
+  const toX = (i) => PAD.left + (data.length <= 1 ? innerW / 2 : (i / (data.length - 1)) * innerW);
+  const toY = (v) => PAD.top  + (1 - (v - minV) / rangeV) * innerH;
+
+  const xInterval = Math.max(1, Math.ceil(data.length / 12));
+
+  const yTicks = [0, 0.25, 0.5, 0.75, 1].map(t => ({
+    t, y: PAD.top + (1 - t) * innerH, val: minV + t * rangeV,
+  }));
+
+  // Don't render until we have real width to avoid flash
+  if (!width) return <div ref={containerRef} style={{ width: '100%', height: height + 36 }} />;
+
+  return (
+    <div ref={containerRef} style={{ position: 'relative', width: '100%', height: height + 36 }}>
+      <svg width={w} height={height} style={{ display: 'block' }}>
+        {/* Y grid lines + labels */}
+        {yTicks.map(({ t, y, val }) => (
+          <g key={t}>
+            <line x1={PAD.left} x2={w - PAD.right} y1={y} y2={y}
+              stroke={t === 0 ? '#bbb' : '#eee'} strokeWidth={1} />
+            <text x={PAD.left - 8} y={y + 4} textAnchor="end"
+              fontSize={11} fill="#aaa" fontFamily="sans-serif">
+              {formatVal(val, logScale)}
+            </text>
+          </g>
+        ))}
+
+        {/* X axis */}
+        <line x1={PAD.left} x2={w - PAD.right}
+          y1={PAD.top + innerH} y2={PAD.top + innerH}
+          stroke="#bbb" strokeWidth={1} />
+
+        {/* X tick labels */}
+        {data.map((row, i) => {
+          if (i % xInterval !== 0 && i !== data.length - 1) return null;
+          return (
+            <text key={i} x={toX(i)} y={PAD.top + innerH + 18}
+              textAnchor="middle" fontSize={11} fill="#999" fontFamily="sans-serif">
+              {row.label}
+            </text>
+          );
+        })}
+
+        {/* Lines + dots */}
+        {diseases.map(d => {
+          const k = safeKey(d);
+          const color = colorForDisease(d);
+          const pts = data
+            .map((row, i) => {
+              const v = row[k];
+              if (v == null || !isFinite(v)) return null;
+              return { x: toX(i), y: toY(v), v, label: row.label, i };
+            })
+            .filter(Boolean);
+
+          if (pts.length === 0) return null;
+
+          let pathD = '';
+          pts.forEach((pt, pi) => {
+            const prev = pts[pi - 1];
+            const gap = !prev || (pt.i - prev.i) > 1;
+            pathD += gap ? ` M${pt.x.toFixed(1)},${pt.y.toFixed(1)}`
+                         : ` L${pt.x.toFixed(1)},${pt.y.toFixed(1)}`;
+          });
+
+          return (
+            <g key={d}>
+              {pts.length > 1 && (
+                <path d={pathD} stroke={color} strokeWidth={2.5}
+                  fill="none" strokeLinejoin="round" strokeLinecap="round" />
+              )}
+              {pts.map((pt, pi) => (
+                <circle key={pi} cx={pt.x} cy={pt.y} r={6}
+                  fill={color} stroke="#fff" strokeWidth={2.5}
+                  style={{ cursor: 'pointer' }}
+                  onMouseEnter={() => setTooltip({ x: pt.x, y: pt.y, disease: d, val: pt.v, label: pt.label })}
+                  onMouseLeave={() => setTooltip(null)}
+                />
+              ))}
+            </g>
+          );
+        })}
+      </svg>
+
+      {/* Tooltip */}
+      {tooltip && (
+        <div style={{
+          position: 'absolute',
+          left: Math.min(Math.max(tooltip.x, 90), w - 90),
+          top: Math.max(tooltip.y - 12, 0),
+          transform: 'translate(-50%, -100%)',
+          background: '#1a1a2e', color: '#fff', borderRadius: 8,
+          padding: '7px 12px', fontSize: 12, pointerEvents: 'none',
+          boxShadow: '0 4px 12px rgba(0,0,0,0.2)', whiteSpace: 'nowrap', zIndex: 10,
+        }}>
+          <div style={{ fontWeight: 600, marginBottom: 2, color: '#cdd' }}>{tooltip.label}</div>
+          <div style={{ color: colorForDisease(tooltip.disease) }}>
+            <span style={{ color: '#fff' }}>{tooltip.disease}:</span>{' '}
+            <strong>{formatVal(tooltip.val, logScale)} cases</strong>
+          </div>
+        </div>
+      )}
+
+      {/* Legend */}
+      <div style={{ display: 'flex', justifyContent: 'center', flexWrap: 'wrap', gap: '6px 20px', paddingTop: 4 }}>
+        {diseases.map(d => (
+          <span key={d} style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 11, color: '#666' }}>
+            <svg width={24} height={12} style={{ flexShrink: 0 }}>
+              <line x1={2} y1={6} x2={18} y2={6} stroke={colorForDisease(d)} strokeWidth={2.5} />
+              <circle cx={10} cy={6} r={4} fill={colorForDisease(d)} stroke="#fff" strokeWidth={1.5} />
+            </svg>
+            {d}
+          </span>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 // ─── Chart 1: Trend Lines ─────────────────────────────────────────────────────
 
-function TrendChart({ rawTrends, activeFilter, yearFrom, yearTo, setYearFrom, setYearTo }) {
+function TrendChart({ rawTrends, trendsSource, activeFilter, yearFrom, yearTo, setYearFrom, setYearTo }) {
   const [selected, setSelected] = useState(['H5N1 (Avian Flu)']);
   const [dropOpen, setDropOpen] = useState(false);
   const [error,    setError]    = useState('');
-  const [logScale, setLogScale] = useState(false);
+  const [logScaleManual, setLogScaleManual] = useState(null); // null = auto, true/false = user override
   const dropRef = useRef(null);
 
-  // sync to filter bar
+  // Sync disease selection when the global filter bar changes.
+  // "All Diseases" → reset to default single disease (H5N1)
+  // Specific disease → lock to just that disease
   useEffect(() => {
-    if (activeFilter && activeFilter !== 'All Diseases') {
+    if (!activeFilter || activeFilter === 'All Diseases') {
+      setSelected(['H5N1 (Avian Flu)']);
+    } else {
       setSelected([activeFilter]);
-      setError('');
     }
+    setError('');
+    setLogScaleManual(null); // reset scale override on filter change
   }, [activeFilter]);
 
-  // build disease list only from what's actually in the DB response
+  // Build the list of diseases that actually have data in the current raw trends
   const availableDiseases = useMemo(() => {
-    if (!rawTrends.length) return DISEASE_LIST;
+    if (!rawTrends || !rawTrends.length) return DISEASE_LIST;
     return [...new Set(rawTrends.map(r => r.disease))].sort((a, b) => {
       const ai = DISEASE_LIST.indexOf(a), bi = DISEASE_LIST.indexOf(b);
       return (ai === -1 ? 99 : ai) - (bi === -1 ? 99 : bi);
@@ -257,7 +481,9 @@ function TrendChart({ rawTrends, activeFilter, yearFrom, yearTo, setYearFrom, se
   }, [rawTrends]);
 
   useEffect(() => {
-    const close = (e) => { if (dropRef.current && !dropRef.current.contains(e.target)) setDropOpen(false); };
+    const close = (e) => {
+      if (dropRef.current && !dropRef.current.contains(e.target)) setDropOpen(false);
+    };
     document.addEventListener('mousedown', close);
     return () => document.removeEventListener('mousedown', close);
   }, []);
@@ -265,53 +491,119 @@ function TrendChart({ rawTrends, activeFilter, yearFrom, yearTo, setYearFrom, se
   const fromY = parseInt(yearFrom);
   const toY   = parseInt(yearTo);
 
-  // BUG FIX — same-line issue: previously used 0 for missing months, making all
-  // diseases collapse to the same flat line for months with sparse data.
-  // Fix: use `undefined` so recharts leaves a gap instead of drawing to zero.
   const chartData = useMemo(() => {
+    if (!rawTrends || !rawTrends.length) return [];
+
+    if (DEBUG_API) {
+      // Show a sample of what rawTrends actually contains so we can verify
+      // field names, types, and values match what the frontend expects.
+      const sample = rawTrends.slice(0, 3);
+      console.log('[TrendChart] rawTrends sample:', sample);
+      console.log('[TrendChart] selected:', selected, '| fromY:', fromY, '| toY:', toY);
+      // Check if any row matches our current filter at all
+      const anyMatch = rawTrends.some(r =>
+        selected.includes(r.disease) &&
+        r.year >= fromY &&
+        r.year <= toY
+      );
+      console.log('[TrendChart] any matching rows in rawTrends:', anyMatch);
+    }
+
     const rows = [];
     for (let y = fromY; y <= toY; y++) {
-      const monthsToShow = (y === CURRENT_YEAR) ? MONTHS.slice(0, CURRENT_MONTH + 1) : MONTHS;
+      const monthsToShow = (y === CURRENT_YEAR)
+        ? MONTHS.slice(0, CURRENT_MONTH + 1)
+        : MONTHS;
       monthsToShow.forEach((month) => {
-        const row = { label: fromY === toY ? month : `${month} '${String(y).slice(2)}` };
+        const label = fromY === toY ? month : `${month} '${String(y).slice(2)}`;
+        const row = { label };
         selected.forEach((d) => {
-          const match = rawTrends.find(r =>
-            r.month === month && r.disease === d && String(r.year) === String(y)
+          const matches = rawTrends.filter(r =>
+            r.month === month &&
+            r.disease === d &&
+            r.year === y
           );
-          row[d] = match ? Number(match.cases) : undefined;
+          row[safeKey(d)] = matches.length > 0
+            ? matches.reduce((sum, r) => sum + Number(r.cases), 0)
+            : null;
         });
         rows.push(row);
       });
     }
+
+    if (DEBUG_API) {
+      const nonNull = rows.filter(r => selected.some(d => r[safeKey(d)] != null));
+      console.log('[TrendChart] chartData rows with data:', nonNull.length, 'of', rows.length);
+    }
+
     return rows;
   }, [rawTrends, selected, fromY, toY]);
 
+  // Auto log-scale: only consider diseases that actually have data in range.
+  // If max/min ratio > 1000, linear scale makes small values invisible.
+  const autoLogScale = useMemo(() => {
+    const allVals = chartData
+      .flatMap(row => selected.map(d => row[safeKey(d)]))
+      .filter(v => v != null && v > 0);
+    if (allVals.length < 2) return false;
+    const max = Math.max(...allVals);
+    const min = Math.min(...allVals);
+    return max / min > 1000;
+  }, [chartData, selected]);
+
+  const logScale = logScaleManual !== null ? logScaleManual : autoLogScale;
+
+  const hasAnyData = useMemo(() =>
+    chartData.some(row => selected.some(d => row[safeKey(d)] != null)),
+  [chartData, selected]);
+
+  // Which diseases actually have ≥1 data point in the current range
+  const diseasesWithData = useMemo(() =>
+    selected.filter(d => chartData.some(row => row[safeKey(d)] != null)),
+  [chartData, selected]);
+
+  const displayData = useMemo(() => {
+    if (!logScale) return chartData;
+    return chartData.map(row => {
+      const r = { label: row.label };
+      selected.forEach(d => {
+        const k = safeKey(d);
+        // log10(0) = -Infinity breaks Recharts Y-axis domain — use null instead
+        r[k] = row[k] != null && row[k] > 0 ? Math.log10(row[k]) : null;
+      });
+      return r;
+    });
+  }, [chartData, logScale, selected]);
+
   const toggleDisease = (disease) => {
     if (selected.includes(disease)) {
+      if (selected.length === 1) return; // keep at least one selected
       setSelected(selected.filter(d => d !== disease));
       setError('');
     } else {
-      if (selected.length >= MAX_DISEASES) { setError('Maximum 5 diseases at once'); return; }
+      if (selected.length >= MAX_DISEASES) {
+        setError('Maximum 5 diseases at once');
+        return;
+      }
       setSelected([...selected, disease]);
       setError('');
     }
   };
 
-  const displayData = logScale
-    ? chartData.map(row => {
-        const r = { label: row.label };
-        selected.forEach(d => { r[d] = row[d] > 0 ? Math.log10(row[d]) : null; });
-        return r;
-      })
-    : chartData;
-
   return (
     <div style={S.card}>
       <div style={S.cardHeader}>
-        <h3 style={S.cardTitle}>Outbreak Trends Over Time</h3>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+          <h3 style={S.cardTitle}>Outbreak Trends Over Time</h3>
+          {DEBUG_API && <SourceBadge source={trendsSource} />}
+        </div>
         <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap', justifyContent: 'flex-end' }}>
           <button
-            onClick={() => setLogScale(l => !l)}
+            onClick={() => setLogScaleManual(cur => {
+              // Cycle: auto → force-opposite → auto
+              if (cur === null) return !autoLogScale;
+              return null; // back to auto
+            })}
             style={{
               fontSize: 11, padding: '4px 10px', borderRadius: 4, cursor: 'pointer',
               background: logScale ? PURPLE : '#fff',
@@ -319,12 +611,22 @@ function TrendChart({ rawTrends, activeFilter, yearFrom, yearTo, setYearFrom, se
               color:      logScale ? '#fff' : '#555',
               fontWeight: logScale ? 700 : 400,
             }}
-          >Scale</button>
+          >
+            {logScale ? 'Log Scale' : 'Linear Scale'}
+            {logScaleManual === null && (
+              <span style={{ fontSize: 9, marginLeft: 4, opacity: 0.7 }}>auto</span>
+            )}
+          </button>
+
+          {/* Year range selectors */}
           <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
             <span style={{ fontSize: 11, color: '#888' }}>From</span>
             <select
               value={yearFrom}
-              onChange={e => { setYearFrom(e.target.value); if (parseInt(e.target.value) > parseInt(yearTo)) setYearTo(e.target.value); }}
+              onChange={e => {
+                setYearFrom(e.target.value);
+                if (parseInt(e.target.value) > parseInt(yearTo)) setYearTo(e.target.value);
+              }}
               style={{ fontSize: 12, padding: '4px 8px', borderRadius: 4, border: '1px solid #ccc', cursor: 'pointer', color: '#333' }}
             >
               {YEAR_OPTIONS.map(y => <option key={y} value={y}>{y}</option>)}
@@ -332,20 +634,31 @@ function TrendChart({ rawTrends, activeFilter, yearFrom, yearTo, setYearFrom, se
             <span style={{ fontSize: 11, color: '#888' }}>To</span>
             <select
               value={yearTo}
-              onChange={e => { setYearTo(e.target.value); if (parseInt(e.target.value) < parseInt(yearFrom)) setYearFrom(e.target.value); }}
+              onChange={e => {
+                setYearTo(e.target.value);
+                if (parseInt(e.target.value) < parseInt(yearFrom)) setYearFrom(e.target.value);
+              }}
               style={{ fontSize: 12, padding: '4px 8px', borderRadius: 4, border: '1px solid #ccc', cursor: 'pointer', color: '#333' }}
             >
               {YEAR_OPTIONS.map(y => <option key={y} value={y}>{y}</option>)}
             </select>
           </div>
+
+          {/* Disease multi-select dropdown */}
           <div style={{ position: 'relative' }} ref={dropRef}>
-            <button style={S.dropBtn} onClick={() => setDropOpen(!dropOpen)}>Select Diseases ▾</button>
+            <button style={S.dropBtn} onClick={() => setDropOpen(!dropOpen)}>
+              Select Diseases ▾
+            </button>
             {dropOpen && (
               <div style={S.dropdown}>
                 {availableDiseases.map((d) => {
                   const isActive = selected.includes(d);
                   return (
-                    <div key={d} style={{ ...S.dropItem, background: isActive ? '#f0f0ff' : '#fff' }} onClick={() => toggleDisease(d)}>
+                    <div
+                      key={d}
+                      style={{ ...S.dropItem, background: isActive ? '#f0f0ff' : '#fff' }}
+                      onClick={() => toggleDisease(d)}
+                    >
                       <span style={S.dot(colorForDisease(d))} />
                       <span style={{ flex: 1 }}>{d}</span>
                       {isActive && <span style={{ color: BLUE, fontWeight: 700, fontSize: 12 }}>✓</span>}
@@ -358,8 +671,40 @@ function TrendChart({ rawTrends, activeFilter, yearFrom, yearTo, setYearFrom, se
         </div>
       </div>
 
+      {/* Warnings / errors */}
+      {trendsSource === 'mock' && (
+        <div style={S.warnBox}>⚠ Showing estimated demo data — could not reach the database API.</div>
+      )}
+      {logScale && logScaleManual === null && (
+        <div style={S.infoBox}>
+          📊 Log scale auto-enabled — case counts span multiple orders of magnitude (e.g. 1 vs 13,000,000).
+          Click <strong>Log Scale</strong> to switch to linear.
+        </div>
+      )}
       {error && <div style={S.errorBox}>⚠ {error}</div>}
 
+      {/* FIX: Only show no-data notice when fully loaded and confirmed empty.
+           During loading or mock fallback, rawTrends has data so this won't
+           falsely trigger. If it still shows, check browser console for
+           [TrendChart] logs — they'll show exactly what the DB returned. */}
+      {!hasAnyData && trendsSource !== 'loading' && chartData.length > 0 && (
+        <div style={S.infoBox}>
+          ℹ No outbreak data found for <strong>{selected.join(', ')}</strong> in{' '}
+          {fromY === toY ? String(fromY) : `${fromY}–${toY}`}.
+          {DEBUG_API && (
+            <span> Check browser console for <code>[TrendChart]</code> debug logs to verify field names.</span>
+          )}
+        </div>
+      )}
+
+      {/* Warn about diseases with no data in the selected range */}
+      {hasAnyData && diseasesWithData.length < selected.length && (
+        <div style={S.infoBox}>
+          ℹ No data in {fromY === toY ? String(fromY) : `${fromY}–${toY}`} for:{' '}
+          <strong>{selected.filter(d => !diseasesWithData.includes(d)).join(', ')}</strong>
+          {' '}— expand the year range to see their history.
+        </div>
+      )}
       <div style={S.pillRow}>
         {selected.map((d) => (
           <span key={d} style={S.pill(colorForDisease(d))}>
@@ -369,79 +714,29 @@ function TrendChart({ rawTrends, activeFilter, yearFrom, yearTo, setYearFrom, se
         ))}
       </div>
 
-      <ResponsiveContainer width="100%" height={300}>
-        <LineChart data={displayData} margin={{ top: 5, right: 20, left: 0, bottom: 0 }}>
-          <CartesianGrid strokeDasharray="3 3" stroke="#eee" />
-          <XAxis
-            dataKey="label" stroke="#aaa" tick={{ fontSize: 10, fill: '#666' }}
-            interval={fromY === toY ? 0 : Math.floor(chartData.length / 12)}
-          />
-          <YAxis
-            stroke="#aaa" tick={{ fontSize: 11, fill: '#666' }}
-            tickFormatter={(v) => {
-              if (logScale) {
-                const real = Math.pow(10, v);
-                return real >= 1_000_000 ? `${(real/1_000_000).toFixed(1)}M` : real >= 1000 ? `${(real/1000).toFixed(0)}k` : Math.round(real).toString();
-              }
-              return v >= 1_000_000 ? `${(v/1_000_000).toFixed(1)}M` : v >= 1000 ? `${(v/1000).toFixed(0)}k` : v;
-            }}
-          />
-          <Tooltip
-            contentStyle={{ background: '#fff', border: '1px solid #ddd', borderRadius: 8 }}
-            labelStyle={{ color: '#1a1a2e', fontWeight: 600, fontSize: 12 }}
-            formatter={(value, name) => {
-              if (value == null) return null;
-              const real = logScale ? Math.round(Math.pow(10, value)) : Number(value);
-              return [`${real.toLocaleString()} cases`, name];
-            }}
-          />
-          <Legend
-            onClick={(e) => toggleDisease(e.value)}
-            formatter={(val) => <span style={{ color: '#555', fontSize: 11, cursor: 'pointer' }}>{val}</span>}
-          />
-          {selected.map((d) => (
-            <Line key={d} type="monotone" dataKey={d} stroke={colorForDisease(d)}
-              strokeWidth={2.5} dot={false} activeDot={{ r: 5, strokeWidth: 0 }} connectNulls={false} />
-          ))}
-        </LineChart>
-      </ResponsiveContainer>
+      {/* Custom SVG chart — handles 2-point sparse data that Recharts refuses to render */}
+      <SparseLineChart
+        data={displayData}
+        diseases={selected}
+        logScale={logScale}
+        height={320}
+      />
     </div>
   );
 }
 
 // ─── Chart 2: Pie Chart ───────────────────────────────────────────────────────
-// BUG FIX — double label issue: both `activeShape` (renders text in donut center)
-// AND recharts <Tooltip> were firing simultaneously on hover, showing the disease
-// name + case count twice. Fix: remove <Tooltip> entirely — activeShape already
-// shows everything (name, cases, %). Tooltip is redundant and causes the dup.
-//
-// BUG FIX — wrong percentages: recharts computes % from `dataKey` (displayCount).
-// When needsLog=true, displayCount = log10(count), so recharts thought H5N1
-// (log≈7) was only ~10× Bluetongue (log≈2.4) instead of 35,000×. The % shown
-// in activeShape now uses rawCount/totalRaw so it's always mathematically correct.
 
 function renderActiveShape(props) {
-  const {
-    cx, cy, innerRadius, outerRadius,
-    startAngle, endAngle, fill, payload,
-  } = props;
-
-  // compute correct % from raw counts, not from the log-scaled display value
+  const { cx, cy, innerRadius, outerRadius, startAngle, endAngle, fill, payload } = props;
   const pct = payload.totalRaw > 0
     ? ((payload.rawCount / payload.totalRaw) * 100).toFixed(1)
     : '0.0';
-
   return (
     <g>
-      <text x={cx} y={cy - 14} textAnchor="middle" fill="#1a1a2e" fontSize={12} fontWeight={700}>
-        {payload.disease}
-      </text>
-      <text x={cx} y={cy + 4} textAnchor="middle" fill="#555" fontSize={12}>
-        {Number(payload.rawCount).toLocaleString()} cases
-      </text>
-      <text x={cx} y={cy + 22} textAnchor="middle" fill="#999" fontSize={11}>
-        {pct}%
-      </text>
+      <text x={cx} y={cy - 14} textAnchor="middle" fill="#1a1a2e" fontSize={12} fontWeight={700}>{payload.disease}</text>
+      <text x={cx} y={cy + 4}  textAnchor="middle" fill="#555"    fontSize={12}>{Number(payload.rawCount).toLocaleString()} cases</text>
+      <text x={cx} y={cy + 22} textAnchor="middle" fill="#999"    fontSize={11}>{pct}%</text>
       <Sector cx={cx} cy={cy} innerRadius={innerRadius} outerRadius={outerRadius + 8}  startAngle={startAngle} endAngle={endAngle} fill={fill} />
       <Sector cx={cx} cy={cy} innerRadius={outerRadius + 12} outerRadius={outerRadius + 16} startAngle={startAngle} endAngle={endAngle} fill={fill} />
     </g>
@@ -450,7 +745,6 @@ function renderActiveShape(props) {
 
 function DiseaseBreakdownPie({ data }) {
   const [activeIndex, setActiveIndex] = useState(0);
-
   const counts       = data.map(d => Number(d.count));
   const maxCount     = Math.max(...counts, 1);
   const sortedCounts = [...counts].sort((a, b) => a - b);
@@ -461,7 +755,7 @@ function DiseaseBreakdownPie({ data }) {
   const displayData = useMemo(() => data.map(d => ({
     ...d,
     rawCount:     Number(d.count),
-    totalRaw,                                                  // passed through for % calc in activeShape
+    totalRaw,
     displayCount: needsLog ? Math.log10(Number(d.count) + 1) : Number(d.count),
     color:        colorForDisease(d.disease),
   // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -470,7 +764,10 @@ function DiseaseBreakdownPie({ data }) {
   return (
     <div style={S.card}>
       <div style={S.cardHeader}>
-        <h3 style={S.cardTitle}>Outbreaks by Disease Type</h3>
+        <div>
+          <h3 style={S.cardTitle}>Outbreaks by Disease Type</h3>
+          <p style={{ margin: 0, fontSize: 11, color: '#999', marginTop: 2 }}>of all time</p>
+        </div>
         <span style={S.badge}>Pie Chart</span>
       </div>
       {needsLog && (
@@ -485,16 +782,16 @@ function DiseaseBreakdownPie({ data }) {
             data={displayData}
             dataKey="displayCount"
             nameKey="disease"
-            cx="50%" cy="50%"
-            innerRadius={65} outerRadius={105}
+            cx="50%"
+            cy="50%"
+            innerRadius={65}
+            outerRadius={105}
             activeIndex={activeIndex}
             activeShape={renderActiveShape}
             onMouseEnter={(_, i) => setActiveIndex(i)}
           >
             {displayData.map((entry, i) => <Cell key={i} fill={entry.color} stroke="none" />)}
           </Pie>
-          {/* No <Tooltip> — activeShape renders all info in the donut center.
-              Having both caused the double name+count display bug. */}
           <Legend formatter={(v) => <span style={{ color: '#555', fontSize: 11 }}>{v}</span>} />
         </PieChart>
       </ResponsiveContainer>
@@ -502,22 +799,20 @@ function DiseaseBreakdownPie({ data }) {
   );
 }
 
-// ─── Chart 3: Choropleth Map with AK + HI insets ─────────────────────────────
+// ─── Chart 3: Choropleth Map ──────────────────────────────────────────────────
 
 const INSET_CFG = {
   Alaska: { center: [64, -153], zoom: 2, w: 180, h: 130 },
   Hawaii: { center: [20.5, -157], zoom: 5, w: 130, h: 130 },
 };
 
-// sticky:false keeps tooltip anchored to the state, not following cursor
 function InsetMap({ geoJson, stateName, stateMap, maxVal }) {
-  // hooks must come before any early return (rules-of-hooks)
   const val     = stateMap[stateName] ?? 0;
   const LABEL_H = 16;
 
   const styleFeature = useCallback(() => ({
     fillColor:   choroplethColor(val, maxVal),
-    weight:      1.5, color: '#555e7a',
+    weight: 1.5, color: '#555e7a',
     fillOpacity: val > 0 ? 0.88 : 0.15,
   }), [val, maxVal]);
 
@@ -531,10 +826,8 @@ function InsetMap({ geoJson, stateName, stateMap, maxVal }) {
     );
   }, [val, stateName]);
 
-  // early return only after all hooks have been called
   const feature = geoJson?.features?.find(f => f.properties.name === stateName);
   if (!feature) return null;
-
   const { center, zoom, w, h } = INSET_CFG[stateName];
 
   return (
@@ -543,10 +836,8 @@ function InsetMap({ geoJson, stateName, stateMap, maxVal }) {
         {stateName}
       </div>
       <MapContainer
-        center={center} zoom={zoom}
-        scrollWheelZoom={false} zoomControl={false}
-        dragging={false} doubleClickZoom={false}
-        attributionControl={false}
+        center={center} zoom={zoom} scrollWheelZoom={false} zoomControl={false}
+        dragging={false} doubleClickZoom={false} attributionControl={false}
         style={{ height: h, width: '100%', background: '#e8eaf0' }}
       >
         <TileLayer url="https://{s}.basemaps.cartocdn.com/light_nolabels/{z}/{x}/{y}{r}.png" />
@@ -560,7 +851,12 @@ function InsetMap({ geoJson, stateName, stateMap, maxVal }) {
   );
 }
 
-function ChoroplethMap({ stateData }) {
+// FIX: ChoroplethMap now receives stateData AND a mapKey derived from the
+// active filter. Changing the key forces Leaflet to fully remount the
+// MapContainer, which is the only reliable way to get GeoJSON to re-render
+// after the filter changes (Leaflet's internal layer cache ignores React prop
+// updates on already-mounted containers).
+function ChoroplethMap({ stateData, mapKey }) {
   const [geoJson,    setGeoJson]    = useState(null);
   const [geoJsonAll, setGeoJsonAll] = useState(null);
   const [loadError,  setLoadError]  = useState(false);
@@ -580,41 +876,35 @@ function ChoroplethMap({ stateData }) {
       '46':'South Dakota','47':'Tennessee','48':'Texas','49':'Utah','50':'Vermont',
       '51':'Virginia','53':'Washington','54':'West Virginia','55':'Wisconsin','56':'Wyoming',
     };
-    fetch(GEOJSON_ALL_URL)
-      .then(r => r.json())
-      .then(topo => {
-        const arcs      = topo.arcs;
-        const scale     = topo.transform?.scale     || [1, 1];
-        const translate = topo.transform?.translate || [0, 0];
-        function decodeArc(arc) {
-          let x = 0, y = 0;
-          return arc.map(([dx, dy]) => { x += dx; y += dy; return [x * scale[0] + translate[0], y * scale[1] + translate[1]]; });
-        }
-        function arcCoords(idx) {
-          const rev = idx < 0;
-          const coords = decodeArc(arcs[rev ? ~idx : idx]);
-          return rev ? [...coords].reverse() : coords;
-        }
-        function ringCoords(ring) { return ring.flatMap(arcCoords); }
-        const features = topo.objects.states.geometries.map(geom => {
-          const fips = String(geom.id).padStart(2, '0');
-          const name = FIPS_TO_NAME[fips] || fips;
-          const geometry = geom.type === 'Polygon'
-            ? { type: 'Polygon',      coordinates: geom.arcs.map(ringCoords) }
-            : { type: 'MultiPolygon', coordinates: geom.arcs.map(poly => poly.map(ringCoords)) };
-          return { type: 'Feature', properties: { name }, geometry };
-        });
-        setGeoJsonAll({ type: 'FeatureCollection', features });
-      })
-      .catch(() => {});
+
+    fetch(GEOJSON_ALL_URL).then(r => r.json()).then(topo => {
+      const arcs = topo.arcs;
+      const scale     = topo.transform?.scale     || [1, 1];
+      const translate = topo.transform?.translate || [0, 0];
+
+      function decodeArc(arc) {
+        let x = 0, y = 0;
+        return arc.map(([dx, dy]) => { x += dx; y += dy; return [x * scale[0] + translate[0], y * scale[1] + translate[1]]; });
+      }
+      function arcCoords(idx) {
+        const rev = idx < 0;
+        const c   = decodeArc(arcs[rev ? ~idx : idx]);
+        return rev ? [...c].reverse() : c;
+      }
+      function ringCoords(ring) { return ring.flatMap(arcCoords); }
+
+      const features = topo.objects.states.geometries.map(geom => {
+        const fips = String(geom.id).padStart(2, '0');
+        const name = FIPS_TO_NAME[fips] || fips;
+        const geometry = geom.type === 'Polygon'
+          ? { type: 'Polygon',      coordinates: geom.arcs.map(ringCoords) }
+          : { type: 'MultiPolygon', coordinates: geom.arcs.map(poly => poly.map(ringCoords)) };
+        return { type: 'Feature', properties: { name }, geometry };
+      });
+      setGeoJsonAll({ type: 'FeatureCollection', features });
+    }).catch(() => {});
   }, []);
 
-  // BUG FIX — map not updating on filter change:
-  // stateMap was recomputed every render but styleFeature/onEachFeature were
-  // memoized on the old stateMap closure. The GeoJSON layer never re-rendered
-  // because its `key` was also using the stale closure value.
-  // Fix: derive a stable stateMapKey string and use it as the GeoJSON `key`
-  // so Leaflet fully remounts the layer whenever filter changes stateData.
   const stateMap = useMemo(() => {
     const m = {};
     (stateData || []).forEach(s => { m[s.state] = Number(s.outbreaks); });
@@ -625,11 +915,17 @@ function ChoroplethMap({ stateData }) {
     Object.values(stateMap).length ? Math.max(...Object.values(stateMap)) : 1,
   [stateMap]);
 
+  // Stable key for GeoJSON re-render when data changes
   const stateMapKey = JSON.stringify(stateMap);
 
   const styleFeature = useCallback((feature) => {
     const val = stateMap[feature.properties.name] ?? 0;
-    return { fillColor: choroplethColor(val, maxVal), weight: val > 0 ? 1.5 : 1, color: '#555e7a', fillOpacity: val > 0 ? 0.88 : 0.15 };
+    return {
+      fillColor:   choroplethColor(val, maxVal),
+      weight:      val > 0 ? 1.5 : 1,
+      color:       '#555e7a',
+      fillOpacity: val > 0 ? 0.88 : 0.15,
+    };
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [stateMapKey, maxVal]);
 
@@ -637,11 +933,11 @@ function ChoroplethMap({ stateData }) {
     const name = feature.properties.name;
     const val  = stateMap[name];
     layer.bindTooltip(
-      `<div style="background:#fff;border:1px solid #ddd;border-radius:6px;padding:6px 10px;font-family:sans-serif;font-size:12px;color:#1a1a2e">
+      `<div style="background:#fff;border:1px solid #ddd;border-radius:6px;padding:6px 10px;font-family:sans-serif;font-size:12px;color:#1a1a2e;white-space:nowrap;">
         <strong>${name}</strong><br/>
         ${val != null && val > 0 ? `${val} ${val === 1 ? 'outbreak' : 'outbreaks'}` : 'No data'}
       </div>`,
-      { sticky: false, direction: 'top', offset: [0, -4] }
+      { sticky: true, direction: 'top', offset: [0, -4], opacity: 1 }
     );
     layer.on({
       mouseover: (e) => { if (!val || val === 0) return; e.target.setStyle({ weight: 2, color: BLUE, fillOpacity: 1 }); },
@@ -653,7 +949,11 @@ function ChoroplethMap({ stateData }) {
 
   useEffect(() => {
     const style = document.createElement('style');
-    style.textContent = '.leaflet-interactive:focus { outline: none !important; box-shadow: none !important; }';
+    style.textContent = `
+      .leaflet-interactive:focus{outline:none!important;box-shadow:none!important;}
+      .leaflet-tooltip{pointer-events:none;white-space:nowrap;z-index:9999!important;}
+      .leaflet-pane.leaflet-tooltip-pane{z-index:9999!important;}
+    `;
     document.head.appendChild(style);
     return () => document.head.removeChild(style);
   }, []);
@@ -665,20 +965,29 @@ function ChoroplethMap({ stateData }) {
         <span style={S.badge}>Choropleth Map</span>
       </div>
       {loadError ? (
-        <div style={{ height: 200, display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#999', fontSize: 13 }}>Map unavailable — check network connection.</div>
+        <div style={{ height: 200, display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#999', fontSize: 13 }}>
+          Map unavailable — check network.
+        </div>
       ) : !geoJson ? (
-        <div style={{ height: 200, display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#aaa', fontSize: 13 }}>Loading map...</div>
+        <div style={{ height: 200, display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#aaa', fontSize: 13 }}>
+          Loading map...
+        </div>
       ) : (
         <>
+          {/* FIX: key={mapKey} forces full remount when filter changes so
+              Leaflet actually reflects the new stateData colours */}
           <div style={{ height: 380, borderRadius: 8, overflow: 'hidden', border: '1px solid #ddd' }}>
-            <MapContainer center={[37.8, -96]} zoom={4} scrollWheelZoom={false}
-              style={{ height: '100%', width: '100%', background: '#e8eaf0' }}>
+            <MapContainer
+              key={mapKey}
+              center={[37.8, -96]}
+              zoom={4}
+              scrollWheelZoom={false}
+              style={{ height: '100%', width: '100%', background: '#e8eaf0' }}
+            >
               <TileLayer
                 url="https://{s}.basemaps.cartocdn.com/light_nolabels/{z}/{x}/{y}{r}.png"
                 attribution='&copy; <a href="https://carto.com/">CARTO</a>'
               />
-              {/* key={stateMapKey} forces full GeoJSON remount when filter changes
-                  — without this, Leaflet reuses the old layer and colors don't update */}
               <GeoJSON
                 key={stateMapKey}
                 data={geoJson}
@@ -687,12 +996,16 @@ function ChoroplethMap({ stateData }) {
               />
             </MapContainer>
           </div>
+
+          {/* Alaska + Hawaii insets */}
           {geoJsonAll && (
             <div style={{ display: 'flex', gap: 8, marginTop: 8 }}>
               <InsetMap geoJson={geoJsonAll} stateName="Alaska" stateMap={stateMap} maxVal={maxVal} />
               <InsetMap geoJson={geoJsonAll} stateName="Hawaii" stateMap={stateMap} maxVal={maxVal} />
             </div>
           )}
+
+          {/* Colour scale legend */}
           <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginTop: 10 }}>
             <span style={{ fontSize: 11, color: '#999' }}>Fewer outbreaks</span>
             <div style={{ display: 'flex', flex: 1, height: 10, borderRadius: 6, overflow: 'hidden' }}>
@@ -721,25 +1034,40 @@ const Data = () => {
     setTimeout(() => setExportToast(false), 3000);
   };
 
-  // BUG FIX — params objects were recreated every render:
-  // `const summaryParams = activeFilter !== 'All Diseases' ? { disease: activeFilter } : {}`
-  // creates a new object on every render → JSON.stringify in useAPI always sees a
-  // "changed" paramStr → useEffect fires every render → infinite refetch loop.
-  // Fix: useMemo so the object is only recreated when activeFilter actually changes.
-  const summaryParams = useMemo(
-    () => activeFilter !== 'All Diseases' ? { disease: activeFilter } : {},
-    [activeFilter]
-  );
-  const byStateParams = useMemo(
-    () => activeFilter !== 'All Diseases' ? { disease: activeFilter } : {},
-    [activeFilter]
-  );
-  const trendsParams = useMemo(() => ({ year: 'all' }), []);
+  // Memoised param objects — stable references prevent useAPI refetch loops
+  const summaryParams = useMemo(() =>
+    activeFilter !== 'All Diseases' ? { disease: activeFilter } : {},
+  [activeFilter]);
 
-  const summary   = useAPI('outbreaks-summary',    MOCK_SUMMARY,    summaryParams);
-  const byDisease = useAPI('outbreaks-by-disease', MOCK_BY_DISEASE);
-  const trends    = useAPI('outbreaks-trends',     MOCK_TRENDS,     trendsParams);
-  const byState   = useAPI('outbreaks-by-state',   MOCK_BY_STATE,   byStateParams);
+  const byStateParams = useMemo(() =>
+    activeFilter !== 'All Diseases' ? { disease: activeFilter } : {},
+  [activeFilter]);
+
+  // Trends always fetches all years so the date-range selector works client-side
+  const trendsParams = useMemo(() => ({ year: 'all' }), []);
+  const emptyParams  = useMemo(() => ({}), []);
+
+  const { data: summary,   source: summarySource   } = useAPI('outbreaks-summary',    MOCK_SUMMARY,    summaryParams);
+  const { data: byDisease, source: byDiseaseSource } = useAPI('outbreaks-by-disease', MOCK_BY_DISEASE, emptyParams);
+  const { data: trends,    source: trendsSource    } = useAPI('outbreaks-trends',     MOCK_TRENDS,     trendsParams);
+
+  // Normalise every trend row so field types are guaranteed regardless of
+  // whether they came from DB (PDO may return numbers as strings) or mock.
+  // This is the single source of truth for field shapes used by TrendChart.
+  const normalizedTrends = useMemo(() => {
+    if (!trends || !Array.isArray(trends)) return [];
+    return trends.map(r => ({
+      month:   String(r.month ?? '').trim(),
+      year:    Number(r.year),
+      disease: String(r.disease ?? '').trim(),
+      cases:   Number(r.cases ?? 0),
+    }));
+  }, [trends]);
+
+  // FIX: byState re-fetches when activeFilter changes (params include disease).
+  // The mapKey forces the Leaflet MapContainer to fully remount so colours update.
+  const { data: byState } = useAPI('outbreaks-by-state', MOCK_BY_STATE, byStateParams);
+  const mapKey = activeFilter; // changes → MapContainer remounts → map recolours
 
   const byDiseaseProcessed = useMemo(() =>
     (byDisease || [])
@@ -747,19 +1075,15 @@ const Data = () => {
       .filter(d => d.count > 0),
   [byDisease]);
 
-  const byDiseaseFiltered = useMemo(() =>
-    activeFilter === 'All Diseases'
-      ? byDiseaseProcessed
-      : byDiseaseProcessed.filter(d => d.disease === activeFilter),
-  [byDiseaseProcessed, activeFilter]);
+  // Pie chart always shows ALL diseases regardless of filter — "of all time"
 
   const STATS = [
-    { label: 'Total Outbreaks',  value: summary.totalOutbreaks,                                              delta: summary.totalDelta,    neg: true,  accent: '#e63946' },
-    { label: 'Affected States',  value: summary.affectedFarms?.toLocaleString?.() ?? summary.affectedFarms,  delta: summary.farmsDelta,    neg: false, accent: '#f97316' },
-    { label: 'Livestock Cases',  value: summary.livestockCases,                                              delta: summary.casesDelta,    neg: true,  accent: '#f59e0b' },
-    { label: 'Quarantine Zones', value: summary.quarantineZones,                                             delta: summary.zonesDelta,    neg: false, accent: '#8b5cf6' },
-    { label: 'Resolved Cases',   value: summary.resolvedCases?.toLocaleString?.() ?? summary.resolvedCases,  delta: summary.resolvedNote,  neg: false, accent: '#10b981' },
-    { label: 'Economic Impact',  value: summary.economicImpact,                                              delta: summary.economicDelta, neg: false, accent: '#3d5af1' },
+    { label: 'Total Outbreaks',  value: summary.totalOutbreaks,                                             delta: summary.totalDelta,    neg: true,  accent: '#e63946' },
+    { label: 'Affected States',  value: summary.affectedFarms?.toLocaleString?.() ?? summary.affectedFarms, delta: summary.farmsDelta,    neg: false, accent: '#f97316' },
+    { label: 'Livestock Cases',  value: summary.livestockCases,                                             delta: summary.casesDelta,    neg: true,  accent: '#f59e0b' },
+    { label: 'Quarantine Zones', value: summary.quarantineZones,                                            delta: summary.zonesDelta,    neg: false, accent: '#8b5cf6' },
+    { label: 'Resolved Cases',   value: summary.resolvedCases?.toLocaleString?.() ?? summary.resolvedCases, delta: summary.resolvedNote,  neg: false, accent: '#10b981' },
+    { label: 'Economic Impact',  value: summary.economicImpact,                                             delta: summary.economicDelta, neg: false, accent: '#3d5af1' },
   ];
 
   return (
@@ -770,7 +1094,7 @@ const Data = () => {
           <h1 style={S.headerTitle}>LIVESTOCK EPIDEMIC TRACKER</h1>
         </div>
         <nav style={S.nav}>
-          {['Home','News','FAQ','Log Out','Profile'].map((n) => (
+          {['Home', 'News', 'FAQ', 'Log Out', 'Profile'].map((n) => (
             // eslint-disable-next-line jsx-a11y/anchor-is-valid
             <a key={n} href="#" style={S.navLink}>{n}</a>
           ))}
@@ -778,6 +1102,18 @@ const Data = () => {
       </header>
 
       <main style={S.main}>
+        {/* Debug banner */}
+        {DEBUG_API && (
+          <div style={{
+            background: '#1a1a2e', color: '#7dd3fc', fontSize: 11, padding: '5px 12px',
+            borderRadius: 5, marginBottom: 10, fontFamily: 'monospace',
+            display: 'flex', justifyContent: 'space-between',
+          }}>
+            <span>🔌 API: {API_BASE}</span>
+            <span>env: {IS_LOCAL ? 'localhost' : 'server'} | summary: {summarySource} | trends: {trendsSource} | disease: {byDiseaseSource}</span>
+          </div>
+        )}
+
         <div style={S.toolbar}>
           <span style={S.breadcrumb}>Data &amp; Statistics Dashboard</span>
           <div style={{ display: 'flex', gap: 8, position: 'relative' }}>
@@ -786,9 +1122,9 @@ const Data = () => {
             {exportToast && (
               <div style={{
                 position: 'absolute', top: 'calc(100% + 8px)', right: 0,
-                background: '#1a1a2e', color: '#fff', fontSize: 12, padding: '8px 14px',
-                borderRadius: 6, whiteSpace: 'nowrap', zIndex: 200,
-                boxShadow: '0 4px 12px rgba(0,0,0,0.2)',
+                background: '#1a1a2e', color: '#fff', fontSize: 12,
+                padding: '8px 14px', borderRadius: 6, whiteSpace: 'nowrap',
+                zIndex: 200, boxShadow: '0 4px 12px rgba(0,0,0,0.2)',
               }}>
                 Export feature coming soon
               </div>
@@ -802,13 +1138,14 @@ const Data = () => {
         </div>
 
         <div style={S.statsGrid}>
-          {STATS.map((s) => <StatCard key={s.label} {...s} />)}
+          {STATS.map((s) => <StatCard key={s.label} {...s} source={summarySource} />)}
         </div>
 
         <FilterBar active={activeFilter} onChange={setActiveFilter} />
 
         <TrendChart
-          rawTrends={trends}
+          rawTrends={normalizedTrends}
+          trendsSource={trendsSource}
           activeFilter={activeFilter}
           yearFrom={yearFrom}
           yearTo={yearTo}
@@ -816,9 +1153,11 @@ const Data = () => {
           setYearTo={setYearTo}
         />
 
-        <DiseaseBreakdownPie data={byDiseaseFiltered.length > 0 ? byDiseaseFiltered : byDiseaseProcessed} />
+        <DiseaseBreakdownPie
+          data={byDiseaseProcessed}
+        />
 
-        <ChoroplethMap stateData={byState} />
+        <ChoroplethMap stateData={byState} mapKey={mapKey} />
       </main>
 
       <footer style={S.footer}>2026 - JNWSL Corp tm.</footer>
