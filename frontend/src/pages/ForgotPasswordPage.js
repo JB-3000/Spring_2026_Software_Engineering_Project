@@ -12,7 +12,7 @@ export default function ForgotPasswordPage() {
 
     const navigate = useNavigate();
 
-    const API_BASE =
+    const API_URL =
         process.env.NODE_ENV === "production"
             ? "/CSE442/2026-Spring/cse-442c/backend/public/api/forgot_password_request.php"
             : "http://localhost:8000/api/forgot_password_request.php";
@@ -21,13 +21,21 @@ export default function ForgotPasswordPage() {
         e.preventDefault();
         setStatusMsg("");
         setErrorMsg("");
+
+        const trimmedEmail = email.trim().toLowerCase();
+
+        if (!trimmedEmail.endsWith("@buffalo.edu")) {
+            setErrorMsg("A @buffalo.edu email address is required.");
+            return;
+        }
+
         setIsLoading(true);
 
         try {
-            const res = await fetch(`${API_BASE}?r=forgot_password_request`, {
+            const res = await fetch(API_URL, {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ email }),
+                body: JSON.stringify({ email: trimmedEmail }),
             });
 
             let data;
@@ -39,7 +47,7 @@ export default function ForgotPasswordPage() {
 
             if (res.ok && data && data.ok === true) {
                 setStatusMsg(data.message || "Check your email for a confirmation code.");
-                navigate("/reset-password", { state: { email } });
+                navigate("/reset-password", { state: { email: trimmedEmail } });
                 return;
             }
 
