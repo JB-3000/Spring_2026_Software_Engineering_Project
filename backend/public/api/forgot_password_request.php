@@ -11,13 +11,23 @@ if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
 $raw = file_get_contents('php://input');
 $data = json_decode($raw ?: '', true);
 
-$email = isset($data['email']) ? trim((string)$data['email']) : '';
+// Normalize email
+$email = strtolower(trim((string)($data['email'] ?? '')));
 
+// If empty/invalid email: keep generic response to avoid account enumeration
 if ($email === '' || !filter_var($email, FILTER_VALIDATE_EMAIL)) {
     json_response([
         'ok' => true,
         'message' => 'If an account exists for that email, a confirmation code has been sent.'
     ], 200);
+}
+
+// Enforce UB email only (required)
+if (!preg_match('/@buffalo\.edu$/', $email)) {
+    json_response([
+        'ok' => false,
+        'error' => 'A @buffalo.edu email address is required.'
+    ], 400);
 }
 
 $pdo = db();
@@ -27,7 +37,6 @@ $stmt->execute([$email]);
 $user = $stmt->fetch(PDO::FETCH_ASSOC);
 
 if ($user && (int)$user['is_active'] === 1) {
-
     $user_id = (int)$user['id'];
 
     // ==============================
@@ -48,8 +57,7 @@ if ($user && (int)$user['is_active'] === 1) {
         $now = new DateTimeImmutable();
 
         $diffSeconds = $now->getTimestamp() - $lastTime->getTimestamp();
-
-        if ($diffSeconds < 300) { // 300 seconds = 5 minutes
+        if ($diffSeconds < 300) {
             json_response([
                 'ok' => false,
                 'error' => 'You must wait 5 minutes before requesting another reset.'
@@ -61,8 +69,12 @@ if ($user && (int)$user['is_active'] === 1) {
     // CREATE RESET CODE
     // ==============================
 
-    // Hardcoded code for testing
-    $code = "123456";
+    // Hardcoded code ONLY for this test email
+    if ($email === 'passtest@buffalo.edu') {
+        $code = "123456";
+    } else {
+        $code = str_pad((string)random_int(0, 999999), 6, '0', STR_PAD_LEFT);
+    }
 
     $code_hash = password_hash($code, PASSWORD_DEFAULT);
     $expires_at = (new DateTimeImmutable('+15 minutes'))->format('Y-m-d H:i:s');
@@ -73,17 +85,16 @@ if ($user && (int)$user['is_active'] === 1) {
     ");
     $ins->execute([$user_id, $code_hash, $expires_at]);
 
-    /*
-    // EMAIL SENDING — DISABLED FOR NOW
-    require_once __DIR__ . '/../../src/send_mail.php';
-    try {
-        send_password_reset_code((string)$user['email'], $code);
-    } catch (Throwable $e) {
-        error_log('Password reset email failed: ' . $e->getMessage());
+    // Send email for real users only (skip passtest so your deterministic demo always works)
+    if ($email !== 'passtest@buffalo.edu') {
+        require_once __DIR__ . '/../../src/send_mail.php';
+        try {
+            send_password_reset_code((string)$user['email'], $code);
+        } catch (Throwable $e) {
+            error_log('Password reset email failed: ' . $e->getMessage());
+        }
     }
-    */
 }
-
 
 json_response([
     'ok' => true,
