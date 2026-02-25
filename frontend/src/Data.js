@@ -273,7 +273,7 @@ function TrendChart({ rawTrends, activeFilter, yearFrom, yearTo, setYearFrom, se
               color: logScale ? '#fff' : '#555',
               fontWeight: logScale ? 700 : 400,
             }}
-          >Log scale</button>
+          >Scales</button>
           <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
             <span style={{ fontSize: 11, color: '#888' }}>From</span>
             <select
@@ -455,7 +455,7 @@ function InsetMap({ geoJson, stateName, stateMap, maxVal }) {
       `<div style="background:#fff;border:1px solid #ddd;border-radius:6px;padding:6px 10px;font-family:sans-serif;font-size:12px;color:#1a1a2e">
         <strong>${stateName}</strong><br/>${val > 0 ? `${val} ${val === 1 ? 'outbreak' : 'outbreaks'}` : 'No data'}
       </div>`,
-      { sticky: true, direction: 'top', offset: [0, -4] }
+      { sticky: false, direction: 'top', offset: [0, -4] }
     );
   };
 
@@ -679,11 +679,11 @@ const Data = () => {
           <p style={S.sectionSub}>Up to date tracking of livestock disease outbreaks across the United States</p>
         </div>
 
-        <FilterBar active={activeFilter} onChange={setActiveFilter} />
-
         <div style={S.statsGrid}>
-          {STATS.map((s) => <StatCard key={s.label} {...s} />)}
-        </div>
+        {STATS.map((s) => <StatCard key={s.label} {...s} />)}
+      </div>
+
+        <FilterBar active={activeFilter} onChange={setActiveFilter} />
 
         <TrendChart
           rawTrends={trends}
