@@ -11,65 +11,62 @@ import logo from './LivestockEpidemicTracker.jpeg';
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
-// Switch comment to test locally vs real server:
-const API_BASE = 'http://localhost/s26-jnswl-corp/backend/public/api/index.php?r=';
-//const API_BASE = 'https://aptitude.cse.buffalo.edu/CSE442/2026-Spring/cse-442c/backend/public/api/index.php'; // real server
+ const API_BASE = 'http://localhost/s26-jnswl-corp/backend/public/api/index.php'; // local XAMPP
+//const API_BASE = 'https://aptitude.cse.buffalo.edu/CSE442/2026-Spring/cse-442c/backend/public/api/index.php'; // server
 const MAX_DISEASES = 5;
+const CURRENT_YEAR  = new Date().getFullYear();
+const CURRENT_MONTH = new Date().getMonth(); // 0-indexed
 
+// only diseases that actually exist in the DB
 const DISEASE_LIST = [
-  'H5N1 (Avian Flu)', 'Swine Flu', 'Bluetongue', 'Brucellosis',
-  'Bovine Tuberculosis', 'Bovine Leukemia Virus', 'Foot-and-Mouth Disease (FMD)',
-  'Mad Cow Disease (BSE)', 'Nipah Virus', 'Rabies', 'West Nile Virus', 'Malaria', 'Other',
+  'H5N1 (Avian Flu)', 'Swine Flu', 'Bluetongue',
+  'Bovine Tuberculosis', 'Mad Cow Disease (BSE)', 'Other',
 ];
 
 const DISEASE_COLORS = [
   '#e63946', '#2196f3', '#f59e0b', '#10b981', '#8b5cf6',
-  '#06b6d4', '#f97316', '#84cc16', '#ec4899', '#6366f1',
-  '#14b8a6', '#fb923c', '#94a3b8',
+  '#06b6d4', '#f97316', '#84cc16', '#94a3b8',
 ];
 
-const MONTHS = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
-const PIE_COLORS = ['#e63946','#2196f3','#10b981','#f59e0b','#8b5cf6','#94a3b8'];
-const GEOJSON_URL =
-  'https://raw.githubusercontent.com/PublicaMundi/MappingAPI/master/data/geojson/us-states.json';
+const MONTHS     = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+const PIE_COLORS = ['#e63946','#2196f3','#10b981','#f59e0b','#8b5cf6','#94a3b8','#06b6d4','#f97316','#84cc16'];
+const GEOJSON_URL     = 'https://raw.githubusercontent.com/PublicaMundi/MappingAPI/master/data/geojson/us-states.json';
+const GEOJSON_ALL_URL = 'https://cdn.jsdelivr.net/npm/us-atlas@3/states-10m.json';
+
+const YEAR_OPTIONS = [];
+for (let y = 2005; y <= CURRENT_YEAR; y++) YEAR_OPTIONS.push(String(y));
 
 // ─── Mock Fallback Data ───────────────────────────────────────────────────────
-// Used automatically if the PHP API is unreachable
 
 const MOCK = {
   summary: {
-    totalOutbreaks: 342,    totalDelta:    '+18 this week',
-    affectedFarms:  1847,   farmsDelta:    '+127 new',
-    livestockCases: '8.1M', casesDelta:    '+451K',
-    quarantineZones:145,    zonesDelta:    '+19 zones',
-    resolvedCases:  2156,   resolvedNote:  '14 day average',
-    economicImpact: '$1.1 B', economicDelta: '+ $187M',
+    totalOutbreaks: 119,    totalDelta:    '+19 last 30 days',
+    affectedFarms:  41,     farmsDelta:    '41 states affected',
+    livestockCases: '13M',  casesDelta:    '+9.4M last 30 days',
+    quarantineZones: 50,    zonesDelta:    '+8 last 30 days',
+    resolvedCases:  96,     resolvedNote:  '90-day USDA resolution protocol',
+    economicImpact: '$79.3M', economicDelta: '$56.5M last 30 days',
   },
   byDisease: [
-    { disease: 'H5N1 (Avian Flu)',    count: 98 },
-    { disease: 'Swine Flu',           count: 67 },
-    { disease: 'Bovine Tuberculosis', count: 54 },
-    { disease: 'Brucellosis',         count: 42 },
-    { disease: 'FMD',                 count: 38 },
-    { disease: 'Other',               count: 43 },
+    { disease: 'H5N1 (Avian Flu)',      count: 9800000 },
+    { disease: 'Swine Flu',             count: 6240    },
+    { disease: 'Mad Cow Disease (BSE)', count: 5       },
+    { disease: 'Bluetongue',            count: 280     },
+    { disease: 'Other',                 count: 82500   },
   ],
   trends: DISEASE_LIST.flatMap((disease, di) =>
-    MONTHS.map((month, mi) => ({
-      month, disease,
-      cases: Math.floor(Math.abs(Math.sin((disease.charCodeAt(0) + di) * (mi + 1)) * 11000) + 900),
-    }))
+    ['2024', '2025', '2026'].flatMap((year) =>
+      MONTHS.map((month, mi) => ({
+        month, year, disease,
+        cases: Math.floor(Math.abs(Math.sin((disease.charCodeAt(0) + di) * (mi + 1)) * 11000) + 900),
+      }))
+    )
   ),
   byState: [
-    { state: 'California',     outbreaks: 42 }, { state: 'Texas',          outbreaks: 38 },
-    { state: 'Florida',        outbreaks: 31 }, { state: 'Illinois',       outbreaks: 27 },
-    { state: 'New York',       outbreaks: 24 }, { state: 'Pennsylvania',   outbreaks: 21 },
-    { state: 'Ohio',           outbreaks: 19 }, { state: 'Georgia',        outbreaks: 17 },
-    { state: 'North Carolina', outbreaks: 16 }, { state: 'Michigan',       outbreaks: 14 },
-    { state: 'Washington',     outbreaks: 13 }, { state: 'Arizona',        outbreaks: 12 },
-    { state: 'Minnesota',      outbreaks: 11 }, { state: 'Wisconsin',      outbreaks: 10 },
-    { state: 'Colorado',       outbreaks: 9  }, { state: 'Iowa',           outbreaks: 8  },
-    { state: 'Missouri',       outbreaks: 15 }, { state: 'Indiana',        outbreaks: 13 },
-    { state: 'Kansas',         outbreaks: 7  }, { state: 'Nebraska',       outbreaks: 6  },
+    { state: 'California',     outbreaks: 8  }, { state: 'Texas',        outbreaks: 7  },
+    { state: 'Pennsylvania',   outbreaks: 5  }, { state: 'Indiana',      outbreaks: 5  },
+    { state: 'Missouri',       outbreaks: 4  }, { state: 'Minnesota',    outbreaks: 3  },
+    { state: 'Alaska',         outbreaks: 2  }, { state: 'Hawaii',       outbreaks: 1  },
   ],
 };
 
@@ -95,12 +92,17 @@ function choroplethColor(value, max) {
 }
 
 // ─── API Hook ─────────────────────────────────────────────────────────────────
-// Calls PHP via ?r=routename. Falls back to mock data silently on any error.
+// builds ?r=route&param=value query string and falls back to mock on error
 
-function useAPI(route, fallback) {
+function useAPI(route, fallback, params = {}) {
   const [data, setData] = useState(null);
+  const paramStr = new URLSearchParams(params).toString();
   useEffect(() => {
-    axios.get(`${API_BASE}${route}`, { timeout: 4000 })
+    setData(null);
+    const url = paramStr
+      ? `${API_BASE}?r=${route}&${paramStr}`
+      : `${API_BASE}?r=${route}`;
+    axios.get(url, { timeout: 6000 })
       .then((r) => {
         const d = r.data;
         const hasData = Array.isArray(d)
@@ -110,7 +112,7 @@ function useAPI(route, fallback) {
       })
       .catch(() => setData(fallback));
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [route]);
+  }, [route, paramStr]);
   return data ?? fallback;
 }
 
@@ -153,6 +155,7 @@ const S = {
   pill:        (color) => ({ display: 'inline-flex', alignItems: 'center', gap: 5, border: `1px solid ${color}`, borderRadius: 20, padding: '2px 9px', fontSize: 12, color: '#333', background: '#f8f8ff' }),
   pillX:       { cursor: 'pointer', color: '#aaa', fontWeight: 700, fontSize: 14, lineHeight: 1, marginLeft: 2 },
   errorBox:    { background: '#fff5f5', border: '1px solid #e63946', color: '#c0000a', borderRadius: 5, padding: '7px 13px', fontSize: 13, fontWeight: 600, marginBottom: 10 },
+  infoBox:     { background: '#f0f4ff', border: '1px solid #c0cbf7', color: '#3d5af1', borderRadius: 5, padding: '6px 12px', fontSize: 11, marginBottom: 10 },
   footer:      { textAlign: 'center', fontSize: 12, color: '#666', padding: '12px', borderTop: `3px solid ${PURPLE}`, background: '#c4c9d8' },
 };
 
@@ -162,7 +165,7 @@ function StatCard({ label, value, delta, neg = true, accent = PURPLE }) {
   return (
     <div style={S.statCard(accent)}>
       <span style={S.statLabel}>{label}</span>
-      <span style={S.statValue}>{value}</span>
+      <span style={S.statValue}>{value ?? '—'}</span>
       <span style={{ fontSize: 13, fontWeight: 600, color: neg ? RED : BLUE }}>{delta}</span>
     </div>
   );
@@ -170,10 +173,7 @@ function StatCard({ label, value, delta, neg = true, accent = PURPLE }) {
 
 // ─── Filter Bar ───────────────────────────────────────────────────────────────
 
-const FILTER_OPTIONS = [
-  'All Diseases','H5N1 (Avian Flu)','Swine Flu','Bluetongue','Brucellosis',
-  'Bovine Tuberculosis','Bovine Leukemia Virus','Foot-and-Mouth Disease (FMD)','Mad Cow Disease (BSE)','Other',
-];
+const FILTER_OPTIONS = ['All Diseases', ...DISEASE_LIST];
 
 function FilterBar({ active, onChange }) {
   return (
@@ -196,38 +196,64 @@ function FilterBar({ active, onChange }) {
   );
 }
 
-// ─── Chart 1: Multi-Disease Trend Lines ───────────────────────────────────────
+// chart 1: multi-disease trend lines 
 
-function TrendChart({ rawTrends }) {
-  const [selected, setSelected] = useState(['H5N1 (Avian Flu)']);
-  const [dropOpen, setDropOpen] = useState(false);
-  const [error, setError] = useState('');
+function TrendChart({ rawTrends, activeFilter, yearFrom, yearTo, setYearFrom, setYearTo }) {
+  const [selected,  setSelected]  = useState(['H5N1 (Avian Flu)']);
+  const [dropOpen,  setDropOpen]  = useState(false);
+  const [error,     setError]     = useState('');
+  const [logScale,  setLogScale]  = useState(false);
   const dropRef = useRef(null);
 
+  // sync disease selection when filter bar changes
   useEffect(() => {
-    const close = (e) => { if (dropRef.current && !dropRef.current.contains(e.target)) setDropOpen(false); };
+    if (activeFilter && activeFilter !== 'All Diseases') {
+      setSelected([activeFilter]);
+      setError('');
+    }
+  }, [activeFilter]);
+
+  // build dropdown from diseases actually present in DB, not hardcoded list
+  const availableDiseases = rawTrends.length > 0
+    ? [...new Set(rawTrends.map(r => r.disease))].sort((a, b) => {
+        const ai = DISEASE_LIST.indexOf(a), bi = DISEASE_LIST.indexOf(b);
+        return (ai === -1 ? 99 : ai) - (bi === -1 ? 99 : bi);
+      })
+    : DISEASE_LIST;
+
+  useEffect(() => {
+    const close = (e) => {
+      if (dropRef.current && !dropRef.current.contains(e.target)) setDropOpen(false);
+    };
     document.addEventListener('mousedown', close);
     return () => document.removeEventListener('mousedown', close);
   }, []);
 
-  const chartData = MONTHS.map((month) => {
-    const row = { month };
-    selected.forEach((d) => {
-      const match = rawTrends.find((r) => r.month === month && r.disease === d);
-      row[d] = match?.cases ?? 0;
+  const fromY = parseInt(yearFrom);
+  const toY   = parseInt(yearTo);
+
+  // build chart data across year range, trimming future months in current year
+  const chartData = [];
+  for (let y = fromY; y <= toY; y++) {
+    const monthsToShow = (y === CURRENT_YEAR) ? MONTHS.slice(0, CURRENT_MONTH + 1) : MONTHS;
+    monthsToShow.forEach((month) => {
+      const row = { label: fromY === toY ? month : `${month} '${String(y).slice(2)}` };
+      selected.forEach((d) => {
+        const match = rawTrends.find(r =>
+          r.month === month && r.disease === d && String(r.year) === String(y)
+        );
+        row[d] = match ? Number(match.cases) : 0;
+      });
+      chartData.push(row);
     });
-    return row;
-  });
+  }
 
   const toggleDisease = (disease) => {
     if (selected.includes(disease)) {
       setSelected(selected.filter((d) => d !== disease));
       setError('');
     } else {
-      if (selected.length >= MAX_DISEASES) {
-        setError('Maximum number of diseases displayed');
-        return;
-      }
+      if (selected.length >= MAX_DISEASES) { setError('Maximum number of diseases displayed'); return; }
       setSelected([...selected, disease]);
       setError('');
     }
@@ -237,28 +263,52 @@ function TrendChart({ rawTrends }) {
     <div style={S.card}>
       <div style={S.cardHeader}>
         <h3 style={S.cardTitle}>Outbreak Trends Over Time</h3>
-        <div style={{ position: 'relative' }} ref={dropRef}>
-          <button style={S.dropBtn} onClick={() => setDropOpen(!dropOpen)}>
-            Select Diseases ▾
-          </button>
-          {dropOpen && (
-            <div style={S.dropdown}>
-              {DISEASE_LIST.map((d) => {
-                const isActive = selected.includes(d);
-                return (
-                  <div
-                    key={d}
-                    style={{ ...S.dropItem, background: isActive ? '#f0f0ff' : '#fff' }}
-                    onClick={() => toggleDisease(d)}
-                  >
-                    <span style={S.dot(colorForDisease(d))} />
-                    <span style={{ flex: 1 }}>{d}</span>
-                    {isActive && <span style={{ color: BLUE, fontWeight: 700, fontSize: 12 }}>✓</span>}
-                  </div>
-                );
-              })}
-            </div>
-          )}
+        <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap', justifyContent: 'flex-end' }}>
+          <button
+            onClick={() => setLogScale(l => !l)}
+            style={{
+              fontSize: 11, padding: '4px 10px', borderRadius: 4, cursor: 'pointer',
+              background: logScale ? PURPLE : '#fff',
+              border: `1px solid ${logScale ? PURPLE : '#ccc'}`,
+              color: logScale ? '#fff' : '#555',
+              fontWeight: logScale ? 700 : 400,
+            }}
+          >Log scale</button>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+            <span style={{ fontSize: 11, color: '#888' }}>From</span>
+            <select
+              value={yearFrom}
+              onChange={e => { setYearFrom(e.target.value); if (parseInt(e.target.value) > parseInt(yearTo)) setYearTo(e.target.value); }}
+              style={{ fontSize: 12, padding: '4px 8px', borderRadius: 4, border: '1px solid #ccc', cursor: 'pointer', color: '#333' }}
+            >
+              {YEAR_OPTIONS.map(y => <option key={y} value={y}>{y}</option>)}
+            </select>
+            <span style={{ fontSize: 11, color: '#888' }}>To</span>
+            <select
+              value={yearTo}
+              onChange={e => { setYearTo(e.target.value); if (parseInt(e.target.value) < parseInt(yearFrom)) setYearFrom(e.target.value); }}
+              style={{ fontSize: 12, padding: '4px 8px', borderRadius: 4, border: '1px solid #ccc', cursor: 'pointer', color: '#333' }}
+            >
+              {YEAR_OPTIONS.map(y => <option key={y} value={y}>{y}</option>)}
+            </select>
+          </div>
+          <div style={{ position: 'relative' }} ref={dropRef}>
+            <button style={S.dropBtn} onClick={() => setDropOpen(!dropOpen)}>Select Diseases ▾</button>
+            {dropOpen && (
+              <div style={S.dropdown}>
+                {availableDiseases.map((d) => {
+                  const isActive = selected.includes(d);
+                  return (
+                    <div key={d} style={{ ...S.dropItem, background: isActive ? '#f0f0ff' : '#fff' }} onClick={() => toggleDisease(d)}>
+                      <span style={S.dot(colorForDisease(d))} />
+                      <span style={{ flex: 1 }}>{d}</span>
+                      {isActive && <span style={{ color: BLUE, fontWeight: 700, fontSize: 12 }}>✓</span>}
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </div>
         </div>
       </div>
 
@@ -267,34 +317,48 @@ function TrendChart({ rawTrends }) {
       <div style={S.pillRow}>
         {selected.map((d) => (
           <span key={d} style={S.pill(colorForDisease(d))}>
-            <span style={S.dot(colorForDisease(d))} />
-            {d}
+            <span style={S.dot(colorForDisease(d))} />{d}
             <span style={S.pillX} onClick={() => toggleDisease(d)}>×</span>
           </span>
         ))}
       </div>
 
       <ResponsiveContainer width="100%" height={300}>
-        <LineChart data={chartData} margin={{ top: 5, right: 20, left: 0, bottom: 0 }}>
+        <LineChart
+          data={logScale
+            ? chartData.map(row => {
+                const r = { label: row.label };
+                selected.forEach(d => { r[d] = row[d] > 0 ? Math.log10(row[d]) : null; });
+                return r;
+              })
+            : chartData}
+          margin={{ top: 5, right: 20, left: 0, bottom: 0 }}
+        >
           <CartesianGrid strokeDasharray="3 3" stroke="#eee" />
-          <XAxis dataKey="month" stroke="#aaa" tick={{ fontSize: 11, fill: '#666' }} />
-          <YAxis
-            stroke="#aaa"
-            tick={{ fontSize: 11, fill: '#666' }}
-            tickFormatter={(v) => v >= 1000 ? `${(v / 1000).toFixed(0)}k` : v}
+          <XAxis dataKey="label" stroke="#aaa" tick={{ fontSize: 10, fill: '#666' }}
+            interval={fromY === toY ? 0 : Math.floor(chartData.length / 12)} />
+          <YAxis stroke="#aaa" tick={{ fontSize: 11, fill: '#666' }}
+            tickFormatter={(v) => {
+              if (logScale) {
+                const real = Math.pow(10, v);
+                return real >= 1_000_000 ? `${(real/1_000_000).toFixed(1)}M` : real >= 1000 ? `${(real/1000).toFixed(0)}k` : Math.round(real).toString();
+              }
+              return v >= 1_000_000 ? `${(v/1_000_000).toFixed(1)}M` : v >= 1000 ? `${(v/1000).toFixed(0)}k` : v;
+            }}
           />
           <Tooltip
             contentStyle={{ background: '#fff', border: '1px solid #ddd', borderRadius: 8 }}
             labelStyle={{ color: '#1a1a2e', fontWeight: 600, fontSize: 12 }}
-            formatter={(value, name) => [`${value.toLocaleString()} cases`, name]}
+            formatter={(value, name) => {
+              const real = logScale ? Math.round(Math.pow(10, value)) : Number(value);
+              return [`${real.toLocaleString()} cases`, name];
+            }}
           />
-          <Legend
-            onClick={(e) => toggleDisease(e.value)}
-            formatter={(val) => <span style={{ color: '#555', fontSize: 11, cursor: 'pointer' }}>{val}</span>}
-          />
+          <Legend onClick={(e) => toggleDisease(e.value)}
+            formatter={(val) => <span style={{ color: '#555', fontSize: 11, cursor: 'pointer' }}>{val}</span>} />
           {selected.map((d) => (
             <Line key={d} type="monotone" dataKey={d} stroke={colorForDisease(d)}
-              strokeWidth={2.5} dot={false} activeDot={{ r: 5, strokeWidth: 0 }} />
+              strokeWidth={2.5} dot={false} activeDot={{ r: 5, strokeWidth: 0 }} connectNulls={false} />
           ))}
         </LineChart>
       </ResponsiveContainer>
@@ -302,14 +366,15 @@ function TrendChart({ rawTrends }) {
   );
 }
 
-// ─── Chart 2: Donut Pie Chart ─────────────────────────────────────────────────
+// chart 2: donut pie chart
 
 function renderActiveShape(props) {
-  const { cx, cy, innerRadius, outerRadius, startAngle, endAngle, fill, payload, percent, value } = props;
+  const { cx, cy, innerRadius, outerRadius, startAngle, endAngle, fill, payload, percent } = props;
+  const realCount = payload.rawCount != null ? payload.rawCount : payload.count;
   return (
     <g>
       <text x={cx} y={cy - 12} textAnchor="middle" fill="#1a1a2e" fontSize={12} fontWeight={700}>{payload.disease}</text>
-      <text x={cx} y={cy + 8}  textAnchor="middle" fill="#555"    fontSize={12}>{value.toLocaleString()} cases</text>
+      <text x={cx} y={cy + 8}  textAnchor="middle" fill="#555"    fontSize={12}>{Number(realCount).toLocaleString()} cases</text>
       <text x={cx} y={cy + 26} textAnchor="middle" fill="#999"    fontSize={11}>{(percent * 100).toFixed(1)}%</text>
       <Sector cx={cx} cy={cy} innerRadius={innerRadius}      outerRadius={outerRadius + 8}  startAngle={startAngle} endAngle={endAngle} fill={fill} />
       <Sector cx={cx} cy={cy} innerRadius={outerRadius + 12} outerRadius={outerRadius + 16} startAngle={startAngle} endAngle={endAngle} fill={fill} />
@@ -319,26 +384,46 @@ function renderActiveShape(props) {
 
 function DiseaseBreakdownPie({ data }) {
   const [activeIndex, setActiveIndex] = useState(0);
+
+  const counts      = data.map(d => Number(d.count));
+  const maxCount    = Math.max(...counts, 1);
+  const sortedCounts = [...counts].sort((a, b) => a - b);
+  const medCount    = sortedCounts[Math.floor(sortedCounts.length / 2)] || 1;
+  const needsLog    = maxCount > medCount * 50;
+
+  const displayData = data.map(d => ({
+    ...d,
+    rawCount:     Number(d.count),
+    displayCount: needsLog ? Math.log10(Number(d.count) + 1) : Number(d.count),
+    color:        colorForDisease(d.disease),
+  }));
+
   return (
     <div style={S.card}>
       <div style={S.cardHeader}>
         <h3 style={S.cardTitle}>Outbreaks by Disease Type</h3>
         <span style={S.badge}>Pie Chart</span>
       </div>
+      {needsLog && (
+        <div style={S.infoBox}>
+          Case counts are highly skewed — slice sizes use a log scale so all diseases are visible.
+          Hover a slice to see real case counts.
+        </div>
+      )}
       <ResponsiveContainer width="100%" height={300}>
         <PieChart>
           <Pie
-            data={data} dataKey="count" nameKey="disease"
+            data={displayData} dataKey="displayCount" nameKey="disease"
             cx="50%" cy="50%" innerRadius={65} outerRadius={105}
             activeIndex={activeIndex} activeShape={renderActiveShape}
             onMouseEnter={(_, i) => setActiveIndex(i)}
           >
-            {data.map((_, i) => <Cell key={i} fill={PIE_COLORS[i % PIE_COLORS.length]} stroke="none" />)}
+            {displayData.map((entry, i) => <Cell key={i} fill={entry.color} stroke="none" />)}
           </Pie>
           <Legend formatter={(v) => <span style={{ color: '#555', fontSize: 11 }}>{v}</span>} />
           <Tooltip
             contentStyle={{ background: '#fff', border: '1px solid #ddd', borderRadius: 8 }}
-            formatter={(v) => [`${v.toLocaleString()} cases`]}
+            formatter={(_, name, props) => [`${Number(props.payload.rawCount).toLocaleString()} cases`, name]}
           />
         </PieChart>
       </ResponsiveContainer>
@@ -346,28 +431,109 @@ function DiseaseBreakdownPie({ data }) {
   );
 }
 
-// ─── Chart 3: Leaflet Choropleth Map ─────────────────────────────────────────
+//  chart 3: choropleth map with AK + HI 
+
+const INSET_CFG = {
+  Alaska: { center: [64, -153], zoom: 2, w: 180, h: 130 },
+  Hawaii: { center: [20.5, -157], zoom: 5, w: 130, h: 130 },
+};
+
+function InsetMap({ geoJson, stateName, stateMap, maxVal }) {
+  const feature = geoJson?.features?.find(f => f.properties.name === stateName);
+  if (!feature) return null;
+  const { center, zoom, w, h } = INSET_CFG[stateName];
+  const val    = stateMap[stateName] ?? 0;
+  const LABEL_H = 16;
+
+  const styleFeature = () => ({
+    fillColor:   choroplethColor(val, maxVal),
+    weight: 1.5, color: '#555e7a',
+    fillOpacity: val > 0 ? 0.88 : 0.15,
+  });
+  const onEachFeature = (_, layer) => {
+    layer.bindTooltip(
+      `<div style="background:#fff;border:1px solid #ddd;border-radius:6px;padding:6px 10px;font-family:sans-serif;font-size:12px;color:#1a1a2e">
+        <strong>${stateName}</strong><br/>${val > 0 ? `${val} ${val === 1 ? 'outbreak' : 'outbreaks'}` : 'No data'}
+      </div>`,
+      { sticky: true, direction: 'top', offset: [0, -4] }
+    );
+  };
+
+  return (
+    <div style={{ width: w, border: '1px solid #ddd', borderRadius: 4, overflow: 'hidden', background: '#e8eaf0', flexShrink: 0 }}>
+      <div style={{ fontSize: 9, textAlign: 'center', color: '#666', padding: '2px 0', background: '#f4f4f4', borderBottom: '1px solid #eee', height: LABEL_H, lineHeight: `${LABEL_H}px` }}>
+        {stateName}
+      </div>
+      <MapContainer
+        center={center} zoom={zoom}
+        scrollWheelZoom={false} zoomControl={false}
+        dragging={false} doubleClickZoom={false}
+        attributionControl={false}
+        style={{ height: h, width: '100%', background: '#e8eaf0' }}
+      >
+        <TileLayer url="https://{s}.basemaps.cartocdn.com/light_nolabels/{z}/{x}/{y}{r}.png" />
+        <GeoJSON data={{ type: 'FeatureCollection', features: [feature] }} style={styleFeature} onEachFeature={onEachFeature} />
+      </MapContainer>
+    </div>
+  );
+}
 
 function ChoroplethMap({ stateData }) {
-  const [geoJson, setGeoJson]     = useState(null);
-  const [loadError, setLoadError] = useState(false);
+  const [geoJson,    setGeoJson]    = useState(null);
+  const [geoJsonAll, setGeoJsonAll] = useState(null);
+  const [loadError,  setLoadError]  = useState(false);
 
   useEffect(() => {
-    fetch(GEOJSON_URL).then((r) => r.json()).then(setGeoJson).catch(() => setLoadError(true));
+    fetch(GEOJSON_URL).then(r => r.json()).then(setGeoJson).catch(() => setLoadError(true));
+
+    const FIPS_TO_NAME = {
+      '02':'Alaska','15':'Hawaii','01':'Alabama','04':'Arizona','05':'Arkansas',
+      '06':'California','08':'Colorado','09':'Connecticut','10':'Delaware','12':'Florida',
+      '13':'Georgia','16':'Idaho','17':'Illinois','18':'Indiana','19':'Iowa','20':'Kansas',
+      '21':'Kentucky','22':'Louisiana','23':'Maine','24':'Maryland','25':'Massachusetts',
+      '26':'Michigan','27':'Minnesota','28':'Mississippi','29':'Missouri','30':'Montana',
+      '31':'Nebraska','32':'Nevada','33':'New Hampshire','34':'New Jersey','35':'New Mexico',
+      '36':'New York','37':'North Carolina','38':'North Dakota','39':'Ohio','40':'Oklahoma',
+      '41':'Oregon','42':'Pennsylvania','44':'Rhode Island','45':'South Carolina',
+      '46':'South Dakota','47':'Tennessee','48':'Texas','49':'Utah','50':'Vermont',
+      '51':'Virginia','53':'Washington','54':'West Virginia','55':'Wisconsin','56':'Wyoming',
+    };
+    fetch(GEOJSON_ALL_URL)
+      .then(r => r.json())
+      .then(topo => {
+        const arcs = topo.arcs;
+        const scale     = topo.transform?.scale     || [1, 1];
+        const translate = topo.transform?.translate || [0, 0];
+        function decodeArc(arc) {
+          let x = 0, y = 0;
+          return arc.map(([dx, dy]) => { x += dx; y += dy; return [x * scale[0] + translate[0], y * scale[1] + translate[1]]; });
+        }
+        function arcCoords(idx) {
+          const rev = idx < 0;
+          const coords = decodeArc(arcs[rev ? ~idx : idx]);
+          return rev ? coords.slice().reverse() : coords;
+        }
+        function ringCoords(ring) { return ring.flatMap(arcCoords); }
+        const features = topo.objects.states.geometries.map(geom => {
+          const fips = String(geom.id).padStart(2, '0');
+          const name = FIPS_TO_NAME[fips] || fips;
+          const geometry = geom.type === 'Polygon'
+            ? { type: 'Polygon',      coordinates: geom.arcs.map(ringCoords) }
+            : { type: 'MultiPolygon', coordinates: geom.arcs.map(poly => poly.map(ringCoords)) };
+          return { type: 'Feature', properties: { name }, geometry };
+        });
+        setGeoJsonAll({ type: 'FeatureCollection', features });
+      })
+      .catch(() => {});
   }, []);
 
   const stateMap = {};
-  (stateData || []).forEach((s) => { stateMap[s.state] = s.outbreaks; });
-  const maxVal = stateData ? Math.max(...stateData.map((s) => s.outbreaks)) : 1;
+  (stateData || []).forEach(s => { stateMap[s.state] = Number(s.outbreaks); });
+  const maxVal = Object.values(stateMap).length ? Math.max(...Object.values(stateMap)) : 1;
 
   const styleFeature = useCallback((feature) => {
     const val = stateMap[feature.properties.name] ?? 0;
-    return {
-      fillColor:   choroplethColor(val, maxVal),
-      weight:      val > 0 ? 1.5 : 1,
-      color:       '#555e7a',
-      fillOpacity: val > 0 ? 0.88 : 0.15,
-    };
+    return { fillColor: choroplethColor(val, maxVal), weight: val > 0 ? 1.5 : 1, color: '#555e7a', fillOpacity: val > 0 ? 0.88 : 0.15 };
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [JSON.stringify(stateMap), maxVal]);
 
@@ -376,19 +542,24 @@ function ChoroplethMap({ stateData }) {
     const val  = stateMap[name];
     layer.bindTooltip(
       `<div style="background:#fff;border:1px solid #ddd;border-radius:6px;padding:6px 10px;font-family:sans-serif;font-size:12px;color:#1a1a2e">
-        <strong>${name}</strong><br/>${val != null ? `${val} outbreaks` : 'No data'}
+        <strong>${name}</strong><br/>${val != null && val > 0 ? `${val} ${val === 1 ? 'outbreak' : 'outbreaks'}` : 'No data'}
       </div>`,
-      { sticky: true, direction: 'top', offset: [0, -4] }
+      { sticky: false, direction: 'top', offset: [0, -4] }
     );
     layer.on({
-      mouseover: (e) => {
-        if (val == null || val === 0) return;
-        e.target.setStyle({ weight: 2, color: BLUE, fillOpacity: 1 });
-      },
-      mouseout: (e) => { e.target.setStyle(styleFeature(feature)); },
+      mouseover: (e) => { if (!val || val === 0) return; e.target.setStyle({ weight: 2, color: BLUE, fillOpacity: 1 }); },
+      mouseout:  (e) => { e.target.setStyle(styleFeature(feature)); },
+      click:     (e) => { e.target.setStyle(styleFeature(feature)); e.target._path && e.target._path.blur(); },
     });
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [JSON.stringify(stateMap), styleFeature]);
+
+  useEffect(() => {
+    const style = document.createElement('style');
+    style.textContent = '.leaflet-interactive:focus { outline: none !important; box-shadow: none !important; }';
+    document.head.appendChild(style);
+    return () => document.head.removeChild(style);
+  }, []);
 
   return (
     <div style={S.card}>
@@ -397,27 +568,23 @@ function ChoroplethMap({ stateData }) {
         <span style={S.badge}>Choropleth Map</span>
       </div>
       {loadError ? (
-        <div style={{ height: 200, display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#999', fontSize: 13 }}>
-          Map unavailable — check network connection.
-        </div>
+        <div style={{ height: 200, display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#999', fontSize: 13 }}>Map unavailable — check network connection.</div>
       ) : !geoJson ? (
-        <div style={{ height: 200, display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#aaa', fontSize: 13 }}>
-          Loading map…
-        </div>
+        <div style={{ height: 200, display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#aaa', fontSize: 13 }}>Loading map...</div>
       ) : (
         <>
           <div style={{ height: 380, borderRadius: 8, overflow: 'hidden', border: '1px solid #ddd' }}>
-            <MapContainer
-              center={[37.8, -96]} zoom={4} scrollWheelZoom={false}
-              style={{ height: '100%', width: '100%', background: '#e8eaf0' }}
-            >
-              <TileLayer
-                url="https://{s}.basemaps.cartocdn.com/light_nolabels/{z}/{x}/{y}{r}.png"
-                attribution='&copy; <a href="https://carto.com/">CARTO</a>'
-              />
+            <MapContainer center={[37.8, -96]} zoom={4} scrollWheelZoom={false} style={{ height: '100%', width: '100%', background: '#e8eaf0' }}>
+              <TileLayer url="https://{s}.basemaps.cartocdn.com/light_nolabels/{z}/{x}/{y}{r}.png" attribution='&copy; <a href="https://carto.com/">CARTO</a>' />
               <GeoJSON key={JSON.stringify(stateMap)} data={geoJson} style={styleFeature} onEachFeature={onEachFeature} />
             </MapContainer>
           </div>
+          {geoJsonAll && (
+            <div style={{ display: 'flex', gap: 8, marginTop: 8 }}>
+              <InsetMap geoJson={geoJsonAll} stateName="Alaska" stateMap={stateMap} maxVal={maxVal} />
+              <InsetMap geoJson={geoJsonAll} stateName="Hawaii" stateMap={stateMap} maxVal={maxVal} />
+            </div>
+          )}
           <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginTop: 10 }}>
             <span style={{ fontSize: 11, color: '#999' }}>Fewer outbreaks</span>
             <div style={{ display: 'flex', flex: 1, height: 10, borderRadius: 6, overflow: 'hidden' }}>
@@ -433,34 +600,48 @@ function ChoroplethMap({ stateData }) {
   );
 }
 
-// ─── Main Component ───────────────────────────────────────────────────────────
+//  main component 
 
 const Data = () => {
   const [activeFilter, setActiveFilter] = useState('All Diseases');
+  const [yearFrom,     setYearFrom]     = useState(String(CURRENT_YEAR));
+  const [yearTo,       setYearTo]       = useState(String(CURRENT_YEAR));
+  const [exportToast,  setExportToast]  = useState(false);
 
-  const summary   = useAPI('outbreaks-summary',    MOCK.summary);
+  const showExportToast = () => {
+    setExportToast(true);
+    setTimeout(() => setExportToast(false), 3000);
+  };
+
+  // summary and byState pass disease filter so cards + map update with filter bar
+  const summaryParams  = activeFilter !== 'All Diseases' ? { disease: activeFilter } : {};
+  const byStateParams  = activeFilter !== 'All Diseases' ? { disease: activeFilter } : {};
+
+  const summary   = useAPI('outbreaks-summary',    MOCK.summary,   summaryParams);
   const byDisease = useAPI('outbreaks-by-disease', MOCK.byDisease);
-  // fix string numbers
-  const byDiseaseProcessed = (byDisease || []).map(d => ({
-  disease: d.disease,
-  count: Number(d.count),
-  }));
-  const trends    = useAPI('outbreaks-trends',     MOCK.trends);
-  const byState   = useAPI('outbreaks-by-state',   MOCK.byState);
+  // fetch all years so TrendChart can filter client-side by yearFrom/yearTo range
+  const trends    = useAPI('outbreaks-trends',     MOCK.trends,    { year: 'all' });
+  const byState   = useAPI('outbreaks-by-state',   MOCK.byState,   byStateParams);
+
+  // filter out zero-case entries so diseases with DB rows but no cases
+  const byDiseaseProcessed = (byDisease || [])
+    .map(d => ({ disease: d.disease, count: Number(d.count) }))
+    .filter(d => d.count > 0);
+  const byDiseaseFiltered  = activeFilter === 'All Diseases'
+    ? byDiseaseProcessed
+    : byDiseaseProcessed.filter(d => d.disease === activeFilter);
 
   const STATS = [
-    { label: 'Total Outbreaks',  value: summary.totalOutbreaks,                        delta: summary.totalDelta,    neg: true,  accent: '#e63946' },
-    { label: 'Affected Farms',   value: summary.affectedFarms?.toLocaleString?.() ?? summary.affectedFarms, delta: summary.farmsDelta, neg: true, accent: '#f97316' },
-    { label: 'Livestock Cases',  value: summary.livestockCases,                        delta: summary.casesDelta,    neg: true,  accent: '#f59e0b' },
-    { label: 'Quarantine Zones', value: summary.quarantineZones,                       delta: summary.zonesDelta,    neg: true,  accent: '#8b5cf6' },
-    { label: 'Resolved Cases',   value: summary.resolvedCases?.toLocaleString?.() ?? summary.resolvedCases, delta: summary.resolvedNote, neg: false, accent: '#10b981' },
-    { label: 'Economic Impact',  value: summary.economicImpact,                        delta: summary.economicDelta, neg: true,  accent: '#3d5af1' },
+    { label: 'Total Outbreaks',  value: summary.totalOutbreaks,                                             delta: summary.totalDelta,    neg: true,  accent: '#e63946' },
+    { label: 'Affected States',  value: summary.affectedFarms?.toLocaleString?.() ?? summary.affectedFarms, delta: summary.farmsDelta,    neg: false, accent: '#f97316' },
+    { label: 'Livestock Cases',  value: summary.livestockCases,                                             delta: summary.casesDelta,    neg: true,  accent: '#f59e0b' },
+    { label: 'Quarantine Zones', value: summary.quarantineZones,                                            delta: summary.zonesDelta,    neg: false, accent: '#8b5cf6' },
+    { label: 'Resolved Cases',   value: summary.resolvedCases?.toLocaleString?.() ?? summary.resolvedCases, delta: summary.resolvedNote,  neg: false, accent: '#10b981' },
+    { label: 'Economic Impact',  value: summary.economicImpact,                                             delta: summary.economicDelta, neg: false, accent: '#3d5af1' },
   ];
 
   return (
     <div style={S.page}>
-
-      {/* Header */}
       <header style={S.header}>
         <div style={S.headerRow}>
           <img src={logo} alt="Livestock Epidemic Tracker Logo" style={S.logo} />
@@ -475,13 +656,21 @@ const Data = () => {
       </header>
 
       <main style={S.main}>
-
-        {/* Toolbar */}
         <div style={S.toolbar}>
           <span style={S.breadcrumb}>Data &amp; Statistics Dashboard</span>
-          <div style={{ display: 'flex', gap: 8 }}>
+          <div style={{ display: 'flex', gap: 8, position: 'relative' }}>
             <button style={S.btnOutline} onClick={() => window.location.reload()}>↻ Refresh</button>
-            <button style={S.btnBlue}>⬇ Export</button>
+            <button style={S.btnBlue} onClick={showExportToast}>⬇ Export</button>
+            {exportToast && (
+              <div style={{
+                position: 'absolute', top: 'calc(100% + 8px)', right: 0,
+                background: '#1a1a2e', color: '#fff', fontSize: 12, padding: '8px 14px',
+                borderRadius: 6, whiteSpace: 'nowrap', zIndex: 200,
+                boxShadow: '0 4px 12px rgba(0,0,0,0.2)',
+              }}>
+                Export feature coming soon
+              </div>
+            )}
           </div>
         </div>
 
@@ -496,10 +685,18 @@ const Data = () => {
           {STATS.map((s) => <StatCard key={s.label} {...s} />)}
         </div>
 
-        <TrendChart rawTrends={trends} />
-        <DiseaseBreakdownPie data={byDiseaseProcessed} />
-        <ChoroplethMap stateData={byState} />
+        <TrendChart
+          rawTrends={trends}
+          activeFilter={activeFilter}
+          yearFrom={yearFrom}
+          yearTo={yearTo}
+          setYearFrom={setYearFrom}
+          setYearTo={setYearTo}
+        />
 
+        <DiseaseBreakdownPie data={byDiseaseFiltered.length > 0 ? byDiseaseFiltered : byDiseaseProcessed} />
+
+        <ChoroplethMap stateData={byState} />
       </main>
 
       <footer style={S.footer}>2026 - JNWSL Corp tm.</footer>
