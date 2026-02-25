@@ -12,8 +12,8 @@ import logo from './LivestockEpidemicTracker.jpeg';
 // ─── Constants ────────────────────────────────────────────────────────────────
 
 // Switch comment to test locally vs real server:
-// const API_BASE = 'http://localhost:3000/CSE442/2026-Spring/cse-442c/backend/public/api/index.php'; // local
-const API_BASE = 'https://aptitude.cse.buffalo.edu/CSE442/2026-Spring/cse-442c/backend/public/api/index.php'; // real server
+const API_BASE = 'http://localhost/s26-jnswl-corp/backend/public/api/index.php?r=';
+//const API_BASE = 'https://aptitude.cse.buffalo.edu/CSE442/2026-Spring/cse-442c/backend/public/api/index.php'; // real server
 const MAX_DISEASES = 5;
 
 const DISEASE_LIST = [
@@ -100,7 +100,7 @@ function choroplethColor(value, max) {
 function useAPI(route, fallback) {
   const [data, setData] = useState(null);
   useEffect(() => {
-    axios.get(`${API_BASE}?r=${route}`, { timeout: 4000 })
+    axios.get(`${API_BASE}${route}`, { timeout: 4000 })
       .then((r) => {
         const d = r.data;
         const hasData = Array.isArray(d)
@@ -440,6 +440,11 @@ const Data = () => {
 
   const summary   = useAPI('outbreaks-summary',    MOCK.summary);
   const byDisease = useAPI('outbreaks-by-disease', MOCK.byDisease);
+  // fix string numbers
+  const byDiseaseProcessed = (byDisease || []).map(d => ({
+  disease: d.disease,
+  count: Number(d.count),
+  }));
   const trends    = useAPI('outbreaks-trends',     MOCK.trends);
   const byState   = useAPI('outbreaks-by-state',   MOCK.byState);
 
@@ -492,7 +497,7 @@ const Data = () => {
         </div>
 
         <TrendChart rawTrends={trends} />
-        <DiseaseBreakdownPie data={byDisease} />
+        <DiseaseBreakdownPie data={byDiseaseProcessed} />
         <ChoroplethMap stateData={byState} />
 
       </main>
