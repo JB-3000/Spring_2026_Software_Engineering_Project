@@ -10,7 +10,7 @@ declare(strict_types=1);
  */
 function send_password_reset_code(string $email, string $code): bool
 {
-    $appName = 'CSE 442 Project';
+    $appName = 'Livestock Epidemic Tracker';
     $from = 'no-reply@buffalo.edu';
 
     $subject = "{$appName} - Password Reset Code";
@@ -20,7 +20,7 @@ function send_password_reset_code(string $email, string $code): bool
         "Your one-time password reset code is:\n\n" .
         "{$code}\n\n" .
         "This code will expire in 15 minutes.\n\n" .
-        "If you did not request this password reset, you may safely ignore this email.\n";
+        "If you did not request this password reset, you may safely ignore this email.\n\n" .
         "You must wait 5 minutes after this request to send another.\n";
 
     $headers = [];
