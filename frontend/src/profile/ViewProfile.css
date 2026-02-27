@@ -116,6 +116,47 @@
   transform: translateY(-1px);
 }
 
+/* === SAVE / CANCEL BUTTONS === */
+.vp-edit-actions {
+  display: flex;
+  gap: 10px;
+}
+
+.vp-save-btn {
+  background: #2e7d32;
+  color: #fff;
+  border: none;
+  border-radius: 50px;
+  padding: 14px 46px;
+  font-size: 1.1rem;
+  font-weight: bold;
+  cursor: pointer;
+  transition: background 0.2s, transform 0.15s;
+  box-shadow: 2px 2px 6px rgba(0,0,0,0.25);
+}
+
+.vp-save-btn:hover {
+  background: #1b5e20;
+  transform: translateY(-1px);
+}
+
+.vp-cancel-btn {
+  background: #c62828;
+  color: #fff;
+  border: none;
+  border-radius: 50px;
+  padding: 14px 46px;
+  font-size: 1.1rem;
+  font-weight: bold;
+  cursor: pointer;
+  transition: background 0.2s, transform 0.15s;
+  box-shadow: 2px 2px 6px rgba(0,0,0,0.25);
+}
+
+.vp-cancel-btn:hover {
+  background: #b71c1c;
+  transform: translateY(-1px);
+}
 /* === PROFILE RIGHT === */
 .vp-profile-right {
   display: flex;

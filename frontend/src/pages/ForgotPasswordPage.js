@@ -9,28 +9,38 @@ export default function ForgotPasswordPage() {
     const [statusMsg, setStatusMsg] = useState("");
     const [errorMsg, setErrorMsg] = useState("");
     const [isLoading, setIsLoading] = useState(false);
+    const [canContinue, setCanContinue] = useState(false);
 
     const navigate = useNavigate();
 
-    const API_BASE =
+    const API_URL =
         process.env.NODE_ENV === "production"
-            ? "/CSE442/2026-Spring/cse-442c/backend/public/api/index.php"
-            : "http://localhost:8000/api/index.php";
+            ? "/CSE442/2026-Spring/cse-442c/backend/public/api/forgot_password_request.php"
+            : "http://localhost:8000/api/forgot_password_request.php";
 
     const onSubmit = async (e) => {
         e.preventDefault();
         setStatusMsg("");
         setErrorMsg("");
+        setCanContinue(false);
+
+        const trimmedEmail = email.trim().toLowerCase();
+
+        if (!trimmedEmail.endsWith("@buffalo.edu")) {
+            setErrorMsg("A @buffalo.edu email address is required.");
+            return;
+        }
+
         setIsLoading(true);
 
         try {
-            const res = await fetch(`${API_BASE}?r=forgot_password_request`, {
+            const res = await fetch(API_URL, {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ email }),
+                body: JSON.stringify({ email: trimmedEmail }),
             });
 
-            let data = null;
+            let data;
             try {
                 data = await res.json();
             } catch {
@@ -38,8 +48,9 @@ export default function ForgotPasswordPage() {
             }
 
             if (res.ok && data && data.ok === true) {
-                setStatusMsg(data.message || "Check your email for a confirmation code.");
-                navigate("/reset-password", { state: { email } });
+                setStatusMsg(data.message || "If an account exists for that email, " +
+                    "a confirmation code has been sent.");
+                setCanContinue(true);
                 return;
             }
 
@@ -85,6 +96,23 @@ export default function ForgotPasswordPage() {
                         <button className="fp-btn fp-btn--primary" type="submit" disabled={isLoading}>
                             {isLoading ? "Sending..." : "Request Confirmation Code"}
                         </button>
+
+                        {canContinue ? (
+                            <button
+                                className="fp-btn fp-btn--primary"
+                                type= "button"
+                                onClick={() =>
+                                    navigate("/reset-password", {
+                                        state:{
+                                            email: email.trim().toLowerCase(),
+                                            fromForgot: true,
+                                        },
+                                    })
+                                }
+                            >
+                                Continue to Reset Password
+                            </button>
+                        ) :null}
 
                         <button
                             type="button"
