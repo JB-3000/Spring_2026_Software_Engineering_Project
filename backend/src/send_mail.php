@@ -21,6 +21,7 @@ function send_password_reset_code(string $email, string $code): bool
         "{$code}\n\n" .
         "This code will expire in 15 minutes.\n\n" .
         "If you did not request this password reset, you may safely ignore this email.\n";
+        "You must wait 5 minutes after this request to send another.\n";
 
     $headers = [];
     $headers[] = "From: {$appName} <{$from}>";
