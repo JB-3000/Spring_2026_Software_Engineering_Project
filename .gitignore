@@ -9,4 +9,7 @@ backend/src/config.php
 .DS_Store
 
 # Logs
-*.log
+*.lognode_modules/
+package-lock.json
+
+node_modules/
