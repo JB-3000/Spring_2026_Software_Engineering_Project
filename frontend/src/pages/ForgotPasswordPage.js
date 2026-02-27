@@ -9,6 +9,7 @@ export default function ForgotPasswordPage() {
     const [statusMsg, setStatusMsg] = useState("");
     const [errorMsg, setErrorMsg] = useState("");
     const [isLoading, setIsLoading] = useState(false);
+    const [canContinue, setCanContinue] = useState(false);
 
     const navigate = useNavigate();
 
@@ -21,6 +22,7 @@ export default function ForgotPasswordPage() {
         e.preventDefault();
         setStatusMsg("");
         setErrorMsg("");
+        setCanContinue(false);
 
         const trimmedEmail = email.trim().toLowerCase();
 
@@ -46,8 +48,9 @@ export default function ForgotPasswordPage() {
             }
 
             if (res.ok && data && data.ok === true) {
-                setStatusMsg(data.message || "Check your email for a confirmation code.");
-                navigate("/reset-password", { state: { email: trimmedEmail } });
+                setStatusMsg(data.message || "If an account exists for that email, " +
+                    "a confirmation code has been sent.");
+                setCanContinue(true);
                 return;
             }
 
@@ -93,6 +96,23 @@ export default function ForgotPasswordPage() {
                         <button className="fp-btn fp-btn--primary" type="submit" disabled={isLoading}>
                             {isLoading ? "Sending..." : "Request Confirmation Code"}
                         </button>
+
+                        {canContinue ? (
+                            <button
+                                className="fp-btn fp-btn--primary"
+                                type= "button"
+                                onClick={() =>
+                                    navigate("/reset-password", {
+                                        state:{
+                                            email: email.trim().toLowerCase(),
+                                            fromForgot: true,
+                                        },
+                                    })
+                                }
+                            >
+                                Continue to Reset Password
+                            </button>
+                        ) :null}
 
                         <button
                             type="button"
