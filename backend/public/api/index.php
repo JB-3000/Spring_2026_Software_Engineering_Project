@@ -85,48 +85,6 @@ try {
         exit;
     }
 
-     /* -------------------------------------------------------
-     * ViewProfile routes (added by soojung)
-     * ------------------------------------------------------- */
-
-    // Get profile of the logged-in user
-    // GET ?r=getProfile
-    if ($route === 'getProfile') {
-        if ($_SERVER['REQUEST_METHOD'] !== 'GET') {
-            http_response_code(405);
-            echo json_encode(['ok' => false, 'error' => 'GET required'], JSON_UNESCAPED_SLASHES);
-            exit;
-        }
-        get_profile();
-        exit; 
-    }
-
-    // Update profile fields of the logged-in user
-    // POST ?r=updateProfile
-    if ($route === 'updateProfile') {
-        if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
-            http_response_code(405);
-            echo json_encode(['ok' => false, 'error' => 'POST required'], JSON_UNESCAPED_SLASHES);
-            exit;
-        }
-        $body = json_decode(file_get_contents('php://input'), true) ?? [];
-        update_profile($body);
-        exit; 
-    }
-
-    // Upload profile image for the logged-in user
-    // POST ?r=uploadImage (multipart/form-data)
-    if ($route === 'uploadImage') {
-        if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
-            http_response_code(405);
-            echo json_encode(['ok' => false, 'error' => 'POST required'], JSON_UNESCAPED_SLASHES);
-            exit;
-        }
-        upload_profile_image();
-        exit; 
-    }
-    /* ------------------------------------------------------- */
-
     http_response_code(404);
     echo json_encode(['error' => 'Unknown route'], JSON_UNESCAPED_SLASHES);
 }
