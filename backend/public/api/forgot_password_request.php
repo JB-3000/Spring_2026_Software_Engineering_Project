@@ -1,6 +1,6 @@
 <?php
 declare(strict_types=1);
-
+//error code 201 = too many requests
 require __DIR__ . '/../../src/db.php';
 require __DIR__ . '/../../src/response.php';
 
@@ -60,8 +60,8 @@ if ($user && (int)$user['is_active'] === 1) {
         if ($diffSeconds < 300) {
             json_response([
                 'ok' => false,
-                'error' => 'You must wait 5 minutes before requesting another reset.'
-            ], 429);
+                'error' => 'There was an issue try again later'
+            ], 201);
         }
     }
 
