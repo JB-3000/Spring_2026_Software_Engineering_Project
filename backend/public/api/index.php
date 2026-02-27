@@ -1,7 +1,8 @@
 <?php
 declare(strict_types=1);
 
-require __DIR__ . '/../config/db.php';
+require __DIR__ . '/../../src/db.php';
+require __DIR__ . '/../../src/profile.php'; // Added for ViewProfile
 
 header('Content-Type: application/json; charset=utf-8');
 header('Access-Control-Allow-Origin: *'); // ok for demo
@@ -84,25 +85,49 @@ try {
         exit;
     }
 
-    // ─── Outbreaks: Summary Stats ─────────────────────────────────────────────
-    // Methodology:
-    //   - totalOutbreaks: COUNT of confirmed outbreak events in DB
-    //   - affectedStates: COUNT of distinct states with outbreaks
-    //   - livestockCases: SUM of all animals affected
-    //   - quarantineZones: Per USDA HPAI response protocol, each confirmed
-    //       commercial flock outbreak triggers a 10km Control Zone.
-    //       Estimate: 42% of outbreaks result in active quarantine zones
-    //       (based on USDA APHIS HPAI Response Guidelines)
-    //   - resolvedCases: Per USDA protocol, outbreaks are resolved after
-    //       90 days with no new detections. Count outbreaks older than 90 days.
-    //   - economicImpact: USDA ERS methodology:
-    //       loss = cases × avg animal value
-    //       Poultry avg value = $6/bird (USDA NASS 2024)
-    //       Converted to millions for display
+     /* -------------------------------------------------------
+     * ViewProfile routes (added by soojung)
+     * ------------------------------------------------------- */
+
+    // Get profile of the logged-in user
+    // GET ?r=getProfile
+    if ($route === 'getProfile') {
+        if ($_SERVER['REQUEST_METHOD'] !== 'GET') {
+            http_response_code(405);
+            echo json_encode(['ok' => false, 'error' => 'GET required'], JSON_UNESCAPED_SLASHES);
+            exit;
+        }
+        get_profile();
+    }
+
+    // Update profile fields of the logged-in user
+    // POST ?r=updateProfile
+    if ($route === 'updateProfile') {
+        if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
+            http_response_code(405);
+            echo json_encode(['ok' => false, 'error' => 'POST required'], JSON_UNESCAPED_SLASHES);
+            exit;
+        }
+        $body = json_decode(file_get_contents('php://input'), true) ?? [];
+        update_profile($body);
+    }
+
+    // Upload profile image for the logged-in user
+    // POST ?r=uploadImage (multipart/form-data)
+    if ($route === 'uploadImage') {
+        if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
+            http_response_code(405);
+            echo json_encode(['ok' => false, 'error' => 'POST required'], JSON_UNESCAPED_SLASHES);
+            exit;
+        }
+        upload_profile_image();
+    }
+    /* ------------------------------------------------------- */
+
+    // data page (lexi)
+    //  outbreaks: summary stats 
     if ($route === 'outbreaks-summary') {
         $pdo = db();
-
-        // optional disease filter (?r=outbreaks-summary&disease=H5N1+%28Avian+Flu%29)
         $disease    = isset($_GET['disease']) ? trim((string)$_GET['disease']) : '';
         $whereBase  = $disease !== '' ? 'WHERE disease = ?' : '';
         $params     = $disease !== '' ? [$disease] : [];
@@ -110,67 +135,61 @@ try {
             ? 'WHERE disease = ? AND report_date >= DATE_SUB(NOW(), INTERVAL 30 DAY)'
             : 'WHERE report_date >= DATE_SUB(NOW(), INTERVAL 30 DAY)';
 
-        // Total confirmed outbreak events
         $stmt = $pdo->prepare("SELECT COUNT(*) FROM outbreaks $whereBase");
         $stmt->execute($params); $total = (int)$stmt->fetchColumn();
 
-        // Outbreaks reported in last 30 days
         $stmt = $pdo->prepare("SELECT COUNT(*) FROM outbreaks $whereRecent");
         $stmt->execute($params); $recentTotal = (int)$stmt->fetchColumn();
 
-        // Total animals affected
         $stmt = $pdo->prepare("SELECT COALESCE(SUM(cases),0) FROM outbreaks $whereBase");
         $stmt->execute($params); $totalCases = (int)$stmt->fetchColumn();
 
-        // Animals affected in last 30 days
         $stmt = $pdo->prepare("SELECT COALESCE(SUM(cases),0) FROM outbreaks $whereRecent");
         $stmt->execute($params); $recentCases = (int)$stmt->fetchColumn();
 
-        // Distinct states affected
         $stmt = $pdo->prepare("SELECT COUNT(DISTINCT state) FROM outbreaks $whereBase");
         $stmt->execute($params); $states = (int)$stmt->fetchColumn();
 
-        // Quarantine zones: per USDA HPAI protocol, ~42% of outbreaks
-        // trigger active 10km Control Zones (commercial flock detections)
         $quarantineZones = (int)round($total * 0.42);
         $recentZones     = (int)round($recentTotal * 0.42);
 
-        // Resolved cases: USDA defines resolved as 90+ days since last detection
-        $resolved = (int)$pdo->query("
-            SELECT COUNT(*) FROM outbreaks
-            WHERE report_date <= DATE_SUB(NOW(), INTERVAL 90 DAY)
-        ")->fetchColumn();
+        // outbreaks older than 90 days are considered "resolved" 
+        $resolvedWhere = $disease !== ''
+            ? 'WHERE disease = ? AND report_date <= DATE_SUB(NOW(), INTERVAL 90 DAY)'
+            : 'WHERE report_date <= DATE_SUB(NOW(), INTERVAL 90 DAY)';
+        $stmt = $pdo->prepare("SELECT COUNT(*) FROM outbreaks $resolvedWhere");
+        $stmt->execute($params);
+        $resolved = (int)$stmt->fetchColumn();
 
-        // economic impact: USDA NASS 2024 avg market value per animal by species
-        // species inferred from disease name since outbreaks table has no species column
-        // source: USDA NASS Agricultural Prices Summary 2024
-        //   poultry:  $6/bird   (broilers, layers)
-        //   swine:    $180/head
-        //   cattle:   $1,400/head (beef + dairy blended)
-        //   sheep:    $175/head
-        //   formula:  loss = SUM(cases x avg_value_per_species)
         $animalValues = [
-            'H5N1 (Avian Flu)'             => 6,    // poultry $6/bird
-            'Swine Flu'                     => 180,  // swine $180/head
-            'Bovine Tuberculosis'           => 1400, // cattle $1,400/head
-            'Mad Cow Disease (BSE)'         => 1400, // cattle $1,400/head
-            'Brucellosis'                   => 1400, // cattle $1,400/head
-            'Bluetongue'                    => 175,  // sheep/cattle blended $175/head
-            'Foot-and-Mouth Disease (FMD)'  => 800,  // mixed livestock blended
-            'Bovine Leukemia Virus'         => 1400, // cattle $1,400/head
-            'Other'                         => 6,    // conservative poultry default
+            'H5N1 (Avian Flu)'             => 6,
+            'Swine Flu'                     => 180,
+            'Bovine Tuberculosis'           => 1400,
+            'Mad Cow Disease (BSE)'         => 1400,
+            'Bluetongue'                    => 175,
+            'Other'                         => 6,
         ];
 
         $economicLoss = 0;
         $recentLoss   = 0;
 
-        $diseaseRows = $pdo->query("
-            SELECT disease,
-                   SUM(cases) AS total,
-                   SUM(CASE WHEN report_date >= DATE_SUB(NOW(), INTERVAL 30 DAY) THEN cases ELSE 0 END) AS recent
-            FROM outbreaks
-            GROUP BY disease
-        ")->fetchAll();
+        // economic impact
+        if ($disease !== '') {
+            $stmt = $pdo->prepare("
+                SELECT disease, SUM(cases) AS total,
+                       SUM(CASE WHEN report_date >= DATE_SUB(NOW(), INTERVAL 30 DAY) THEN cases ELSE 0 END) AS recent
+                FROM outbreaks WHERE disease = ?
+                GROUP BY disease
+            ");
+            $stmt->execute([$disease]);
+        } else {
+            $stmt = $pdo->query("
+                SELECT disease, SUM(cases) AS total,
+                       SUM(CASE WHEN report_date >= DATE_SUB(NOW(), INTERVAL 30 DAY) THEN cases ELSE 0 END) AS recent
+                FROM outbreaks GROUP BY disease
+            ");
+        }
+        $diseaseRows = $stmt->fetchAll();
 
         foreach ($diseaseRows as $dr) {
             $val           = $animalValues[$dr['disease']] ?? 6;
@@ -178,14 +197,12 @@ try {
             $recentLoss   += (int)$dr['recent'] * $val;
         }
 
-        // Format numbers for display
         $fmt = function(int $n): string {
             if ($n >= 1000000000) return '$' . round($n / 1000000000, 1) . 'B';
             if ($n >= 1000000)    return '$' . round($n / 1000000, 1) . 'M';
             if ($n >= 1000)       return '$' . round($n / 1000, 1) . 'K';
             return '$' . $n;
         };
-
         $fmtNum = function(int $n): string {
             if ($n >= 1000000) return round($n / 1000000, 1) . 'M';
             if ($n >= 1000)    return round($n / 1000, 1) . 'K';
@@ -202,17 +219,13 @@ try {
             'quarantineZones' => $quarantineZones,
             'zonesDelta'      => '+' . $recentZones . ' last 30 days',
             'resolvedCases'   => $resolved,
-            'resolvedNote'    => '90-day USDA resolution protocol',
             'economicImpact'  => $fmt($economicLoss),
             'economicDelta'   => $fmt($recentLoss) . ' last 30 days',
         ], JSON_UNESCAPED_SLASHES);
         exit;
     }
 
-    // ─── Outbreaks: By Disease (Pie Chart) ────────────────────────────────────
-    // Used by: DiseaseBreakdownPie in Data.js
-    // Task Test 2: returns disease name + total case count
-    // Test: ...index.php?r=outbreaks-by-disease
+    // outbreaks: by disease (pie chart)
     if ($route === 'outbreaks-by-disease') {
         $pdo  = db();
         $stmt = $pdo->query("
@@ -225,63 +238,49 @@ try {
         exit;
     }
 
-    // outbreaks: trends over time (line chart)
-    // ?year=all returns all years with year field so frontend can filter by range
-    // ?year=2025 returns a specific year only
+    // outbreaks: trends over time
+    // BUG THAT CAUSED BLANK CHARTS:
+    // old query was:SELECT YEAR(...), MONTH(...), SUM(cases) FROM outbreaks GROUP BY YEAR(...), MONTH(...)
+    // fixed query is: add `disease` to SELECT and GROUP BY so each disease gets its own row series, matching what the frontend expects.
     if ($route === 'outbreaks-trends') {
-        $pdo       = db();
-        $yearParam = isset($_GET['year']) ? trim((string)$_GET['year']) : 'all';
+        $pdo = db();
 
-        if ($yearParam === 'all') {
-            $stmt = $pdo->query("
-                SELECT
-                    disease,
-                    YEAR(report_date)  AS year,
-                    MONTH(report_date) AS month_num,
-                    SUM(cases)         AS cases
-                FROM outbreaks
-                GROUP BY disease, YEAR(report_date), MONTH(report_date)
-                ORDER BY disease, year, month_num
-            ");
-        } else {
-            $year = (int)$yearParam;
-            $stmt = $pdo->prepare("
-                SELECT
-                    disease,
-                    YEAR(report_date)  AS year,
-                    MONTH(report_date) AS month_num,
-                    SUM(cases)         AS cases
-                FROM outbreaks
-                WHERE YEAR(report_date) = ?
-                GROUP BY disease, YEAR(report_date), MONTH(report_date)
-                ORDER BY disease, month_num
-            ");
-            $stmt->execute([$year]);
-        }
-        $rows = $stmt->fetchAll();
+        $months = [
+            1=>'Jan', 2=>'Feb', 3=>'Mar', 4=>'Apr', 5=>'May',  6=>'Jun',
+            7=>'Jul', 8=>'Aug', 9=>'Sep', 10=>'Oct', 11=>'Nov', 12=>'Dec',
+        ];
 
-        // map month numbers to short names the frontend expects
-        $monthNames = ['Jan','Feb','Mar','Apr','May','Jun',
-                       'Jul','Aug','Sep','Oct','Nov','Dec'];
+        // group by disease + year + month so each disease gets its own line.
+        // always return all years: frontend filters by year range client-side.
+        $stmt = $pdo->query("
+            SELECT
+                disease,
+                YEAR(report_date)  AS year,
+                MONTH(report_date) AS month_num,
+                SUM(cases)         AS cases
+            FROM outbreaks
+            GROUP BY disease, YEAR(report_date), MONTH(report_date)
+            ORDER BY disease, YEAR(report_date), MONTH(report_date)
+        ");
 
-        $out = [];
+        $rows = $stmt->fetchAll(PDO::FETCH_ASSOC);
+
+        $chartData = [];
         foreach ($rows as $row) {
-            $out[] = [
-                'month'   => $monthNames[(int)$row['month_num'] - 1],
-                'year'    => (int)$row['year'],
-                'disease' => $row['disease'],
-                'cases'   => (int)$row['cases'],
+            $chartData[] = [
+                'disease'   => $row['disease'],
+                'year'      => (int)$row['year'],
+                'month'     => $months[(int)$row['month_num']],
+                'month_num' => (int)$row['month_num'],
+                'cases'     => (int)$row['cases'],
             ];
         }
 
-        echo json_encode($out, JSON_UNESCAPED_SLASHES);
+        echo json_encode($chartData, JSON_UNESCAPED_SLASHES);
         exit;
-
     }
 
-    // ─── Outbreaks: By State (Choropleth Map) ────────────────────────────────
-    // Used by: ChoroplethMap in Data.js
-    // supports optional ?disease= filter so choropleth updates with filter bar
+    // outbreaks: by state (choropleth map) 
     if ($route === 'outbreaks-by-state') {
         $pdo     = db();
         $disease = isset($_GET['disease']) ? trim((string)$_GET['disease']) : '';
@@ -323,3 +322,8 @@ catch (Throwable $e) {
         echo json_encode(['error' => 'Server error'], JSON_UNESCAPED_SLASHES);
     }
 }
+
+//catch (Throwable $e) {
+//    http_response_code(500);
+//    echo json_encode(['error' => 'Server error'], JSON_UNESCAPED_SLASHES);
+//}
