@@ -98,6 +98,7 @@ try {
             exit;
         }
         get_profile();
+        exit; 
     }
 
     // Update profile fields of the logged-in user
@@ -110,6 +111,7 @@ try {
         }
         $body = json_decode(file_get_contents('php://input'), true) ?? [];
         update_profile($body);
+        exit; 
     }
 
     // Upload profile image for the logged-in user
@@ -121,6 +123,7 @@ try {
             exit;
         }
         upload_profile_image();
+        exit; 
     }
     /* ------------------------------------------------------- */
 
