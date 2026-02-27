@@ -17,12 +17,18 @@ if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
 $raw = file_get_contents('php://input');
 $data = json_decode($raw ?: '', true);
 
-$email = isset($data['email']) ? trim((string)$data['email']) : '';
-$code  = isset($data['code']) ? trim((string)$data['code']) : '';
-$new_password = isset($data['password']) ? (string)$data['password'] : '';
+// Normalize email
+$email = strtolower(trim((string)($data['email'] ?? '')));
+$code  = trim((string)($data['code'] ?? ''));
+$new_password = (string)($data['password'] ?? '');
 
 if ($email === '' || !filter_var($email, FILTER_VALIDATE_EMAIL) || $code === '' || $new_password === '') {
     json_response(['ok' => false, 'error' => 'Missing or invalid fields'], 400);
+}
+
+// Enforce UB email only (required)
+if (!preg_match('/@buffalo\.edu$/', $email)) {
+    json_response(['ok' => false, 'error' => 'A @buffalo.edu email address is required.'], 400);
 }
 
 // Basic password rules (adjust as needed)

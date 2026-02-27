@@ -1,26 +1,36 @@
 <?php
+declare(strict_types=1);
+
 /**
- * TEMPORARY MAIL STUB
- * -------------------
- * This file intentionally does NOT send email.
- * It provides a hardcoded reset code so the
- * forgot-password and reset-password flows
- * can be tested independently of email delivery.
+ * Send a password reset one-time code using PHP's built-in mail().
  *
- * REMOVE OR REPLACE when implementing real mail().
+ * NOTE:
+ * - Delivery depends on the server mail configuration.
+ * - This function only sends; it does NOT generate codes.
  */
-
-function send_password_reset_code(string $toEmail, string &$outCode = null): bool
+function send_password_reset_code(string $email, string $code): bool
 {
-    // 🔒 Hardcoded reset code for testing
-    $hardcodedCode = "123456";
+    $appName = 'Livestock Epidemic Tracker';
+    $from = 'no-reply@buffalo.edu';
 
-    // Pass the code back to the caller so it can be stored/hashed
-    $outCode = $hardcodedCode;
+    $subject = "{$appName} - Password Reset Code";
 
-    // Log for debugging / demo purposes
-    error_log("TEMP RESET CODE for {$toEmail}: {$hardcodedCode}");
+    $message =
+        "You requested a password reset.\n\n" .
+        "Your one-time password reset code is:\n\n" .
+        "{$code}\n\n" .
+        "This code will expire in 15 minutes.\n\n" .
+        "If you did not request this password reset, you may safely ignore this email.\n\n" .
+        "You must wait 5 minutes after this request to send another.\n";
 
-    // Pretend the email was successfully sent
-    return true;
+    $headers = [];
+    $headers[] = "From: {$appName} <{$from}>";
+    $headers[] = "Reply-To: {$from}";
+    $headers[] = "MIME-Version: 1.0";
+    $headers[] = "Content-Type: text/plain; charset=UTF-8";
+
+    $headersString = implode("\r\n", $headers);
+
+    // The 5th arg (-f) helps on some servers; if your host errors on it, remove the 5th parameter.
+    return mail($email, $subject, $message, $headersString, "-f {$from}");
 }

@@ -12,7 +12,7 @@ export default function ResetPasswordPage() {
         const st = location.state && location.state.email ? String(location.state.email) : "";
         const qp = new URLSearchParams(location.search);
         const qEmail = qp.get("email") || "";
-        return st || qEmail;
+        return (st || qEmail).trim().toLowerCase();
     }, [location.state, location.search]);
 
     const [code, setCode] = useState("");
@@ -24,13 +24,19 @@ export default function ResetPasswordPage() {
     const [isLoading, setIsLoading] = useState(false);
     const [didReset, setDidReset] = useState(false);
 
-    const API_BASE =
+    const API_URL =
         process.env.NODE_ENV === "production"
-            ? "/CSE442/2026-Spring/cse-442c/backend/public/api/index.php"
-            : "http://localhost:8000/api/index.php";
+            ? "/CSE442/2026-Spring/cse-442c/backend/public/api/reset_password.php"
+            : "http://localhost:8000/api/reset_password.php";
 
     useEffect(() => {
-        if (!email) setErrorMsg("Please request a confirmation code first.");
+        if (!email) {
+            setErrorMsg("Please request a confirmation code first.");
+            return;
+        }
+        if (!email.endsWith("@buffalo.edu")) {
+            setErrorMsg("A @buffalo.edu email address is required.");
+        }
     }, [email]);
 
     const onSubmit = async (e) => {
@@ -39,17 +45,18 @@ export default function ResetPasswordPage() {
         setErrorMsg("");
 
         if (!email) return setErrorMsg("Please request a confirmation code first.");
+        if (!email.endsWith("@buffalo.edu")) return setErrorMsg("A @buffalo.edu email address is required.");
         if (password !== confirm) return setErrorMsg("Passwords do not match.");
 
         setIsLoading(true);
         try {
-            const res = await fetch(`${API_BASE}?r=reset_password`, {
+            const res = await fetch(API_URL, {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({ email, code, password }),
             });
 
-            let data = null;
+            let data;
             try {
                 data = await res.json();
             } catch {
@@ -62,7 +69,7 @@ export default function ResetPasswordPage() {
                 return;
             }
 
-            setErrorMsg((data && data.error) || "Reset failed.");
+            setErrorMsg((data && (data.error || data.message)) || "Reset failed.");
         } catch {
             setErrorMsg("Network error: could not reach the server.");
         } finally {
