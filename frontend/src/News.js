@@ -1,5 +1,16 @@
 import { useState } from "react";
 
+const BASE = '/CSE442/2026-Spring/cse-442c/frontend/build#';
+const NAV_LINKS = {
+  'Home':    `${BASE}/home`,
+  'News':    `${BASE}/news`,
+  'Data':    `${BASE}/data`,
+  'FAQ':     `${BASE}/faq`,
+  'Profile': `${BASE}/profile`,
+  'Log Out': `${BASE}/`,
+};
+
+
 const mockNews = [
   {
     id: 1,
@@ -161,8 +172,14 @@ export default function News() {
         <div className="news-navbar">
           <span className="news-navbar-label">📰 News Updates</span>
           <div className="news-navbar-links">
-            {["Home", "FAQ", "Log Out", "Data", "Profile"].map((item) => (
-              <button key={item} className="nav-btn">{item}</button>
+            {Object.entries(NAV_LINKS).map(([label, href]) => (
+              <button
+                key={label}
+                className="nav-btn"
+                onClick={() => { window.location.href = href; }}
+              >
+                {label}
+              </button>
             ))}
           </div>
         </div>
