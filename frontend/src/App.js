@@ -10,12 +10,14 @@ import LoginPage from "./pages/LoginPage";
 import ForgotPasswordPage from "./pages/ForgotPasswordPage";
 import ResetPasswordPage from "./pages/ResetPasswordPage";
 import CreateAccount from './pages/CreateAccount';
+import SelfReport from './selfreports/self-report';
+
 
 function App() {
   return (
     <div>
       <Routes>
-        <Route path="/" element={<LoginPage />} />
+        <Route path="/" element={<HomePage />} />
         <Route path="/login" element={<LoginPage />} />
         <Route path="/forgot-password" element={<ForgotPasswordPage />} />
         <Route path="/reset-password" element={<ResetPasswordPage />} />
@@ -25,6 +27,7 @@ function App() {
         <Route path="/faq" element={<FAQ />} />
         <Route path="/profile" element={<ViewProfile />} />
         <Route path="/createAccount" element={<CreateAccount />} />
+        <Route path="/self-report" element={<SelfReport />} />
       </Routes>
     </div>
   );
