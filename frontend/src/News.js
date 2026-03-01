@@ -1,4 +1,5 @@
 import { useState } from "react";
+import logo from './LivestockEpidemicTracker.jpeg';
 
 const BASE = '/CSE442/2026-Spring/cse-442c/frontend/build#';
 const NAV_LINKS = {
@@ -10,71 +11,69 @@ const NAV_LINKS = {
   'Log Out': `${BASE}/`,
 };
 
-
 const mockNews = [
   {
-    id: 1,
-    title: "Avian Influenza Expands to Additional Counties in New York",
-    source: "USDA APHIS",
-    sourceUrl: "https://www.aphis.usda.gov/h5n1-hpai#detections-hpai",
-    date: "Jan 30, 2026",
-    description:
-      "State animal health officials have confirmed additional detections of Highly Pathogenic Avian Influenza (H5N1) in commercial poultry operations across western New York. Bio-security protocols have been reinforced, and movement controls are in effect in affected counties. Producers are urged to review mitigation guidance and report unusual mortality immediately.",
-    disease: "H5N1",
-    location: "New York",
-    image: "https://images.unsplash.com/photo-1548550023-2bdb3c5beed7?w=600&q=80",
-  },
+  id: 1,
+  title: "USDA To Host Free Biosecurity Webinars for Dairy and Poultry Producers",
+  source: "USDA APHIS",
+  sourceUrl: "https://www.aphis.usda.gov/news/program-update/usda-host-free-biosecurity-webinars-dairy-poultry-producers",
+  date: "Jan 02 2026",
+  description: "State The USDA APHIS is offering free biosecurity webinars for dairy and poultry producers to help prevent the spread of disease on farms. Sessions will cover best practices for farm biosecurity, early detection, and response protocols. health officials have confirmed additional detections of Highly Pathogenic Avian Influenza (H5N1) in commercial poultry operations across western New York. Bio-security protocols have been reinforced, and movement controls are in effect in affected counties. Producers are urged to review mitigation guidance and report unusual mortality immediately.",
+  disease: "H5N1",
+  location: "Washington, D.C.",
+  image: "https://images.unsplash.com/photo-1593179357196-ea11a2e7c119?w=600&q=80",},
   {
-    id: 2,
-    title: "H5N1 Detected in Dairy Cattle, Raising Concerns Over Cross-Species Transmission",
-    source: "WOAH",
-    sourceUrl: "https://wahis.woah.org/#/event-management",
-    date: "Jan 25, 2026",
-    description:
-      "Federal agencies have confirmed the presence of H5N1 in multiple dairy herds in the Midwest. While the risk to the general public remains low, officials emphasize the importance of monitoring livestock health and minimizing exposure between poultry and cattle operations.",
-    disease: "H5N1",
-    location: "Midwest",
-    image: "https://images.unsplash.com/photo-1500595046743-cd271d694d30?w=600&q=80",
-  },
+  id: 2,
+  title: "Update: Genetic Sequencing Results for Wisconsin Dairy Herd Detection of HPAI",
+  source: "USDA APHIS",
+  sourceUrl: "https://www.aphis.usda.gov/news/agency-announcements/update-genetic-sequencing-results-wisconsin-dairy-herd-detection-highly",
+  date: "Dec 19, 2025",
+  description: "USDA confirmed H5N1 clade 2.3.4.4b genotype D1.1 in a Wisconsin dairy herd — a new spillover event from wildlife, separate from previous outbreaks. Pasteurization continues to protect the commercial milk supply, and public health risk remains low.",
+  disease: "H5N1 (Avian Flu)",
+  location: "Wisconsin",
+  image: "https://images.unsplash.com/photo-1570042225831-d98fa7577f1e?w=600&q=80",},
   {
-    id: 3,
-    title: "Egg and Poultry Prices Expected to Rise as Outbreak Persists",
-    source: "USDA APHIS",
-    sourceUrl: "https://www.aphis.usda.gov/h5n1-hpai#detections-hpai",
-    date: "Jan 30, 2026",
-    description:
-      "Ongoing avian influenza outbreaks continue to impact poultry supply chains nationwide. Analysts project short-term price volatility as producers depopulate affected flocks and work to restore operations under enhanced biosecurity measures.",
-    disease: "Avian Influenza",
-    location: "Nationwide",
-    image: "https://images.unsplash.com/photo-1582722872445-44dc5f7e3c8f?w=600&q=80",
-  },
+  id: 3,
+  title: "USDA Confirms Highly Pathogenic Avian Influenza in a Dairy Herd in Wisconsin",
+  source: "USDA APHIS",
+  sourceUrl: "https://www.aphis.usda.gov/news/agency-announcements/usda-confirms-highly-pathogenic-avian-influenza-dairy-herd-wisconsin",
+  date: "Dec 14, 2025",
+  description: "USDA APHIS confirmed HPAI H5 in a Wisconsin dairy herd — the first known case in the state. Detected through routine milk testing, not pre-movement surveillance. Commercial milk supply remains safe, and public health risk is considered low.",
+  disease: "H5N1 (Avian Flu)",
+  location: "Wisconsin",
+  image: "https://images.unsplash.com/photo-1500595046743-cd271d694d30?w=600&q=80",},
   {
-    id: 4,
-    title: "USDA Announces Emergency Funding for Affected Livestock Producers",
-    source: "USDA APHIS",
-    sourceUrl: "https://www.aphis.usda.gov/h5n1-hpai#detections-hpai",
-    date: "Jan 20, 2026",
-    description:
-      "The USDA has announced a $200 million emergency relief package for livestock producers affected by recent disease outbreaks. Eligible producers can apply through their local Farm Service Agency office starting February 1.",
-    disease: "H5N1",
-    location: "Nationwide",
-    image: "https://images.unsplash.com/photo-1527153857715-3908f2bae5e8?w=600&q=80",
-  },
+  id: 4,
+  title: "USDA Confirms 7th Case of Atypical BSE in South Carolina Beef Cow",
+  source: "USDA APHIS",
+  sourceUrl: "https://www.aphis.usda.gov/news/agency-announcements/usda-announces-atypical-bovine-spongiform-encephalopathy-detection",
+  date: "May 19, 2023",
+  description: "USDA confirmed atypical L-type BSE in a 5-year-old beef cow at a South Carolina slaughter plant. The animal never entered the food supply and posed no risk to human health. The U.S. maintains negligible risk status for BSE.",
+  disease: "Mad Cow Disease (BSE)",
+  location: "South Carolina",
+  image: "https://images.unsplash.com/photo-1465379944081-7f47de8d74ac?w=600&q=80",},
   {
-    id: 5,
-    title: "New Biosecurity Guidelines Released for Poultry Operations",
-    source: "WOAH",
-    sourceUrl: "https://wahis.woah.org/#/event-management",
-    date: "Jan 18, 2026",
-    description:
-      "Updated biosecurity protocols have been released for commercial and backyard poultry operations. The guidelines emphasize enhanced cleaning procedures, visitor restrictions, and wildlife deterrent measures to reduce the risk of disease introduction.",
-    disease: "Avian Influenza",
-    location: "Nationwide",
-    image: "https://images.unsplash.com/photo-1484557052118-f32bd25b45b5?w=600&q=80",
-  },
+  id: 5,
+  title: "New Biosecurity Guidelines Released for Poultry Operations",
+  source: "WOAH",
+  sourceUrl: "https://wahis.woah.org/#/event-management",
+  date: "Jan 18, 2026",
+  description:"Updated biosecurity protocols have been released for commercial and backyard poultry operations. The guidelines emphasize enhanced cleaning procedures, visitor restrictions, and wildlife deterrent measures to reduce the risk of disease introduction.",
+  disease: "Avian Influenza",
+  location: "Nationwide",
+  image: "https://images.unsplash.com/photo-1484557052118-f32bd25b45b5?w=600&q=80",},
+  {
+  id: 6,
+  title: "First Detection of H5N1 in U.S. Swine Reported in Oregon",
+  source: "AVMA",
+  sourceUrl: "https://www.avma.org/resources-tools/animal-health-and-welfare/animal-health/avian-influenza/avian-influenza-virus-type-h5n1-us-dairy-cattle",
+  date: "Nov 2024",
+  description: "H5N1 was confirmed in two pigs on an Oregon backyard farm where poultry and livestock were comingled — the first detection of the virus in U.S. swine. USDA confirmed no concern about the safety of the nation's pork supply.",
+  disease: "Swine Flu",
+  location: "Oregon",
+  image: "https://images.unsplash.com/photo-1585110396000-c9ffd4e4b308?w=600&q=80",}
 ];
-
-const diseaseOptions = ["All Diseases", "H5N1", "Avian Influenza", "ASF", "FMD"];
+const diseaseOptions = ["All Diseases", "H5N1 (Avian Flu)", "Swine Flu", "Mad Cow Disease (BSE)", "Bluetongue", "Other",];
 const sortOptions = ["Newest First", "Oldest First", "Source A-Z"];
 const ITEMS_PER_PAGE = 3;
 
@@ -110,7 +109,7 @@ export default function News() {
         * { box-sizing: border-box; margin: 0; padding: 0; }
         .news-page { font-family: 'Georgia', serif; background-color: #f0f0f0; min-height: 100vh; display: flex; flex-direction: column; }
         .news-header { background-color: #fff; border-bottom: 3px solid #4a4a8a; padding: 16px 24px; }
-        .news-header-inner { max-width: 1200px; margin: 0 auto; display: flex; align-items: center; gap: 12px; }
+        .news-header-inner { max-width: 1200px; margin: 0 auto; display: flex; align-items: center; justify-content: center; gap: 12px; }
         .news-header h1 { font-size: 28px; font-weight: 900; letter-spacing: 2px; font-family: 'Arial Black', sans-serif; }
         .news-navbar { background-color: #d0d0d0; border-bottom: 2px solid #4a4a8a; padding: 8px 24px; display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 8px; }
         .news-navbar-label { font-weight: bold; font-size: 16px; }
@@ -164,6 +163,7 @@ export default function News() {
         {/* Header */}
         <div className="news-header">
           <div className="news-header-inner">
+            <img src={logo} alt="logo" style={{ width: 52, height: 52, objectFit: 'contain', borderRadius: 4 }} />
             <h1>LIVESTOCK EPIDEMIC TRACKER</h1>
           </div>
         </div>
