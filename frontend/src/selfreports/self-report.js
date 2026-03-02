@@ -1,227 +1,175 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Livestock Epidemic Tracker</title>
+import React from "react";
+import { useNavigate } from "react-router-dom";
+import Navbar from "../homepage/Navbar"; // ✅ import your existing navbar
 
-<style>
-body {
-    margin: 0;
-    font-family: Arial, Helvetica, sans-serif;
-    background-color: #d9d9d9;
-}
 
-/* Top Header */
-.header {
-    text-align: center;
-    padding: 20px 0 10px 0;
-    background-color: #cfcfcf;
-    border-bottom: 4px solid #6c63ff;
-}
+const SelfReport = () => {
+  const navigate = useNavigate();
 
-.header h1 {
-    margin: 0;
-    font-size: 36px;
-    letter-spacing: 2px;
-}
+  return (
+    <div style={styles.page}>
+      {/* Header */}
+      <div style={styles.header}>
+        <h1 style={{ margin: 0 }}>LIVESTOCK EPIDEMIC TRACKER</h1>
+      </div>
 
-/* Nav Bar */
-.navbar {
-    text-align: center;
-    padding: 10px;
-    background-color: #cfcfcf;
-}
+      <Navbar />
 
-.navbar button {
-    margin: 0 8px;
-    padding: 6px 18px;
-    border: 1px solid #555;
-    background-color: #e5e5e5;
-    cursor: pointer;
-}
 
-.navbar button:hover {
-    background-color: #d0d0d0;
-}
+      {/* Main Content */}
+      <div style={styles.container}>
+        {/* LEFT PANEL */}
+        <div style={styles.leftPanel}>
+          <button style={styles.historyBtn}>
+            View Report History
+          </button>
 
-/* Main Layout */
-.container {
-    display: flex;
-    justify-content: center;
-    gap: 40px;
-    padding: 30px;
-}
-
-/* Left Panel */
-.left-panel {
-    width: 700px;
-}
-
-.history-btn {
-    background: linear-gradient(90deg, #5f5cff, #7d73ff);
-    color: white;
-    border: none;
-    padding: 12px 40px;
-    border-radius: 20px;
-    font-size: 16px;
-    cursor: pointer;
-    margin-bottom: 20px;
-}
-
-.history-btn:hover {
-    opacity: 0.9;
-}
-
-/* Map Box */
-.map-box {
-    border: 2px solid #444;
-    background-color: #e6e6e6;
-}
-
-.map-header {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    background-color: #cfcfcf;
-    padding: 8px 12px;
-    border-bottom: 2px solid #444;
-}
-
-.map-header h3 {
-    margin: 0;
-}
-
-.map-header button {
-    margin-left: 8px;
-    padding: 4px 10px;
-    font-size: 12px;
-}
-
-.map-content {
-    height: 350px;
-    background: url("https://upload.wikimedia.org/wikipedia/commons/a/a4/Blank_US_Map_%28states_only%29.svg");
-    background-size: contain;
-    background-repeat: no-repeat;
-    background-position: center;
-}
-
-/* Right Panel */
-.right-panel {
-    width: 350px;
-    background-color: #cfcfcf;
-    border: 2px solid #444;
-    padding: 20px;
-}
-
-.right-panel h2 {
-    text-align: center;
-    margin-top: 0;
-    font-size: 28px;
-}
-
-.form-group {
-    margin-bottom: 15px;
-}
-
-.form-group input {
-    width: 100%;
-    padding: 10px;
-    border: 1px solid #777;
-    background-color: #eee;
-    text-align: center;
-    font-weight: bold;
-}
-
-.upload-btn {
-    margin-top: 20px;
-    width: 100%;
-    padding: 12px;
-    border-radius: 25px;
-    border: none;
-    font-size: 16px;
-    background: linear-gradient(90deg, #5f5cff, #7d73ff);
-    color: white;
-    cursor: pointer;
-}
-
-.upload-btn:hover {
-    opacity: 0.9;
-}
-
-/* Footer */
-.footer {
-    text-align: center;
-    padding: 8px;
-    background-color: #cfcfcf;
-    border-top: 4px solid #6c63ff;
-    font-size: 12px;
-}
-</style>
-</head>
-
-<body>
-
-<div class="header">
-    <h1>LIVESTOCK EPIDEMIC TRACKER</h1>
-</div>
-
-<div class="navbar">
-    <button>Home</button>
-    <button>News</button>
-    <button>FAQ</button>
-    <button>Log Out</button>
-    <button>Data</button>
-    <button>Profile</button>
-</div>
-
-<div class="container">
-
-    <!-- LEFT SIDE -->
-    <div class="left-panel">
-        <button class="history-btn">View Report History</button>
-
-        <div class="map-box">
-            <div class="map-header">
-                <h3>Outbreak Locations</h3>
-                <div>
-                    <button>Map View</button>
-                    <button>List View</button>
-                    <button>Export</button>
-                </div>
+          <div style={styles.mapBox}>
+            <div style={styles.mapHeader}>
+              <h3 style={{ margin: 0 }}>Outbreak Locations</h3>
+              <div>
+                <button style={styles.smallBtn}>Map View</button>
+                <button style={styles.smallBtn}>List View</button>
+                <button style={styles.smallBtn}>Export</button>
+              </div>
             </div>
-            <div class="map-content"></div>
+
+            <div style={styles.mapContent}></div>
+          </div>
         </div>
+
+        {/* RIGHT PANEL */}
+        <div style={styles.rightPanel}>
+          <h2 style={{ textAlign: "center" }}>New Disease Entry</h2>
+
+          {[
+            "Disease Type",
+            "Location",
+            "Affected Animal",
+            "Mode of Diagnosis",
+          ].map((placeholder) => (
+            <div key={placeholder} style={{ marginBottom: "15px" }}>
+              <input
+                type="text"
+                placeholder={placeholder}
+                style={styles.input}
+              />
+            </div>
+          ))}
+
+          <button style={styles.uploadBtn}>Upload</button>
+        </div>
+      </div>
+
+      {/* Footer */}
+      <div style={styles.footer}>
+        2026 - JNWSL Corp ™
+      </div>
     </div>
+  );
+};
 
-    <!-- RIGHT SIDE -->
-    <div class="right-panel">
-        <h2>New Disease Entry</h2>
+const styles = {
+  page: {
+    margin: 0,
+    fontFamily: "Arial, Helvetica, sans-serif",
+    backgroundColor: "#d9d9d9",
+    minHeight: "100vh",
+  },
+  header: {
+    textAlign: "center",
+    padding: "20px 0 10px 0",
+    backgroundColor: "#cfcfcf",
+    borderBottom: "4px solid #6c63ff",
+  },
+  navbar: {
+    textAlign: "center",
+    padding: "10px",
+    backgroundColor: "#cfcfcf",
+  },
+  navButton: {
+    margin: "0 8px",
+    padding: "6px 18px",
+    border: "1px solid #555",
+    backgroundColor: "#e5e5e5",
+    cursor: "pointer",
+  },
+  container: {
+    display: "flex",
+    justifyContent: "center",
+    gap: "40px",
+    padding: "30px",
+    flexWrap: "wrap",
+  },
+  leftPanel: {
+    width: "700px",
+  },
+  historyBtn: {
+    background: "linear-gradient(90deg, #5f5cff, #7d73ff)",
+    color: "white",
+    border: "none",
+    padding: "12px 40px",
+    borderRadius: "20px",
+    fontSize: "16px",
+    cursor: "pointer",
+    marginBottom: "20px",
+  },
+  mapBox: {
+    border: "2px solid #444",
+    backgroundColor: "#e6e6e6",
+  },
+  mapHeader: {
+    display: "flex",
+    justifyContent: "space-between",
+    alignItems: "center",
+    backgroundColor: "#cfcfcf",
+    padding: "8px 12px",
+    borderBottom: "2px solid #444",
+  },
+  smallBtn: {
+    marginLeft: "6px",
+    padding: "4px 10px",
+  },
+  mapContent: {
+    height: "350px",
+    backgroundImage:
+      'url("https://upload.wikimedia.org/wikipedia/commons/a/a4/Blank_US_Map_%28states_only%29.svg")',
+    backgroundSize: "contain",
+    backgroundRepeat: "no-repeat",
+    backgroundPosition: "center",
+  },
+  rightPanel: {
+    width: "350px",
+    backgroundColor: "#cfcfcf",
+    border: "2px solid #444",
+    padding: "20px",
+  },
+  input: {
+    width: "100%",
+    padding: "10px",
+    border: "1px solid #777",
+    backgroundColor: "#eee",
+    textAlign: "center",
+    fontWeight: "bold",
+  },
+  uploadBtn: {
+    marginTop: "20px",
+    width: "100%",
+    padding: "12px",
+    borderRadius: "25px",
+    border: "none",
+    fontSize: "16px",
+    background: "linear-gradient(90deg, #5f5cff, #7d73ff)",
+    color: "white",
+    cursor: "pointer",
+  },
+  footer: {
+    textAlign: "center",
+    padding: "8px",
+    backgroundColor: "#cfcfcf",
+    borderTop: "4px solid #6c63ff",
+    fontSize: "12px",
+  },
+};
 
-        <div class="form-group">
-            <input type="text" placeholder="Disease Type">
-        </div>
-
-        <div class="form-group">
-            <input type="text" placeholder="Location">
-        </div>
-
-        <div class="form-group">
-            <input type="text" placeholder="Affected Animal">
-        </div>
-
-        <div class="form-group">
-            <input type="text" placeholder="Mode of Diagnosis">
-        </div>
-
-        <button class="upload-btn">Upload</button>
-    </div>
-
-</div>
-
-<div class="footer">
-    2026 - JNWSL Corp ™
-</div>
-
-</body>
-</html>
+export default SelfReport;
