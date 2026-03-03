@@ -15,7 +15,7 @@ export default function CreateAccount({ onCancel }) {
   });
 
   const [errors, setErrors] = useState({});
-
+  const [modalType, setModalType] = useState(null); // "privacy" | "terms" | null
   const handleChange = (e) => {
     setFormData({ ...formData, [e.target.name]: e.target.value });
     setErrors({ ...errors, [e.target.name]: "" });
@@ -144,6 +144,28 @@ export default function CreateAccount({ onCancel }) {
             )}
           </div>
 
+           {/* ── Policy notice (Figma design) ── */}
+          <p className="policy-notice">
+            By signing up for a JNWSL Corp tm account
+            <br />
+            you agree to our{" "}
+            <button
+              type="button"
+              className="policy-link"
+              onClick={() => setModalType("privacy")}
+            >
+              Privacy Policy
+            </button>
+            {" & "}
+            <button
+              type="button"
+              className="policy-link"
+              onClick={() => setModalType("terms")}
+            >
+              Terms of Service
+            </button>
+          </p>
+
           <div className="button-group">
             <button type="submit" className="create-btn">
               Create Account
@@ -156,6 +178,92 @@ export default function CreateAccount({ onCancel }) {
       </main>
 
       <SiteFooter />
+    {/* Policy Modal */}
+      {modalType && (
+        <PolicyModal type={modalType} onClose={() => setModalType(null)} />
+      )}
+    </div>
+  );
+}
+
+// ── Policy Modal ──────────────────────────────────────────────
+function PolicyModal({ type, onClose }) {
+  const isPrivacy = type === "privacy";
+
+  const privacyContent = (
+    <>
+      <h3>Privacy Policy</h3>
+      <p><strong>Last updated: March 2026</strong></p>
+
+      <h4>1. Information We Collect</h4>
+      <p>We collect information you provide directly to us when you create an account, including your first name, last name, and email address. We also collect your password in a securely hashed format.</p>
+
+      <h4>2. How We Use Your Information</h4>
+      <p>We use the information we collect to provide and maintain our livestock epidemic tracking services, authenticate your account, and communicate important updates related to the platform.</p>
+
+      <h4>3. Data Security</h4>
+      <p>We implement industry-standard security measures to protect your personal information. Passwords are encrypted and never stored in plain text. Access to user data is strictly limited to authorized personnel.</p>
+
+      <h4>4. Data Retention</h4>
+      <p>We retain your personal information for as long as your account is active. Upon account deletion, your data is permanently removed from our systems within 30 days.</p>
+
+      <h4>5. Third-Party Sharing</h4>
+      <p>We do not sell, trade, or otherwise transfer your personal information to outside parties without your consent, except as required by law or to protect the rights, property, or safety of our users.</p>
+
+      <h4>6. Contact Us</h4>
+      <p>If you have any questions about this Privacy Policy, please contact us at support@jnwslcorp.com.</p>
+    </>
+  );
+
+  const termsContent = (
+    <>
+      <h3>Terms of Service &amp; Usage Guidelines</h3>
+      <p><strong>Last updated: March 2026</strong></p>
+
+      <h4>1. Acceptance of Terms</h4>
+      <p>By creating an account and using the Livestock Epidemic Tracker, you agree to be bound by these Terms of Service. If you do not agree, please do not use this platform.</p>
+
+      <h4>2. Permitted Use</h4>
+      <p>This platform is intended solely for legitimate livestock disease tracking and agricultural research purposes. You agree to use the platform only for lawful purposes and in a manner consistent with all applicable regulations.</p>
+
+      <h4>3. Account Responsibility</h4>
+      <p>You are responsible for maintaining the confidentiality of your account credentials. You agree to notify us immediately of any unauthorized use of your account. You may not share your account with others.</p>
+
+      <h4>4. Prohibited Activities</h4>
+      <ul>
+        <li>Submitting false or misleading epidemic data</li>
+        <li>Attempting to gain unauthorized access to other accounts or system data</li>
+        <li>Using the platform for commercial solicitation or spam</li>
+        <li>Reverse engineering or attempting to extract source code</li>
+        <li>Any activity that disrupts or interferes with platform services</li>
+      </ul>
+
+      <h4>5. Data Accuracy</h4>
+      <p>Users are expected to submit accurate and truthful data. Knowingly submitting false epidemic reports may result in immediate account termination and may have legal consequences.</p>
+
+      <h4>6. Termination</h4>
+      <p>We reserve the right to suspend or terminate your account at our discretion if you violate these terms. You may also delete your account at any time from your profile settings.</p>
+
+      <h4>7. Limitation of Liability</h4>
+      <p>JNWSL Corp tm is not liable for any indirect, incidental, or consequential damages arising from your use of the platform. The platform is provided "as is" without warranties of any kind.</p>
+    </>
+  );
+
+  return (
+    <div className="modal-overlay" onClick={onClose}>
+      <div className="modal-box" onClick={(e) => e.stopPropagation()}>
+        <button className="modal-close-btn" onClick={onClose} aria-label="Close">
+          &times;
+        </button>
+        <div className="modal-content">
+          {isPrivacy ? privacyContent : termsContent}
+        </div>
+        <div className="modal-footer">
+          <button className="modal-ok-btn" onClick={onClose}>
+            Got it
+          </button>
+        </div>
+      </div>
     </div>
   );
 }
