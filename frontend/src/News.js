@@ -1,15 +1,6 @@
 import { useState } from "react";
 import logo from './LivestockEpidemicTracker.jpeg';
-
-const BASE = '/CSE442/2026-Spring/cse-442c/frontend/build#';
-const NAV_LINKS = {
-  'Home':    `${BASE}/home`,
-  'News':    `${BASE}/news`,
-  'Data':    `${BASE}/data`,
-  'FAQ':     `${BASE}/faq`,
-  'Profile': `${BASE}/profile`,
-  'Log Out': `${BASE}/`,
-};
+import Navbar from './homepage/Navbar';
 
 const mockNews = [
   {
@@ -111,9 +102,6 @@ export default function News() {
         .news-header { background-color: #fff; border-bottom: 3px solid #4a4a8a; padding: 16px 24px; }
         .news-header-inner { max-width: 1200px; margin: 0 auto; display: flex; align-items: center; justify-content: center; gap: 12px; }
         .news-header h1 { font-size: 28px; font-weight: 900; letter-spacing: 2px; font-family: 'Arial Black', sans-serif; }
-        .news-navbar { background-color: #d0d0d0; border-bottom: 2px solid #4a4a8a; padding: 8px 24px; display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 8px; }
-        .news-navbar-label { font-weight: bold; font-size: 16px; }
-        .news-navbar-links { display: flex; gap: 8px; flex-wrap: wrap; }
         .nav-btn { padding: 4px 14px; border: 1px solid #888; background-color: #e8e8e8; cursor: pointer; font-size: 14px; border-radius: 2px; }
         .news-content { max-width: 1100px; margin: 24px auto; padding: 0 24px; flex: 1; width: 100%; }
         .filter-bar { display: flex; align-items: center; gap: 12px; margin-bottom: 20px; flex-wrap: wrap; }
@@ -169,20 +157,7 @@ export default function News() {
         </div>
 
         {/* Nav */}
-        <div className="news-navbar">
-          <span className="news-navbar-label">📰 News Updates</span>
-          <div className="news-navbar-links">
-            {Object.entries(NAV_LINKS).map(([label, href]) => (
-              <button
-                key={label}
-                className="nav-btn"
-                onClick={() => { window.location.href = href; }}
-              >
-                {label}
-              </button>
-            ))}
-          </div>
-        </div>
+        <Navbar />
 
         {/* Content */}
         <div className="news-content">
