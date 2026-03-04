@@ -54,6 +54,11 @@ export default function SelfReport() {
       return;
     }
 
+    if (!US_STATES.includes(formData.location)) {
+      setError("Please select a valid U.S. state from the list.");
+      return;
+    }
+
     // Optional: you can keep affectedAnimal in the form but we won't send it
     console.log("Submitting:", { diseaseType: formData.diseaseType, location: formData.location });
 
