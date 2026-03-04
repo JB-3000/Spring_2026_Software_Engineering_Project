@@ -80,6 +80,11 @@ try {
         exit;
     }
 
+    if ($route === 'create_outbreak') {
+        require __DIR__ . '/create_outbreak.php';
+        exit;
+    }
+
     if ($route === 'health') {
         echo json_encode(['ok' => true, 'time' => date('c')], JSON_UNESCAPED_SLASHES);
         exit;
