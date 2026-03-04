@@ -1,227 +1,110 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Livestock Epidemic Tracker</title>
+import React, { useState } from "react";
+import SiteHeader from "../components/SiteHeader";
+import SiteFooter from "../components/SiteFooter";
+import "../pages/LoginPage.css";   // ← we'll reuse & adjust this file
 
-<style>
-body {
-    margin: 0;
-    font-family: Arial, Helvetica, sans-serif;
-    background-color: #d9d9d9;
-}
+export default function SelfReport() {
+  const [formData, setFormData] = useState({
+    diseaseType: "",
+    location: "",
+    affectedAnimal: "",
+    diagnosisMode: "",
+  });
 
-/* Top Header */
-.header {
-    text-align: center;
-    padding: 20px 0 10px 0;
-    background-color: #cfcfcf;
-    border-bottom: 4px solid #6c63ff;
-}
+  const [success, setSuccess] = useState("");
 
-.header h1 {
-    margin: 0;
-    font-size: 36px;
-    letter-spacing: 2px;
-}
+  const handleChange = (e) => {
+    setFormData({
+      ...formData,
+      [e.target.name]: e.target.value,
+    });
+  };
 
-/* Nav Bar */
-.navbar {
-    text-align: center;
-    padding: 10px;
-    background-color: #cfcfcf;
-}
+  const handleSubmit = (e) => {
+    e.preventDefault();
+    console.log("Submitted Report:", formData);
+    setSuccess("Report submitted successfully.");
+    // Optional: setFormData({ ...initial values }) to clear form
+  };
 
-.navbar button {
-    margin: 0 8px;
-    padding: 6px 18px;
-    border: 1px solid #555;
-    background-color: #e5e5e5;
-    cursor: pointer;
-}
+  return (
+    <div className="login-page">
+      <SiteHeader />
 
-.navbar button:hover {
-    background-color: #d0d0d0;
-}
+      <main className="login-main">
+        {/* Removed .login-grid → using simpler centered wrapper */}
+        <div className="form-center-wrapper">
+          <section className="card card--fixed">
+            <div className="card__title">New Disease Entry</div>
 
-/* Main Layout */
-.container {
-    display: flex;
-    justify-content: center;
-    gap: 40px;
-    padding: 30px;
-}
+            <form className="login-form" onSubmit={handleSubmit}>
+              <label className="field">
+                <span className="field__label">Disease Type</span>
+                <input
+                  className="field__input"
+                  type="text"
+                  name="diseaseType"
+                  value={formData.diseaseType}
+                  onChange={handleChange}
+                  placeholder="Disease Type"
+                  required
+                />
+              </label>
 
-/* Left Panel */
-.left-panel {
-    width: 700px;
-}
+              <label className="field">
+                <span className="field__label">Location</span>
+                <input
+                  className="field__input"
+                  type="text"
+                  name="location"
+                  value={formData.location}
+                  onChange={handleChange}
+                  placeholder="Location"
+                  required
+                />
+              </label>
 
-.history-btn {
-    background: linear-gradient(90deg, #5f5cff, #7d73ff);
-    color: white;
-    border: none;
-    padding: 12px 40px;
-    border-radius: 20px;
-    font-size: 16px;
-    cursor: pointer;
-    margin-bottom: 20px;
-}
+              <label className="field">
+                <span className="field__label">Affected Animal</span>
+                <input
+                  className="field__input"
+                  type="text"
+                  name="affectedAnimal"
+                  value={formData.affectedAnimal}
+                  onChange={handleChange}
+                  placeholder="Affected Animal"
+                  required
+                />
+              </label>
 
-.history-btn:hover {
-    opacity: 0.9;
-}
+              <label className="field">
+                <span className="field__label">Mode of Diagnosis</span>
+                <input
+                  className="field__input"
+                  type="text"
+                  name="diagnosisMode"
+                  value={formData.diagnosisMode}
+                  onChange={handleChange}
+                  placeholder="Mode of Diagnosis"
+                  required
+                />
+              </label>
 
-/* Map Box */
-.map-box {
-    border: 2px solid #444;
-    background-color: #e6e6e6;
-}
-
-.map-header {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    background-color: #cfcfcf;
-    padding: 8px 12px;
-    border-bottom: 2px solid #444;
-}
-
-.map-header h3 {
-    margin: 0;
-}
-
-.map-header button {
-    margin-left: 8px;
-    padding: 4px 10px;
-    font-size: 12px;
-}
-
-.map-content {
-    height: 350px;
-    background: url("https://upload.wikimedia.org/wikipedia/commons/a/a4/Blank_US_Map_%28states_only%29.svg");
-    background-size: contain;
-    background-repeat: no-repeat;
-    background-position: center;
-}
-
-/* Right Panel */
-.right-panel {
-    width: 350px;
-    background-color: #cfcfcf;
-    border: 2px solid #444;
-    padding: 20px;
-}
-
-.right-panel h2 {
-    text-align: center;
-    margin-top: 0;
-    font-size: 28px;
-}
-
-.form-group {
-    margin-bottom: 15px;
-}
-
-.form-group input {
-    width: 100%;
-    padding: 10px;
-    border: 1px solid #777;
-    background-color: #eee;
-    text-align: center;
-    font-weight: bold;
-}
-
-.upload-btn {
-    margin-top: 20px;
-    width: 100%;
-    padding: 12px;
-    border-radius: 25px;
-    border: none;
-    font-size: 16px;
-    background: linear-gradient(90deg, #5f5cff, #7d73ff);
-    color: white;
-    cursor: pointer;
-}
-
-.upload-btn:hover {
-    opacity: 0.9;
-}
-
-/* Footer */
-.footer {
-    text-align: center;
-    padding: 8px;
-    background-color: #cfcfcf;
-    border-top: 4px solid #6c63ff;
-    font-size: 12px;
-}
-</style>
-</head>
-
-<body>
-
-<div class="header">
-    <h1>LIVESTOCK EPIDEMIC TRACKER</h1>
-</div>
-
-<div class="navbar">
-    <button>Home</button>
-    <button>News</button>
-    <button>FAQ</button>
-    <button>Log Out</button>
-    <button>Data</button>
-    <button>Profile</button>
-</div>
-
-<div class="container">
-
-    <!-- LEFT SIDE -->
-    <div class="left-panel">
-        <button class="history-btn">View Report History</button>
-
-        <div class="map-box">
-            <div class="map-header">
-                <h3>Outbreak Locations</h3>
-                <div>
-                    <button>Map View</button>
-                    <button>List View</button>
-                    <button>Export</button>
+              {success && (
+                <div style={{ color: "green", fontWeight: 700, textAlign: "center" }}>
+                  {success}
                 </div>
-            </div>
-            <div class="map-content"></div>
+              )}
+
+              <button className="login-btn" type="submit">
+                Upload Report
+              </button>
+            </form>
+          </section>
         </div>
+      </main>
+
+      <SiteFooter />
     </div>
-
-    <!-- RIGHT SIDE -->
-    <div class="right-panel">
-        <h2>New Disease Entry</h2>
-
-        <div class="form-group">
-            <input type="text" placeholder="Disease Type">
-        </div>
-
-        <div class="form-group">
-            <input type="text" placeholder="Location">
-        </div>
-
-        <div class="form-group">
-            <input type="text" placeholder="Affected Animal">
-        </div>
-
-        <div class="form-group">
-            <input type="text" placeholder="Mode of Diagnosis">
-        </div>
-
-        <button class="upload-btn">Upload</button>
-    </div>
-
-</div>
-
-<div class="footer">
-    2026 - JNWSL Corp ™
-</div>
-
-</body>
-</html>
+  );
+}
