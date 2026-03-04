@@ -79,10 +79,69 @@ try {
         require __DIR__ . '/reset_password.php';
         exit;
     }
-
+    // Recent Outbreaks for homepage widget WILL
     if ($route === 'create_outbreak') {
-        require __DIR__ . '/create_outbreak.php';
-        exit;
+        // 1. Set JSON Header
+        header('Content-Type: application/json; charset=utf-8');
+
+        // 2. Only allow POST
+        if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
+            http_response_code(405);
+            echo json_encode(['ok' => false, 'error' => 'POST required']);
+            exit;
+        }
+
+        // 3. Read raw input from React
+        $raw = file_get_contents('php://input');
+        $input = json_decode($raw, true);
+
+        // 4. Validate JSON
+        if (!is_array($input)) {
+            http_response_code(400);
+            echo json_encode(['ok' => false, 'error' => 'Invalid JSON body']);
+            exit;
+        }
+
+        // 5. Extract and Trim
+        $diseaseType    = trim((string)($input['diseaseType'] ?? ''));
+        $location       = trim((string)($input['location'] ?? ''));
+        $affectedAnimal = trim((string)($input['affectedAnimal'] ?? ''));
+
+        // 6. Validate required fields
+        if ($diseaseType === '' || $location === '') {
+            http_response_code(400);
+            echo json_encode(['ok' => false, 'error' => 'Disease and Location required']);
+            exit;
+        }
+
+        try {
+            $pdo = db();
+
+            // 7. Prepare and Execute (Including report_date for your Summary stats)
+            // Note: Check if your table has an 'animal_type' column. If not, omit it from the SQL below.
+            $stmt = $pdo->prepare("
+                INSERT INTO outbreaks 
+                (disease, state, cases, animal_type, report_date, created_at)
+                VALUES (:disease, :state, :cases, :animal, NOW(), NOW())
+            ");
+
+            $stmt->execute([
+                ':disease' => $diseaseType,
+                ':state'   => $location,
+                ':cases'   => 1,
+                ':animal'  => $affectedAnimal
+            ]);
+
+            echo json_encode([
+                'ok' => true,
+                'message' => 'Outbreak created successfully',
+                'insert_id' => $pdo->lastInsertId()
+            ]);
+        } catch (Throwable $e) {
+            http_response_code(500);
+            echo json_encode(['ok' => false, 'error' => $e->getMessage()]);
+        }
+        exit; // Stop execution after sending JSON
     }
 
     if ($route === 'health') {

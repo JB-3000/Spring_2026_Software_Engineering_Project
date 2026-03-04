@@ -1,25 +1,33 @@
 <?php
 declare(strict_types=1);
 
+// Adjust this path if necessary to point to your actual db.php
 require __DIR__ . '/../../src/db.php';
 
 header('Content-Type: application/json; charset=utf-8');
 
+// Only allow POST
 if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
     http_response_code(405);
     echo json_encode(['ok' => false, 'error' => 'POST required']);
     exit;
 }
 
-$input = json_decode(file_get_contents('php://input'), true);
+$raw = file_get_contents('php://input');
+$input = json_decode($raw, true);
 
-$diseaseType = trim((string)($input['diseaseType'] ?? ''));
-$location    = trim((string)($input['location'] ?? ''));
+if (!is_array($input)) {
+    http_response_code(400);
+    echo json_encode(['ok' => false, 'error' => 'Invalid JSON body']);
+    exit;
+}
 
-// Optional fields from React (not stored in DB)
+// Map React names to PHP variables
+$diseaseType    = trim((string)($input['diseaseType'] ?? ''));
+$location       = trim((string)($input['location'] ?? ''));
 $affectedAnimal = trim((string)($input['affectedAnimal'] ?? ''));
-$diagnosisMode  = trim((string)($input['diagnosisMode'] ?? ''));
 
+// Validation
 if ($diseaseType === '' || $location === '') {
     http_response_code(400);
     echo json_encode(['ok' => false, 'error' => 'Disease and Location required']);
@@ -29,24 +37,26 @@ if ($diseaseType === '' || $location === '') {
 try {
     $pdo = db();
 
+    // Ensure your table has these columns: disease, state, cases, report_date, created_at
+    // Optional: add a column for animal_type if you want to save that too
     $stmt = $pdo->prepare("
         INSERT INTO outbreaks 
         (disease, state, cases, report_date, created_at)
-        VALUES (?, ?, ?, NOW(), NOW())
+        VALUES (:disease, :state, :cases, NOW(), NOW())
     ");
 
     $stmt->execute([
-        $diseaseType,
-        $location,
-        1  // default case count
+        ':disease' => $diseaseType,
+        ':state'   => $location,
+        ':cases'   => 1
     ]);
 
     echo json_encode([
         'ok' => true,
-        'message' => 'Outbreak created successfully'
+        'message' => 'Outbreak created successfully',
+        'insert_id' => $pdo->lastInsertId()
     ]);
-}
-catch (Throwable $e) {
+} catch (Throwable $e) {
     http_response_code(500);
-    echo json_encode(['ok' => false, 'error' => 'Database error']);
+    echo json_encode(['ok' => false, 'error' => $e->getMessage()]);
 }
