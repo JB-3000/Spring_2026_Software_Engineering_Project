@@ -49,7 +49,7 @@ export default function SelfReport() {
     const trimmedState = formData.location.trim();
 
     if (!US_STATES.includes(trimmedState)) {
-      setError("Please select a valid U.S. state from the list.");
+      setError("Please select a valid U.S. state, full state name is required.");
       return;
     }
 
