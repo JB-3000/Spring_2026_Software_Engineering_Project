@@ -1,8 +1,7 @@
 import React, { useState } from "react";
 import SiteHeader from "../components/SiteHeader";
 import SiteFooter from "../components/SiteFooter";
-import Navbar from '../homepage/Navbar';
-
+import Navbar from "../homepage/Navbar";
 import "../pages/LoginPage.css";
 
 const US_STATES = [
@@ -25,6 +24,8 @@ const DISEASE_OPTIONS = [
 ];
 
 export default function SelfReport() {
+  console.log("SelfReport component is being rendered / mounted!");
+
   const [formData, setFormData] = useState({
     diseaseType: "",
     location: "",
@@ -41,20 +42,66 @@ export default function SelfReport() {
     });
   };
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
+    console.log("handleSubmit was triggered!");
+    alert("JavaScript submit handler is running!");
+
     setError("");
     setSuccess("");
 
+    console.log("Form data at submit:", formData);
+    /*
     const trimmedState = formData.location.trim();
 
     if (!US_STATES.includes(trimmedState)) {
-      setError("Please select a valid U.S. state, full state name is required.");
+      setError("Please select a valid U.S. state (full name required).");
+      console.log("State validation failed:", trimmedState);
+      alert("Invalid state – check the console for details.");
+      return;
+    }
+    */
+    if (!formData.diseaseType || !formData.affectedAnimal) {
+      setError("All fields are required.");
+      console.log("Missing required fields");
       return;
     }
 
-    console.log("Submitted Report:", formData);
-    setSuccess("Report submitted successfully.");
+    console.log("About to send fetch request...");
+
+    try {
+      const response = await fetch("/php/index.php?r=create_outbreak", { // Added the ?r= parameter
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify(formData),
+        }
+      );
+
+      console.log("Fetch response status:", response.status);
+
+      const data = await response.json();
+      console.log("Response data:", data);
+
+      if (!response.ok || !data.ok) {
+        setError(data.error || "Failed to submit report.");
+        return;
+      }
+
+      setSuccess("Report submitted successfully!");
+
+      setFormData({
+        diseaseType: "",
+        location: "",
+        affectedAnimal: "",
+      });
+
+    } catch (err) {
+      console.error("Fetch error:", err);
+      setError("Server connection failed. Check console for details.");
+      alert("Fetch failed – see browser console (F12)");
+    }
   };
 
   return (
