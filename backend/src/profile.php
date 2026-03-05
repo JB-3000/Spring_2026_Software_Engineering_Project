@@ -10,7 +10,7 @@ function get_profile(): void {
 
     $pdo  = db();
     $stmt = $pdo->prepare(
-        "SELECT id, username,
+        "SELECT id,
                 first_name AS firstName, last_name AS lastName,
                 state, city, address, zip, email, phone,
                 profile_image AS profileImg
@@ -22,6 +22,9 @@ function get_profile(): void {
     if (!$user) {
         json_response(['ok' => false, 'error' => 'User not found'], 404);
     }
+
+    // Keep response shape stable for frontend even when users.username is not present.
+    $user['username'] = trim(((string)($user['firstName'] ?? '')) . ' ' . ((string)($user['lastName'] ?? '')));
 
     json_response(array_merge(['ok' => true], $user), 200);
 }
