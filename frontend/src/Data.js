@@ -898,14 +898,15 @@ const Data = () => {
   const [exportToast, setExportToast] = useState(false);
   const showExportToast = () => { setExportToast(true); setTimeout(() => setExportToast(false), 3000); };
 
-  const BASE = '/CSE442/2026-Spring/cse-442c/frontend/build#';
-  const NAV_LINKS = {
-    'Home':    `${BASE}/Home`,
-    'News':    `${BASE}/News`,
-    'FAQ':     `${BASE}/FAQ`,
-    'Log Out': `${BASE}/`,      // back to login page
-    'Profile': `${BASE}/Profile`,
-  };
+  const BASE = '/CSE442/2026-Spring/cse-442c/#';
+
+const NAV_LINKS = {
+  'Home':    `${BASE}/home`,
+  'News':    `${BASE}/news`,
+  'FAQ':     `${BASE}/faq`,
+  'Log Out': `${BASE}/`,
+  'Profile': `${BASE}/profile`,
+};
 
   const summaryParams = useMemo(() => activeFilter !== 'All Diseases' ? { disease: activeFilter } : {}, [activeFilter]);
   const byStateParams = useMemo(() => activeFilter !== 'All Diseases' ? { disease: activeFilter } : {}, [activeFilter]);
