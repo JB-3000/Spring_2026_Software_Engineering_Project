@@ -17,7 +17,7 @@ class User {
                 zip,
                 email,
                 phone,
-                profile_img AS profileImg
+                profile_image AS profileImg
             FROM users
             WHERE id = :id
             LIMIT 1
