@@ -119,6 +119,17 @@ try {
         update_profile($body);
     }
 
+    // Delete account of the logged-in user
+    // POST ?r=deleteAccount
+    if ($route === 'deleteAccount') {
+        if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
+            http_response_code(405);
+            echo json_encode(['ok' => false, 'error' => 'POST required'], JSON_UNESCAPED_SLASHES);
+            exit;
+        }
+        delete_account();
+    }
+
     // Upload profile image for the logged-in user
     // POST ?r=uploadImage (multipart/form-data)
     if ($route === 'uploadImage') {

@@ -8,6 +8,7 @@ import "./ViewProfile.css";
 export default function ViewProfile() {
   const [profileImg, setProfileImg] = useState(null);
   const [isEditing, setIsEditing] = useState(false);
+  const [showCancelModal, setShowCancelModal] = useState(false);
   const [userData, setUserData] = useState({
     username: "",
     firstName: "",
@@ -20,6 +21,7 @@ export default function ViewProfile() {
     phone: "",
   });
   const [editData, setEditData] = useState({ ...userData });
+  const navigate = useNavigate();
 
   useEffect(() => {
     const fetchUserData = async () => {
@@ -104,6 +106,25 @@ export default function ViewProfile() {
     }
   };
 
+  // Cancel Subscription: delete account → logout → redirect to login
+  const handleConfirmCancel = async () => {
+    try {
+      const res = await fetch(
+        "https://aptitude.cse.buffalo.edu/CSE442/2026-Spring/cse-442c/backend/public/api/index.php?r=deleteAccount",
+        { method: "POST", credentials: "include" }
+      );
+      const data = await res.json();
+      if (data.ok) {
+        navigate("/");
+      } else {
+        alert("Failed to cancel subscription: " + (data.error || "Unknown error"));
+      }
+    } catch (err) {
+      console.error("Failed to delete account:", err);
+      alert("Server error. Please try again later.");
+    }
+  };
+
   const fields = [
     { label: "First Name",   key: "firstName", type: "text"  },
     { label: "Last Name",    key: "lastName",  type: "text"  },
@@ -165,9 +186,16 @@ export default function ViewProfile() {
                 <button className="vp-cancel-btn" onClick={handleCancelClick}>Cancel</button>
               </div>
             )}
+              {/* Cancel Subscription button */}
+            <button
+              className="vp-cancel-subscription-btn"
+              onClick={() => setShowCancelModal(true)}
+            >
+              Cancel Subscription
+            </button>
           </div>
         </div>
-
+        
         <div className="vp-info-card">
           <p className="vp-info-card-title">Account Information</p>
           <div className="vp-form-grid">
@@ -190,6 +218,30 @@ export default function ViewProfile() {
       <footer className="vp-footer">
         <p>2026 — JNWSL Corp tm.</p>
       </footer>
+    
+    
+    {/* Cancel Subscription */}
+      {showCancelModal && (
+        <div className="vp-modal-overlay" onClick={() => setShowCancelModal(false)}>
+          <div className="vp-modal-box" onClick={(e) => e.stopPropagation()}>
+            <div className="vp-modal-icon">⚠️</div>
+            <h2 className="vp-modal-title">Cancel Subscription?</h2>
+            <p className="vp-modal-desc">
+              Are you sure you want to cancel your subscription?
+              <br /><br />
+              This will <strong>permanently delete your account</strong> and all associated data. This action cannot be undone.
+            </p>
+            <div className="vp-modal-actions">
+              <button className="vp-modal-keep-btn" onClick={() => setShowCancelModal(false)}>
+                Keep My Account
+              </button>
+              <button className="vp-modal-confirm-btn" onClick={handleConfirmCancel}>
+                Cancel Subscription
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
