@@ -5,6 +5,10 @@ declare(strict_types=1);
 error_reporting(E_ALL);
 ini_set('display_errors', '0'); // don't display errors in response
 
+if (session_status() === PHP_SESSION_NONE) {
+    session_start();
+}
+
 // CORS headers for React frontend
 header('Access-Control-Allow-Origin: *');
 header('Access-Control-Allow-Methods: POST, OPTIONS');
@@ -78,12 +82,14 @@ try {
     try {
         $stmt = $pdo->prepare('INSERT INTO users (first_name, last_name, email, password) VALUES (?, ?, ?, ?)');
         $stmt->execute([$firstName, $lastName, $email, $hashedPassword]);
+        $newUserId = (int)$pdo->lastInsertId();
+        $_SESSION['user_id'] = $newUserId;
 
         http_response_code(201);
         echo json_encode([
             'success' => true,
             'message' => 'Account created successfully',
-            'user_id' => (int)$pdo->lastInsertId()
+            'user_id' => $newUserId
         ]);
 
     } catch (PDOException $e) {
