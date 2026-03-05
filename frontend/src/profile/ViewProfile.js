@@ -1,9 +1,9 @@
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import DOMPurify from "dompurify";
+import logo from '../LivestockEpidemicTracker.jpeg';
+import Navbar from '../homepage/Navbar';
 import "./ViewProfile.css";
-
-const navLinks = ["Home", "News", "Data", "FAQ", "Profile", "Log out"];
 
 export default function ViewProfile() {
   const [profileImg, setProfileImg] = useState(null);
@@ -20,15 +20,14 @@ export default function ViewProfile() {
     phone: "",
   });
   const [editData, setEditData] = useState({ ...userData });
-  const navigate = useNavigate();
 
   useEffect(() => {
     const fetchUserData = async () => {
       try {
-        const res = await fetch("https://aptitude.cse.buffalo.edu/CSE442/2026-Spring/cse-442c/api/index.php?r=getProfile",{
-        method: "GET",
-        credentials: "include",
-        });
+        const res = await fetch(
+          "https://aptitude.cse.buffalo.edu/CSE442/2026-Spring/cse-442c/api/index.php?r=getProfile",
+          { method: "GET", credentials: "include" }
+        );
         const data = await res.json();
         if (data.ok) {
           const sanitized = {
@@ -74,22 +73,25 @@ export default function ViewProfile() {
 
   const handleSave = async () => {
     try {
-      const res = await fetch("https://aptitude.cse.buffalo.edu/CSE442/2026-Spring/cse-442c/api/index.php?r=editUserProfile", {
-        method: "POST",
-        credentials: "include",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          username:   editData.username,
-          first_name: editData.firstName,
-          last_name:  editData.lastName,
-          state:      editData.state,
-          city:       editData.city,
-          address:    editData.address,
-          zip:        editData.zip,
-          email:      editData.email,
-          phone:      editData.phone,
-        }),
-      });
+      const res = await fetch(
+        "https://aptitude.cse.buffalo.edu/CSE442/2026-Spring/cse-442c/api/index.php?r=editUserProfile",
+        {
+          method: "POST",
+          credentials: "include",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            username:   editData.username,
+            first_name: editData.firstName,
+            last_name:  editData.lastName,
+            state:      editData.state,
+            city:       editData.city,
+            address:    editData.address,
+            zip:        editData.zip,
+            email:      editData.email,
+            phone:      editData.phone,
+          }),
+        }
+      );
       const data = await res.json();
       if (data.ok) {
         setUserData({ ...editData });
@@ -102,61 +104,33 @@ export default function ViewProfile() {
     }
   };
 
-  const getPath = (link) => {
-    const map = {
-      "Home": "/home",
-      "News": "/news",
-      "FAQ": "/faq",
-      "Data": "/data",
-      "Log Out": "/",
-      "Profile": "/profile",
-    };
-    return map[link] || "/";
-  };
-
   const fields = [
-    { label: "First Name", key: "firstName", type: "text" },
-    { label: "Last Name",  key: "lastName",  type: "text" },
-    { label: "State",      key: "state",     type: "text" },
-    { label: "City",       key: "city",      type: "text" },
-    { label: "Address",    key: "address",   type: "text" },
-    { label: "ZIP",        key: "zip",       type: "text" },
-    { label: "E-mail",     key: "email",     type: "email" },
-    { label: "Phone Number", key: "phone",   type: "tel" },
+    { label: "First Name",   key: "firstName", type: "text"  },
+    { label: "Last Name",    key: "lastName",  type: "text"  },
+    { label: "State",        key: "state",     type: "text"  },
+    { label: "City",         key: "city",      type: "text"  },
+    { label: "Address",      key: "address",   type: "text"  },
+    { label: "ZIP",          key: "zip",       type: "text"  },
+    { label: "E-mail",       key: "email",     type: "email" },
+    { label: "Phone Number", key: "phone",     type: "tel"   },
   ];
 
   return (
     <div className="vp-page">
+
       <header className="vp-header">
-        <div className="vp-logo-box">
-          <svg viewBox="0 0 60 60" className="vp-logo-svg" xmlns="http://www.w3.org/2000/svg">
-            <rect width="60" height="60" fill="#ccc" rx="4" />
-            <path d="M30 10 L50 50 H10 Z" fill="#999" />
-          </svg>
+        <div className="vp-header-inner">
+          <img src={logo} alt="logo" className="vp-logo-img" />
+          <h1 className="vp-title">LIVESTOCK EPIDEMIC TRACKER</h1>
         </div>
-        <h1 className="vp-title">LIVESTOCK EPIDEMIC TRACKER</h1>
       </header>
 
-      <nav className="vp-nav">
-        {navLinks.map((link) => (
-          <button key={link} onClick={() => navigate(getPath(link))} className="vp-nav-link">
-            {link}
-          </button>
-        ))}
-      </nav>
+      <Navbar />
 
       <div className="vp-content-box">
-        <div className="vp-top-row">
-          {!isEditing ? (
-            <button className="vp-edit-btn" onClick={handleEditClick}>Edit</button>
-          ) : (
-            <div className="vp-edit-actions">
-              <button className="vp-save-btn" onClick={handleSave}>Save</button>
-              <button className="vp-cancel-btn" onClick={handleCancelClick}>Cancel</button>
-            </div>
-          )}
 
-          <div className="vp-profile-right">
+        <div className="vp-top-card">
+          <div className="vp-top-left">
             <label className="vp-avatar-wrap" htmlFor="avatar-upload">
               <div className="vp-avatar">
                 {profileImg ? (
@@ -164,7 +138,7 @@ export default function ViewProfile() {
                 ) : (
                   <div className="vp-avatar-default" />
                 )}
-                <div className="vp-avatar-overlay">Click to Edit</div>
+                <div className="vp-avatar-overlay">Edit Photo</div>
               </div>
               <input
                 id="avatar-upload"
@@ -174,28 +148,48 @@ export default function ViewProfile() {
                 onChange={handleImgChange}
               />
             </label>
-            <p className="vp-username">{userData.username}</p>
+
+            <div className="vp-user-info">
+              <p className="vp-username">{userData.username || "username"}</p>
+              <p className="vp-user-subtitle">{userData.firstName} {userData.lastName}</p>
+            </div>
+          </div>
+
+          <div className="vp-top-actions">
+            {!isEditing ? (
+              <button className="vp-edit-btn" onClick={handleEditClick}>
+                Edit Profile
+              </button>
+            ) : (
+              <div className="vp-edit-actions">
+                <button className="vp-save-btn" onClick={handleSave}>Save</button>
+                <button className="vp-cancel-btn" onClick={handleCancelClick}>Cancel</button>
+              </div>
+            )}
           </div>
         </div>
 
-        <div className="vp-form-grid">
-          {fields.map((field) => (
-            <div className="vp-field" key={field.label}>
-              <label className="vp-label">{field.label}</label>
-              <input
-                className="vp-input"
-                type={field.type}
-                value={isEditing ? editData[field.key] : userData[field.key]}
-                readOnly={!isEditing}
-                onChange={(e) => handleChange(field.key, e.target.value)}
-              />
-            </div>
-          ))}
+        <div className="vp-info-card">
+          <p className="vp-info-card-title">Account Information</p>
+          <div className="vp-form-grid">
+            {fields.map((field) => (
+              <div className="vp-field" key={field.key}>
+                <label className="vp-label">{field.label}</label>
+                <input
+                  className="vp-input"
+                  type={field.type}
+                  value={isEditing ? editData[field.key] : userData[field.key]}
+                  readOnly={!isEditing}
+                  onChange={(e) => handleChange(field.key, e.target.value)}
+                />
+              </div>
+            ))}
+          </div>
         </div>
       </div>
 
       <footer className="vp-footer">
-        <p>2026 - JNWSL Corp tm.</p>
+        <p>2026 — JNWSL Corp tm.</p>
       </footer>
     </div>
   );
