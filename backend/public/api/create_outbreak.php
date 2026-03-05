@@ -4,9 +4,19 @@ declare(strict_types=1);
 // Adjust this path if necessary to point to your actual db.php
 require __DIR__ . '/../../src/db.php';
 
+// === CORS headers (for development - you can restrict later) ===
+header("Access-Control-Allow-Origin: *");
+header("Access-Control-Allow-Methods: POST, OPTIONS");
+header("Access-Control-Allow-Headers: Content-Type");
 header('Content-Type: application/json; charset=utf-8');
 
-// Only allow POST
+// Handle preflight OPTIONS request
+if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
+    http_response_code(200);
+    exit;
+}
+
+// Only allow POST (after OPTIONS)
 if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
     http_response_code(405);
     echo json_encode(['ok' => false, 'error' => 'POST required']);
@@ -23,9 +33,8 @@ if (!is_array($input)) {
 }
 
 // Map React names to PHP variables
-$diseaseType    = trim((string)($input['diseaseType'] ?? ''));
-$location       = trim((string)($input['location'] ?? ''));
-$affectedAnimal = trim((string)($input['affectedAnimal'] ?? ''));
+$diseaseType = trim((string)($input['diseaseType'] ?? ''));
+$location    = trim((string)($input['location'] ?? ''));
 
 // Validation
 if ($diseaseType === '' || $location === '') {
@@ -37,8 +46,7 @@ if ($diseaseType === '' || $location === '') {
 try {
     $pdo = db();
 
-    // Ensure your table has these columns: disease, state, cases, report_date, created_at
-    // Optional: add a column for animal_type if you want to save that too
+    // Table columns: disease, state, cases, report_date, created_at
     $stmt = $pdo->prepare("
         INSERT INTO outbreaks 
         (disease, state, cases, report_date, created_at)
