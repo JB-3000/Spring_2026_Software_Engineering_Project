@@ -54,9 +54,27 @@ export default function ViewProfile() {
     fetchUserData();
   }, []);
 
-  const handleImgChange = (e) => {
+  const handleImgChange = async (e) => {
     const file = e.target.files[0];
-    if (file) setProfileImg(URL.createObjectURL(file));
+    if (!file) return;
+    setProfileImg(URL.createObjectURL(file));
+
+    const formData = new FormData();
+    formData.append("image", file);
+    try {
+      const res = await fetch(
+        "https://aptitude.cse.buffalo.edu/CSE442/2026-Spring/cse-442c/backend/public/api/index.php?r=uploadImage",
+        { method: "POST", credentials: "include", body: formData }
+      );
+      const data = await res.json();
+      if (data.ok) {
+        setProfileImg(data.image_url);
+      } else {
+        console.error("Image upload failed:", data.error);
+      }
+    } catch (err) {
+      console.error("Image upload error:", err);
+    }
   };
 
   const handleEditClick = () => {
