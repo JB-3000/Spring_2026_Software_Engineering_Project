@@ -45,41 +45,40 @@ export default function SelfReport() {
   const handleSubmit = async (e) => {
     e.preventDefault();
     console.log("handleSubmit was triggered!");
-    alert("JavaScript submit handler is running!");
 
     setError("");
     setSuccess("");
 
-    console.log("Form data at submit:", formData);
-    /*
-    const trimmedState = formData.location.trim();
-
-    if (!US_STATES.includes(trimmedState)) {
-      setError("Please select a valid U.S. state (full name required).");
-      console.log("State validation failed:", trimmedState);
-      alert("Invalid state – check the console for details.");
-      return;
-    }
-    */
-    if (!formData.diseaseType || !formData.affectedAnimal) {
-      setError("All fields are required.");
-      console.log("Missing required fields");
+    if (!formData.diseaseType || !formData.location) {
+      setError("Disease and Location are required.");
       return;
     }
 
-    console.log("About to send fetch request...");
+    if (!US_STATES.includes(formData.location)) {
+      setError("Please select a valid U.S. state from the list.");
+      return;
+    }
+
+    // Optional: you can keep affectedAnimal in the form but we won't send it
+    console.log("Submitting:", { diseaseType: formData.diseaseType, location: formData.location });
 
     try {
-      const response = await fetch("/php/index.php?r=create_outbreak", { // Added the ?r= parameter
+      const response = await fetch(
+        "https://aptitude.cse.buffalo.edu/CSE442/2026-Spring/cse-442c/backend/public/api/create_outbreak.php",
+        {
           method: "POST",
           headers: {
             "Content-Type": "application/json",
           },
-          body: JSON.stringify(formData),
+          body: JSON.stringify({
+            diseaseType: formData.diseaseType,
+            location: formData.location,
+            // affectedAnimal is NOT sent to backend
+          }),
         }
       );
 
-      console.log("Fetch response status:", response.status);
+      console.log("Response status:", response.status);
 
       const data = await response.json();
       console.log("Response data:", data);
@@ -100,7 +99,6 @@ export default function SelfReport() {
     } catch (err) {
       console.error("Fetch error:", err);
       setError("Server connection failed. Check console for details.");
-      alert("Fetch failed – see browser console (F12)");
     }
   };
 
@@ -155,17 +153,16 @@ export default function SelfReport() {
                 </datalist>
               </label>
 
-              {/* Affected Animal */}
+              {/* Affected Animal – kept in form but not sent to backend */}
               <label className="field">
-                <span className="field__label">Affected Animal</span>
+                <span className="field__label">Affected Animal (optional note)</span>
                 <input
                   className="field__input"
                   type="text"
                   name="affectedAnimal"
                   value={formData.affectedAnimal}
                   onChange={handleChange}
-                  placeholder="Affected Animal"
-                  required
+                  placeholder="e.g. cattle, birds, pigs..."
                 />
               </label>
 
