@@ -2,6 +2,7 @@
 declare(strict_types=1);
 
 require __DIR__ . '/../../src/db.php';
+require __DIR__ . '/../../src/response.php';
 require __DIR__ . '/../../src/auth.php';    // Provides login() and session_start()
 require __DIR__ . '/../../src/profile.php'; // Added for ViewProfile
 
