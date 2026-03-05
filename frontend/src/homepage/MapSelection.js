@@ -1,6 +1,4 @@
-import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
-import { MapContainer, TileLayer, GeoJSON } from 'react-leaflet';
-import 'leaflet/dist/leaflet.css';
+import React, { useState, useEffect, useMemo } from 'react';
 import axios from 'axios';
 
 const IS_LOCAL = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
@@ -8,8 +6,6 @@ const IS_LOCAL = window.location.hostname === 'localhost' || window.location.hos
 const HOMEPAGE_API = IS_LOCAL
   ? 'http://localhost/s26-jnswl-corp/backend/public/api/homepage.php'
   : 'https://aptitude.cse.buffalo.edu/CSE442/2026-Spring/cse-442c/backend/public/api/homepage.php';
-
-const GEOJSON_URL = 'https://raw.githubusercontent.com/PublicaMundi/MappingAPI/master/data/geojson/us-states.json';
 
 const BLUE = '#3d5af1';
 
@@ -20,8 +16,48 @@ const MOCK_BY_STATE = [
   { state: 'Alaska', outbreaks: 2 }, { state: 'Hawaii', outbreaks: 1 },
 ];
 
+const STATE_GRID = {
+  'Maine':           [10, 0],
+  'Washington':      [1,  0], 'Montana':        [2,  0], 'North Dakota':   [3,  0],
+  'Minnesota':       [4,  0], 'Wisconsin':      [5,  0], 'Michigan':       [6,  0],
+  'New Hampshire':   [10, 1], 'Vermont':        [9,  1],
+  'Oregon':          [1,  1], 'Idaho':          [2,  1], 'South Dakota':   [3,  1],
+  'Iowa':            [4,  1], 'Illinois':       [5,  1], 'Indiana':        [6,  1],
+  'Ohio':            [7,  1], 'Pennsylvania':   [8,  1], 'New York':       [9,  1],
+  'Rhode Island':    [11, 2], 'Massachusetts':  [10, 2], 'Connecticut':    [9,  2],
+  'California':      [1,  2], 'Nevada':         [2,  2], 'Wyoming':        [3,  2],
+  'Nebraska':        [4,  2], 'Missouri':       [5,  2], 'Kentucky':       [6,  2],
+  'West Virginia':   [7,  2], 'Virginia':       [8,  2], 'Maryland':       [9,  3],
+  'New Jersey':      [10, 3],
+  'Utah':            [2,  3], 'Colorado':       [3,  3], 'Kansas':         [4,  3],
+  'Arkansas':        [5,  3], 'Tennessee':      [6,  3], 'North Carolina': [7,  3],
+  'South Carolina':  [8,  3], 'Delaware':       [9,  4],
+  'Arizona':         [2,  4], 'New Mexico':     [3,  4], 'Oklahoma':       [4,  4],
+  'Louisiana':       [5,  4], 'Mississippi':    [6,  4], 'Georgia':        [7,  4],
+  'Florida':         [7,  5],
+  'Texas':           [4,  5],
+  'Alabama':         [6,  5],
+  'Alaska':          [1,  6], 'Hawaii':         [2,  6],
+};
+
+const STATE_ABBR = {
+  'Alabama': 'AL', 'Alaska': 'AK', 'Arizona': 'AZ', 'Arkansas': 'AR',
+  'California': 'CA', 'Colorado': 'CO', 'Connecticut': 'CT', 'Delaware': 'DE',
+  'Florida': 'FL', 'Georgia': 'GA', 'Hawaii': 'HI', 'Idaho': 'ID',
+  'Illinois': 'IL', 'Indiana': 'IN', 'Iowa': 'IA', 'Kansas': 'KS',
+  'Kentucky': 'KY', 'Louisiana': 'LA', 'Maine': 'ME', 'Maryland': 'MD',
+  'Massachusetts': 'MA', 'Michigan': 'MI', 'Minnesota': 'MN', 'Mississippi': 'MS',
+  'Missouri': 'MO', 'Montana': 'MT', 'Nebraska': 'NE', 'Nevada': 'NV',
+  'New Hampshire': 'NH', 'New Jersey': 'NJ', 'New Mexico': 'NM', 'New York': 'NY',
+  'North Carolina': 'NC', 'North Dakota': 'ND', 'Ohio': 'OH', 'Oklahoma': 'OK',
+  'Oregon': 'OR', 'Pennsylvania': 'PA', 'Rhode Island': 'RI', 'South Carolina': 'SC',
+  'South Dakota': 'SD', 'Tennessee': 'TN', 'Texas': 'TX', 'Utah': 'UT',
+  'Vermont': 'VT', 'Virginia': 'VA', 'Washington': 'WA', 'West Virginia': 'WV',
+  'Wisconsin': 'WI', 'Wyoming': 'WY',
+};
+
 function choroplethColor(value, max) {
-  if (!value || max === 0) return '#f7f7f7';
+  if (!value || max === 0) return '#e8eaf0';
   const t = value / max;
   if (t < 0.33) {
     return `rgb(255, ${Math.round(237 - t * 3 * 100)}, ${Math.round(160 - t * 3 * 160)})`;
@@ -34,21 +70,18 @@ function choroplethColor(value, max) {
   }
 }
 
+const MIN_CELL = 32;
+const MAX_CELL = 84;
+const GAP = 4;
+
 const MapSection = () => {
-  const [geoJson, setGeoJson] = useState(null);
-  const [stateData, setStateData] = useState(MOCK_BY_STATE);
-  const [diseaseType, setDiseaseType] = useState('all'); // 'all' | 'animal' | 'human'
+  const [stateData, setStateData]             = useState(MOCK_BY_STATE);
+  const [diseaseType, setDiseaseType]         = useState('all');
   const [specificDisease, setSpecificDisease] = useState('');
-  const [diseases, setDiseases] = useState([]);
-  const [noData, setNoData] = useState(false);
-  const geoJsonLayerRef = useRef(null);
+  const [diseases, setDiseases]               = useState([]);
+  const [noData, setNoData]                   = useState(false);
+  const [tooltip, setTooltip]                 = useState(null);
 
-  // fetch geojson once
-  useEffect(() => {
-    fetch(GEOJSON_URL).then(r => r.json()).then(setGeoJson).catch(() => {});
-  }, []);
-
-  // fetch diseases list for dropdown
   useEffect(() => {
     const params = diseaseType !== 'all' ? `&disease_type=${diseaseType}` : '';
     axios.get(`${HOMEPAGE_API}?r=homepage-diseases${params}`)
@@ -56,7 +89,6 @@ const MapSection = () => {
       .catch(() => {});
   }, [diseaseType]);
 
-  // fetch state data when filters change
   useEffect(() => {
     let url = `${HOMEPAGE_API}?r=homepage-by-state`;
     if (diseaseType !== 'all') url += `&disease_type=${diseaseType}`;
@@ -85,78 +117,8 @@ const MapSection = () => {
     Object.values(stateMap).length ? Math.max(...Object.values(stateMap)) : 1,
   [stateMap]);
 
-  const stateMapRef = useRef(stateMap);
-  const maxValRef = useRef(maxVal);
-  useEffect(() => { 
-  stateMapRef.current = stateMap; 
-  maxValRef.current = maxVal;
-  // force repaint when refs update
-  const layer = geoJsonLayerRef.current;
-  if (!layer) return;
-  layer.eachLayer((l) => {
-    const name = l.feature?.properties?.name;
-    const val = stateMap[name] ?? 0;
-    l.unbindTooltip();
-    l.bindTooltip(
-      `<div style="background:#fff;border:1px solid #ddd;border-radius:6px;padding:6px 10px;font-family:sans-serif;font-size:12px;color:#1a1a2e;white-space:nowrap;">
-        <strong>${name}</strong><br/>
-        ${val > 0 ? `${val} ${val === 1 ? 'outbreak' : 'outbreaks'}` : 'No data'}
-      </div>`,
-      { sticky: true, direction: 'top', offset: [0, -4], opacity: 1 }
-    );
-  });
-}, [stateMap, maxVal]);
-
-  // repaint map when data changes
-  useEffect(() => {
-    const layer = geoJsonLayerRef.current;
-    if (!layer) return;
-    layer.eachLayer((l) => {
-      const name = l.feature?.properties?.name;
-      const val = stateMap[name] ?? 0;
-      l.setStyle({
-        fillColor: choroplethColor(val, maxVal),
-        weight: val > 0 ? 1.5 : 1,
-        color: '#555e7a',
-        fillOpacity: val > 0 ? 0.88 : 0.15,
-      });
-      l.unbindTooltip();
-      l.bindTooltip(
-        `<div style="background:#fff;border:1px solid #ddd;border-radius:6px;padding:6px 10px;font-family:sans-serif;font-size:12px;color:#1a1a2e;white-space:nowrap;">
-          <strong>${name}</strong><br/>
-          ${val > 0 ? `${val} ${val === 1 ? 'outbreak' : 'outbreaks'}` : 'No data'}
-        </div>`,
-        { sticky: true, direction: 'top', offset: [0, -4], opacity: 1 }
-      );
-    });
-  }, [stateMap, maxVal]);
-
-  // add custom styles for tooltips and focus states 
-  useEffect(() => {
-  const style = document.createElement('style');
-  style.textContent = `.leaflet-interactive:focus{outline:none!important;box-shadow:none!important;}.leaflet-tooltip{pointer-events:none;white-space:nowrap;z-index:9999!important;}.leaflet-pane.leaflet-tooltip-pane{z-index:9999!important;}`;
-  document.head.appendChild(style);
-  return () => document.head.removeChild(style);
-}, []);
-
-  const styleFeature = useCallback((feature) => {
-    const val = stateMapRef.current[feature.properties.name] ?? 0;
-    const max = maxValRef.current;
-    return { fillColor: choroplethColor(val, max), weight: val > 0 ? 1.5 : 1, color: '#555e7a', fillOpacity: val > 0 ? 0.88 : 0.15 };
-  }, []);
-
-  const onEachFeature = useCallback((feature, layer) => {
-    const name = feature.properties.name;
-    layer.bindTooltip('', { sticky: true, direction: 'top', offset: [0, -4], opacity: 1 });
-    layer.on({
-      mouseover: (e) => {
-        const val = stateMapRef.current[name] ?? 0;
-        if (!val) return;
-        e.target.setStyle({ weight: 2, color: BLUE, fillOpacity: 1 });
-      },
-      mouseout: (e) => { e.target.setStyle(styleFeature(feature)); },
-    });
-  }, [styleFeature]);
+  const maxCol = Math.max(...Object.values(STATE_GRID).map(([c]) => c));
+  const maxRow = Math.max(...Object.values(STATE_GRID).map(([, r]) => r));
 
   const filterBtnStyle = (active) => ({
     padding: '0.4rem 0.9rem',
@@ -178,12 +140,10 @@ const MapSection = () => {
     }}>
       {/* header */}
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
-        <h3 style={{ margin: 0 }}>Outbreak Locations</h3>
-        <div>
-          <button style={{ marginLeft: '0.5rem', padding: '0.4rem 0.9rem' }}>Map View</button>
-          <button style={{ marginLeft: '0.5rem', padding: '0.4rem 0.9rem' }}>List View</button>
-          <button style={{ marginLeft: '0.5rem', padding: '0.4rem 0.9rem' }}>Export</button>
-        </div>
+        <h3 style={{ margin: 0 }}>Outbreak Density by State</h3>
+        <span style={{ fontSize: 11, background: '#ede9fe', color: '#5c6bc0', padding: '3px 10px', borderRadius: 20, fontWeight: 600 }}>
+          Cartogram
+        </span>
       </div>
 
       {/* filters */}
@@ -191,7 +151,6 @@ const MapSection = () => {
         <button style={filterBtnStyle(diseaseType === 'all')}    onClick={() => setDiseaseType('all')}>All Diseases</button>
         <button style={filterBtnStyle(diseaseType === 'animal')} onClick={() => setDiseaseType('animal')}>Animal Diseases</button>
         <button style={filterBtnStyle(diseaseType === 'human')}  onClick={() => setDiseaseType('human')}>Human Diseases</button>
-
         <select
           value={specificDisease}
           onChange={e => setSpecificDisease(e.target.value)}
@@ -202,28 +161,96 @@ const MapSection = () => {
         </select>
       </div>
 
-      {/* map */}
       {noData ? (
-        <div style={{ height: 380, display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#999', fontSize: 14, border: '2px dashed #ccc', borderRadius: 8 }}>
+        <div style={{ height: 320, display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#999', fontSize: 14, border: '2px dashed #ccc', borderRadius: 8 }}>
           No data available for the selected filter.
         </div>
-      ) : !geoJson ? (
-        <div style={{ height: 380, display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#aaa', fontSize: 13 }}>
-          Loading map...
-        </div>
       ) : (
-        <div style={{ height: 380, borderRadius: 8, overflow: 'hidden', border: '1px solid #ddd' }}>
-          <MapContainer center={[37.8, -96]} zoom={4} scrollWheelZoom={false}
-            style={{ height: '100%', width: '100%', background: '#e8eaf0' }}>
-            <TileLayer url="https://{s}.basemaps.cartocdn.com/light_nolabels/{z}/{x}/{y}{r}.png"
-              attribution='&copy; <a href="https://carto.com/">CARTO</a>' />
-            <GeoJSON data={geoJson} style={styleFeature} onEachFeature={onEachFeature} ref={geoJsonLayerRef} />
-          </MapContainer>
+        <div style={{ overflowX: 'auto' }}>
+          <div style={{
+            position: 'relative',
+            width:  (maxCol + 1) * (MAX_CELL + GAP),
+            height: (maxRow + 1) * (MAX_CELL + GAP),
+            margin: '0 auto',
+          }}>
+            {Object.entries(STATE_GRID).map(([stateName, [col, row]]) => {
+              const val      = stateMap[stateName] ?? 0;
+              const cellSize = val > 0
+                ? MIN_CELL + Math.round((val / maxVal) * (MAX_CELL - MIN_CELL))
+                : MIN_CELL;
+              const bg       = choroplethColor(val, maxVal);
+              const abbr     = STATE_ABBR[stateName] || stateName.slice(0, 2).toUpperCase();
+              const textColor = val / maxVal > 0.5 ? '#fff' : '#1a1a2e';
+
+              return (
+                <div
+                  key={stateName}
+                  onMouseEnter={(e) => setTooltip({ name: stateName, val, x: e.clientX, y: e.clientY })}
+                  onMouseMove={(e)  => setTooltip({ name: stateName, val, x: e.clientX, y: e.clientY })}
+                  onMouseLeave={()  => setTooltip(null)}
+                  onMouseOver={e  => { e.currentTarget.style.boxShadow = '0 4px 14px rgba(0,0,0,0.25)'; e.currentTarget.style.zIndex = 10; }}
+                  onMouseOut={e   => { e.currentTarget.style.boxShadow = '0 1px 3px rgba(0,0,0,0.1)';   e.currentTarget.style.zIndex = 1;  }}
+                  style={{
+                    position:   'absolute',
+                    left:       col * (MAX_CELL + GAP) + (MAX_CELL - cellSize) / 2,
+                    top:        row * (MAX_CELL + GAP) + (MAX_CELL - cellSize) / 2,
+                    width:      cellSize,
+                    height:     cellSize,
+                    background: bg,
+                    border:     `1px solid rgba(0,0,0,${val > 0 ? 0.15 : 0.08})`,
+                    borderRadius: Math.round(cellSize * 0.12),
+                    display:    'flex',
+                    flexDirection: 'column',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    cursor:     'pointer',
+                    transition: 'width 0.3s ease, height 0.3s ease, left 0.3s ease, top 0.3s ease, background 0.3s ease',
+                    fontSize:   Math.max(8, Math.round(cellSize * 0.25)),
+                    fontWeight: 700,
+                    color:      textColor,
+                    userSelect: 'none',
+                    boxShadow:  '0 1px 3px rgba(0,0,0,0.1)',
+                    zIndex:     1,
+                  }}
+                >
+                  <span>{abbr}</span>
+                  {val > 0 && cellSize >= 30 && (
+                    <span style={{ fontSize: Math.max(7, Math.round(cellSize * 0.18)), fontWeight: 400, marginTop: 1, opacity: 0.85 }}>
+                      {val}
+                    </span>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
+
+      {/* tooltip */}
+      {tooltip && (
+        <div style={{
+          position:     'fixed',
+          left:         tooltip.x + 14,
+          top:          tooltip.y - 44,
+          background:   '#1a1a2e',
+          color:        '#fff',
+          borderRadius: 8,
+          padding:      '6px 12px',
+          fontSize:     12,
+          pointerEvents:'none',
+          whiteSpace:   'nowrap',
+          zIndex:       9999,
+          boxShadow:    '0 4px 12px rgba(0,0,0,0.3)',
+        }}>
+          <strong>{tooltip.name}</strong><br />
+          {tooltip.val > 0
+            ? `${tooltip.val} ${tooltip.val === 1 ? 'outbreak' : 'outbreaks'}`
+            : 'No data'}
         </div>
       )}
 
       {/* legend */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginTop: 10 }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginTop: 14 }}>
         <span style={{ fontSize: 11, color: '#999' }}>Fewer outbreaks</span>
         <div style={{ display: 'flex', flex: 1, height: 10, borderRadius: 6, overflow: 'hidden' }}>
           {Array.from({ length: 50 }, (_, i) => (
@@ -231,6 +258,23 @@ const MapSection = () => {
           ))}
         </div>
         <span style={{ fontSize: 11, color: '#999' }}>More outbreaks</span>
+      </div>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginTop: 8 }}>
+        <span style={{ fontSize: 11, color: '#999' }}>Smaller square</span>
+        <div style={{ display: 'flex', flex: 1, alignItems: 'center', gap: 4 }}>
+          {[0.2, 0.4, 0.6, 0.8, 1.0].map((t, i) => {
+            const s = MIN_CELL + Math.round(t * (MAX_CELL - MIN_CELL));
+            return (
+              <div key={i} style={{
+                width: s, height: s,
+                background: '#bbb',
+                borderRadius: 3,
+                flexShrink: 0,
+              }} />
+            );
+          })}
+        </div>
+        <span style={{ fontSize: 11, color: '#999' }}>Larger square = more outbreaks</span>
       </div>
     </div>
   );
