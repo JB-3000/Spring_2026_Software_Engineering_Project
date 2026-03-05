@@ -1,17 +1,39 @@
 import React, { useState } from "react";
 import SiteHeader from "../components/SiteHeader";
 import SiteFooter from "../components/SiteFooter";
-import "../pages/LoginPage.css";   // ← we'll reuse & adjust this file
+import Navbar from "../homepage/Navbar";
+import "../pages/LoginPage.css";
+
+const US_STATES = [
+  "Alabama","Alaska","Arizona","Arkansas","California","Colorado","Connecticut",
+  "Delaware","Florida","Georgia","Hawaii","Idaho","Illinois","Indiana","Iowa",
+  "Kansas","Kentucky","Louisiana","Maine","Maryland","Massachusetts","Michigan",
+  "Minnesota","Mississippi","Missouri","Montana","Nebraska","Nevada",
+  "New Hampshire","New Jersey","New Mexico","New York","North Carolina",
+  "North Dakota","Ohio","Oklahoma","Oregon","Pennsylvania","Rhode Island",
+  "South Carolina","South Dakota","Tennessee","Texas","Utah","Vermont",
+  "Virginia","Washington","West Virginia","Wisconsin","Wyoming"
+];
+
+const DISEASE_OPTIONS = [
+  "Bluetongue",
+  "H5N1 (Avian Flu)",
+  "Mad Cow Disease (BSE)",
+  "Swine Flu",
+  "Other"
+];
 
 export default function SelfReport() {
+  console.log("SelfReport component is being rendered / mounted!");
+
   const [formData, setFormData] = useState({
     diseaseType: "",
     location: "",
     affectedAnimal: "",
-    diagnosisMode: "",
   });
 
   const [success, setSuccess] = useState("");
+  const [error, setError] = useState("");
 
   const handleChange = (e) => {
     setFormData({
@@ -20,75 +42,135 @@ export default function SelfReport() {
     });
   };
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
-    console.log("Submitted Report:", formData);
-    setSuccess("Report submitted successfully.");
-    // Optional: setFormData({ ...initial values }) to clear form
+    console.log("handleSubmit was triggered!");
+
+    setError("");
+    setSuccess("");
+
+    if (!formData.diseaseType || !formData.location) {
+      setError("Disease and Location are required.");
+      return;
+    }
+
+    if (!US_STATES.includes(formData.location)) {
+      setError("Please select a valid U.S. state from the list.");
+      return;
+    }
+
+    // Optional: you can keep affectedAnimal in the form but we won't send it
+    console.log("Submitting:", { diseaseType: formData.diseaseType, location: formData.location });
+
+    try {
+      const response = await fetch(
+        "https://aptitude.cse.buffalo.edu/CSE442/2026-Spring/cse-442c/backend/public/api/create_outbreak.php",
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            diseaseType: formData.diseaseType,
+            location: formData.location,
+            // affectedAnimal is NOT sent to backend
+          }),
+        }
+      );
+
+      console.log("Response status:", response.status);
+
+      const data = await response.json();
+      console.log("Response data:", data);
+
+      if (!response.ok || !data.ok) {
+        setError(data.error || "Failed to submit report.");
+        return;
+      }
+
+      setSuccess("Report submitted successfully!");
+
+      setFormData({
+        diseaseType: "",
+        location: "",
+        affectedAnimal: "",
+      });
+
+    } catch (err) {
+      console.error("Fetch error:", err);
+      setError("Server connection failed. Check console for details.");
+    }
   };
 
   return (
     <div className="login-page">
       <SiteHeader />
+      <Navbar />
 
       <main className="login-main">
-        {/* Removed .login-grid → using simpler centered wrapper */}
         <div className="form-center-wrapper">
           <section className="card card--fixed">
             <div className="card__title">New Disease Entry</div>
 
             <form className="login-form" onSubmit={handleSubmit}>
+
+              {/* Disease Dropdown */}
               <label className="field">
                 <span className="field__label">Disease Type</span>
-                <input
+                <select
                   className="field__input"
-                  type="text"
                   name="diseaseType"
                   value={formData.diseaseType}
                   onChange={handleChange}
-                  placeholder="Disease Type"
                   required
-                />
+                >
+                  <option value="">Select Disease</option>
+                  {DISEASE_OPTIONS.map((disease) => (
+                    <option key={disease} value={disease}>
+                      {disease}
+                    </option>
+                  ))}
+                </select>
               </label>
 
+              {/* State with Datalist */}
               <label className="field">
-                <span className="field__label">Location</span>
+                <span className="field__label">State</span>
                 <input
                   className="field__input"
                   type="text"
                   name="location"
+                  list="states"
                   value={formData.location}
                   onChange={handleChange}
-                  placeholder="Location"
+                  placeholder="Start typing a state..."
                   required
                 />
+                <datalist id="states">
+                  {US_STATES.map((state) => (
+                    <option key={state} value={state} />
+                  ))}
+                </datalist>
               </label>
 
+              {/* Affected Animal – kept in form but not sent to backend */}
               <label className="field">
-                <span className="field__label">Affected Animal</span>
+                <span className="field__label">Affected Animal (optional note)</span>
                 <input
                   className="field__input"
                   type="text"
                   name="affectedAnimal"
                   value={formData.affectedAnimal}
                   onChange={handleChange}
-                  placeholder="Affected Animal"
-                  required
+                  placeholder="e.g. cattle, birds, pigs..."
                 />
               </label>
 
-              <label className="field">
-                <span className="field__label">Mode of Diagnosis</span>
-                <input
-                  className="field__input"
-                  type="text"
-                  name="diagnosisMode"
-                  value={formData.diagnosisMode}
-                  onChange={handleChange}
-                  placeholder="Mode of Diagnosis"
-                  required
-                />
-              </label>
+              {error && (
+                <div style={{ color: "red", fontWeight: 700, textAlign: "center" }}>
+                  {error}
+                </div>
+              )}
 
               {success && (
                 <div style={{ color: "green", fontWeight: 700, textAlign: "center" }}>
