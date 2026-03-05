@@ -117,7 +117,7 @@ export default function ForgotPasswordPage() {
                         <button
                             type="button"
                             className="fp-btn fp-btn--secondary"
-                            onClick={() => navigate("/login")}
+                            onClick={() => navigate("/")}
                         >
                             Back to login
                         </button>
