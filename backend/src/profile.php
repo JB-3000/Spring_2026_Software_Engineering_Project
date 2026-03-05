@@ -13,7 +13,7 @@ function get_profile(): void {
         "SELECT id, username,
                 first_name AS firstName, last_name AS lastName,
                 state, city, address, zip, email, phone,
-                profile_image AS profileImg
+                profile_img AS profileImg
          FROM users WHERE id = ?"
     );
     $stmt->execute([$_SESSION['user_id']]);
@@ -89,7 +89,7 @@ function upload_profile_image(): void {
     // Save image URL to database
     $imageUrl = "https://aptitude.cse.buffalo.edu/CSE442/2026-Spring/cse-442c/uploads/profiles/" . $fileName;
     $pdo = db();
-    $pdo->prepare("UPDATE users SET profile_image = ? WHERE id = ?")
+    $pdo->prepare("UPDATE users SET profile_img = ? WHERE id = ?")
         ->execute([$imageUrl, $_SESSION['user_id']]);
 
     json_response(['ok' => true, 'image_url' => $imageUrl], 200);
