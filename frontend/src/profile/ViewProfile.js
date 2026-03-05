@@ -150,8 +150,7 @@ export default function ViewProfile() {
             </label>
 
             <div className="vp-user-info">
-              <p className="vp-username">{userData.username || "username"}</p>
-              <p className="vp-user-subtitle">{userData.firstName} {userData.lastName}</p>
+              <p className="vp-username">{userData.firstName} {userData.lastName}</p>
             </div>
           </div>
 
