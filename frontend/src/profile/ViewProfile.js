@@ -57,6 +57,8 @@ export default function ViewProfile() {
   const handleImgChange = async (e) => {
     const file = e.target.files[0];
     if (!file) return;
+
+    const previousImg = profileImg;
     setProfileImg(URL.createObjectURL(file));
 
     const formData = new FormData();
@@ -70,9 +72,11 @@ export default function ViewProfile() {
       if (data.ok) {
         setProfileImg(data.image_url);
       } else {
-        console.error("Image upload failed:", data.error);
+        setProfileImg(previousImg);
+        alert("Image upload failed: " + data.error);
       }
     } catch (err) {
+      setProfileImg(previousImg);
       console.error("Image upload error:", err);
     }
   };
