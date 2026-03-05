@@ -16,3 +16,6 @@ function db(): PDO {
     ]);
     return $pdo;
 }
+
+// Alias for backward compatibility with code that uses getDBConnection()
+function getDBConnection(): PDO { return db(); }
