@@ -74,7 +74,7 @@ export default function ViewProfile() {
   const handleSave = async () => {
     try {
       const res = await fetch(
-        "https://aptitude.cse.buffalo.edu/CSE442/2026-Spring/cse-442c/api/index.php?r=editUserProfile",
+        "https://aptitude.cse.buffalo.edu/CSE442/2026-Spring/cse-442c/api/index.php?r=updateProfile",
         {
           method: "POST",
           credentials: "include",
