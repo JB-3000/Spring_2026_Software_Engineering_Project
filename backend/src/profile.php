@@ -1,6 +1,6 @@
 <?php
 // src/profile.php
-require_once 'config.php';
+require_once __DIR__ . '/response.php';
 
 // Get profile of the currently logged-in user
 function get_profile(): void {
@@ -8,9 +8,12 @@ function get_profile(): void {
         json_response(['ok' => false, 'error' => 'Not logged in'], 401);
     }
 
-    $pdo  = getDBConnection();
+    $pdo  = db();
     $stmt = $pdo->prepare(
-        "SELECT id, username, first_name, last_name, state, city, address, zip, email, phone, profile_image
+        "SELECT id, username,
+                first_name AS firstName, last_name AS lastName,
+                state, city, address, zip, email, phone,
+                profile_image AS profileImg
          FROM users WHERE id = ?"
     );
     $stmt->execute([$_SESSION['user_id']]);
@@ -20,7 +23,7 @@ function get_profile(): void {
         json_response(['ok' => false, 'error' => 'User not found'], 404);
     }
 
-    json_response(['ok' => true, 'data' => $user], 200);
+    json_response(array_merge(['ok' => true], $user), 200);
 }
 
 // Update profile fields for the currently logged-in user
@@ -45,7 +48,7 @@ function update_profile(array $body): void {
     }
 
     $values[] = $_SESSION['user_id'];
-    $pdo = getDBConnection();
+    $pdo = db();
     $pdo->prepare("UPDATE users SET " . implode(", ", $updates) . " WHERE id = ?")
         ->execute($values);
 
@@ -85,7 +88,7 @@ function upload_profile_image(): void {
 
     // Save image URL to database
     $imageUrl = "https://aptitude.cse.buffalo.edu/CSE442/2026-Spring/cse-442c/uploads/profiles/" . $fileName;
-    $pdo = getDBConnection();
+    $pdo = db();
     $pdo->prepare("UPDATE users SET profile_image = ? WHERE id = ?")
         ->execute([$imageUrl, $_SESSION['user_id']]);
 
