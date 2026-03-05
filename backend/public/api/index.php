@@ -71,6 +71,11 @@ try {
         exit;
     }
 
+    if ($route === 'createAccount') {
+        require __DIR__ . '/../../src/create-account.php';
+        exit;
+    }
+
     // Forgot Password: request one-time confirmation code
     if ($route === 'forgot_password_request') {
         require __DIR__ . '/forgot_password_request.php';
