@@ -6,6 +6,11 @@ import Navbar from '../homepage/Navbar';
 import "./ViewProfile.css";
 
 export default function ViewProfile() {
+  const API_BASE =
+    process.env.NODE_ENV === "production"
+      ? "/CSE442/2026-Spring/cse-442c/backend/public/api/index.php"
+      : "http://localhost:8000/api/index.php";
+
   const [profileImg, setProfileImg] = useState(null);
   const [isEditing, setIsEditing] = useState(false);
   const [showCancelModal, setShowCancelModal] = useState(false);
@@ -27,7 +32,7 @@ export default function ViewProfile() {
     const fetchUserData = async () => {
       try {
         const res = await fetch(
-          "https://aptitude.cse.buffalo.edu/CSE442/2026-Spring/cse-442c/backend/public/api/index.php?r=getProfile",
+          `${API_BASE}?r=getProfile`,
           { method: "GET", credentials: "include" }
         );
         const data = await res.json();
@@ -65,7 +70,7 @@ export default function ViewProfile() {
     formData.append("image", file);
     try {
       const res = await fetch(
-        "https://aptitude.cse.buffalo.edu/CSE442/2026-Spring/cse-442c/backend/public/api/index.php?r=uploadImage",
+        `${API_BASE}?r=uploadImage`,
         { method: "POST", credentials: "include", body: formData }
       );
       const data = await res.json();
@@ -98,7 +103,7 @@ export default function ViewProfile() {
   const handleSave = async () => {
     try {
       const res = await fetch(
-        "https://aptitude.cse.buffalo.edu/CSE442/2026-Spring/cse-442c/backend/public/api/index.php?r=updateProfile",
+        `${API_BASE}?r=updateProfile`,
         {
           method: "POST",
           credentials: "include",
@@ -132,7 +137,7 @@ export default function ViewProfile() {
   const handleConfirmCancel = async () => {
     try {
       const res = await fetch(
-        "https://aptitude.cse.buffalo.edu/CSE442/2026-Spring/cse-442c/backend/public/api/index.php?r=deleteAccount",
+        `${API_BASE}?r=deleteAccount`,
         { method: "POST", credentials: "include" }
       );
       const data = await res.json();
