@@ -27,7 +27,7 @@ export default function ViewProfile() {
     const fetchUserData = async () => {
       try {
         const res = await fetch(
-          "https://aptitude.cse.buffalo.edu/CSE442/2026-Spring/cse-442c/api/index.php?r=getProfile",
+          "https://aptitude.cse.buffalo.edu/CSE442/2026-Spring/cse-442c/backend/public/api/index.php?r=getProfile",
           { method: "GET", credentials: "include" }
         );
         const data = await res.json();
@@ -76,7 +76,7 @@ export default function ViewProfile() {
   const handleSave = async () => {
     try {
       const res = await fetch(
-        "https://aptitude.cse.buffalo.edu/CSE442/2026-Spring/cse-442c/api/index.php?r=updateProfile",
+        "https://aptitude.cse.buffalo.edu/CSE442/2026-Spring/cse-442c/backend/public/api/index.php?r=updateProfile",
         {
           method: "POST",
           credentials: "include",
