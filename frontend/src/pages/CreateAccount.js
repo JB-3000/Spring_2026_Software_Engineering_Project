@@ -6,6 +6,11 @@ import "./CreateAccount.css";
 
 export default function CreateAccount({ onCancel }) {
   const navigate = useNavigate();
+  const API_BASE =
+    process.env.NODE_ENV === "production"
+      ? "/CSE442/2026-Spring/cse-442c/backend/public/api/index.php"
+      : "http://localhost:8000/api/index.php";
+
   const [formData, setFormData] = useState({
     firstName: "",
     lastName: "",
@@ -47,9 +52,10 @@ export default function CreateAccount({ onCancel }) {
     }
 
     try {
-      const res = await fetch("https://aptitude.cse.buffalo.edu/CSE442/2026-Spring/cse-442c/backend/src/create-account.php", {
+      const res = await fetch(`${API_BASE}?r=createAccount`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
+        credentials: "include",
         body: JSON.stringify({
           firstName: formData.firstName,
           lastName: formData.lastName,
@@ -59,7 +65,7 @@ export default function CreateAccount({ onCancel }) {
       });
       const data = await res.json();
       if (res.ok) {
-        navigate("/");
+        navigate("/profile");
       } else {
         setErrors({ email: data.message });
       }
