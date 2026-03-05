@@ -94,4 +94,19 @@ function upload_profile_image(): void {
 
     json_response(['ok' => true, 'image_url' => $imageUrl], 200);
 }
+
+// Delete the currently logged-in user's account and log out
+function delete_account(): void {
+    if (!isset($_SESSION['user_id'])) {
+        json_response(['ok' => false, 'error' => 'Not logged in'], 401);
+    }
+
+    $pdo = db();
+    $stmt = $pdo->prepare("DELETE FROM users WHERE id = ?");
+    $stmt->execute([$_SESSION['user_id']]);
+
+    session_destroy();
+
+    json_response(['ok' => true, 'message' => 'Account deleted'], 200);
+}
 ?>
