@@ -133,7 +133,7 @@ export default function ResetPasswordPage() {
                             {isLoading ? "Resetting..." : "Reset Password"}
                         </button>
 
-                        <button type="button" className="rp-btn rp-btn--secondary" onClick={() => navigate("/login")}>
+                        <button type="button" className="rp-btn rp-btn--secondary" onClick={() => navigate("/")}>
                             Back to login
                         </button>
                     </form>

@@ -8,7 +8,6 @@ class User {
         $stmt = $pdo->prepare("
             SELECT
                 id,
-                username,
                 first_name AS firstName,
                 last_name AS lastName,
                 state,
@@ -17,7 +16,7 @@ class User {
                 zip,
                 email,
                 phone,
-                profile_img AS profileImg
+                profile_image AS profileImg
             FROM users
             WHERE id = :id
             LIMIT 1
@@ -26,6 +25,9 @@ class User {
         $user = $stmt->fetch(PDO::FETCH_ASSOC);
 
         if (!$user) return null;
+
+        // Keep backward compatibility for consumers expecting a username field.
+        $user['username'] = trim(((string)($user['firstName'] ?? '')) . ' ' . ((string)($user['lastName'] ?? '')));
 
         // Sanitize all string fields to prevent HTML injection
         foreach ($user as $key => $value) {
@@ -54,7 +56,7 @@ class User {
     }
     // Update profile fields for the currently logged-in user
     public static function updateProfile(int $id, array $body): bool {
-        $allowedFields = ['username', 'first_name', 'last_name', 'state', 'city', 'address', 'zip', 'email', 'phone'];
+        $allowedFields = ['first_name', 'last_name', 'state', 'city', 'address', 'zip', 'email', 'phone'];
         $updates = [];
         $values  = [];
 
