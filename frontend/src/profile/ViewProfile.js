@@ -103,6 +103,10 @@ export default function ViewProfile() {
   };
 
   const handleSave = async () => {
+    if (!editData.email || editData.email.trim() === "") {
+      alert("Email cannot be empty.");
+      return;
+    }
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     if (!emailRegex.test(editData.email)) {
       alert("Please enter a valid email address.");
