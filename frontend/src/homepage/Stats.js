@@ -13,6 +13,9 @@ const Stats = () => {
 
   return (
     <div style={{ flex: 1, minWidth: '280px', display: 'flex', flexDirection: 'column', gap: '0.9rem' }}>
+      <h4 style={{ margin: 0, color: '#1f2a44', fontSize: '0.95rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+        Recorded Outbreaks Summary
+      </h4>
       <div style={statStyle('#a040ff')}>Total Outbreaks<br />9</div>
       <div style={statStyle('#0066cc')}>Total Cases<br />123</div>
       <div style={statStyle('#d32f2f')}>High Risk Areas<br />3</div>

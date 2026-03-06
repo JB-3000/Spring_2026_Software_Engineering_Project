@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
 import axios from 'axios';
 
 const IS_LOCAL = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
@@ -10,10 +10,10 @@ const HOMEPAGE_API = IS_LOCAL
 const BLUE = '#3d5af1';
 
 const MOCK_BY_STATE = [
-  { state: 'California', outbreaks: 8 }, { state: 'Texas', outbreaks: 7 },
-  { state: 'Pennsylvania', outbreaks: 5 }, { state: 'Indiana', outbreaks: 5 },
-  { state: 'Missouri', outbreaks: 4 }, { state: 'Minnesota', outbreaks: 3 },
-  { state: 'Alaska', outbreaks: 2 }, { state: 'Hawaii', outbreaks: 1 },
+  { state: 'California', outbreaks: 8, total_cases: 8 }, { state: 'Texas', outbreaks: 7, total_cases: 7 },
+  { state: 'Pennsylvania', outbreaks: 5, total_cases: 5 }, { state: 'Indiana', outbreaks: 5, total_cases: 5 },
+  { state: 'Missouri', outbreaks: 4, total_cases: 4 }, { state: 'Minnesota', outbreaks: 3, total_cases: 3 },
+  { state: 'Alaska', outbreaks: 2, total_cases: 2 }, { state: 'Hawaii', outbreaks: 1, total_cases: 1 },
 ];
 
 const STATE_GRID = {
@@ -81,6 +81,8 @@ const MapSection = () => {
   const [diseases, setDiseases]               = useState([]);
   const [noData, setNoData]                   = useState(false);
   const [tooltip, setTooltip]                 = useState(null);
+  const [showListMsg, setShowListMsg]         = useState(false);
+  const listBtnRef                            = useRef(null);
 
   useEffect(() => {
     const params = diseaseType !== 'all' ? `&disease_type=${diseaseType}` : '';
@@ -107,18 +109,33 @@ const MapSection = () => {
       .catch(() => { setStateData(MOCK_BY_STATE); });
   }, [diseaseType, specificDisease]);
 
+  useEffect(() => {
+    const handler = (e) => {
+      if (listBtnRef.current && !listBtnRef.current.contains(e.target)) {
+        setShowListMsg(false);
+      }
+    };
+    document.addEventListener('mousedown', handler);
+    return () => document.removeEventListener('mousedown', handler);
+  }, []);
+
   const stateMap = useMemo(() => {
     const m = {};
-    (stateData || []).forEach(s => { m[s.state] = Number(s.outbreaks); });
+    (stateData || []).forEach(s => {
+      m[s.state] = diseaseType === 'human'
+        ? Number(s.total_cases)
+        : Number(s.outbreaks);
+    });
     return m;
-  }, [stateData]);
+  }, [stateData, diseaseType]);
 
   const maxVal = useMemo(() =>
     Object.values(stateMap).length ? Math.max(...Object.values(stateMap)) : 1,
   [stateMap]);
 
-  const maxCol = Math.max(...Object.values(STATE_GRID).map(([c]) => c));
+  const maxCol = 12;
   const maxRow = Math.max(...Object.values(STATE_GRID).map(([, r]) => r));
+  const metricLabel = diseaseType === 'human' ? 'cases' : 'outbreaks';
 
   const filterBtnStyle = (active) => ({
     padding: '0.4rem 0.9rem',
@@ -134,20 +151,45 @@ const MapSection = () => {
 
   return (
     <div style={{
-      flex: 3, minWidth: '520px', background: '#e8f0ff',
+      flex: 3, minWidth: 0, background: '#e8f0ff',
       border: '1px solid #ccd5df', borderRadius: '8px',
       padding: '1rem', boxShadow: '0 2px 8px rgba(0,0,0,0.08)',
     }}>
       {/* header */}
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.25rem' }}>
         <h3 style={{ margin: 0 }}>Outbreak Density by State</h3>
-        <span style={{ fontSize: 11, background: '#ede9fe', color: '#5c6bc0', padding: '3px 10px', borderRadius: 20, fontWeight: 600 }}>
-          Cartogram
-        </span>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+          <span style={{ fontSize: 11, background: '#ede9fe', color: '#5c6bc0', padding: '3px 10px', borderRadius: 20, fontWeight: 600 }}>
+            Cartogram
+          </span>
+          <button style={{ padding: '0.4rem 0.9rem', background: BLUE, color: '#fff', border: 'none', borderRadius: 6, cursor: 'pointer', fontSize: 13 }}>
+            Map View
+          </button>
+          <div style={{ position: 'relative' }} ref={listBtnRef}>
+            <button
+              onClick={() => setShowListMsg(v => !v)}
+              style={{ padding: '0.4rem 0.9rem', background: '#fff', border: '1px solid #ccc', borderRadius: 6, cursor: 'pointer', fontSize: 13 }}
+            >
+              List View
+            </button>
+            {showListMsg && (
+              <div style={{
+                position: 'absolute', top: '110%', right: 0,
+                background: '#1a1a2e', color: '#fff',
+                borderRadius: 8, padding: '8px 14px',
+                fontSize: 12, whiteSpace: 'nowrap',
+                boxShadow: '0 4px 12px rgba(0,0,0,0.25)',
+                zIndex: 999,
+              }}>
+                List View coming soon!
+              </div>
+            )}
+          </div>
+        </div>
       </div>
 
       {/* filters */}
-      <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginBottom: '1rem', alignItems: 'center' }}>
+      <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginBottom: '1rem', marginTop: '0.75rem', alignItems: 'center' }}>
         <button style={filterBtnStyle(diseaseType === 'all')}    onClick={() => setDiseaseType('all')}>All Diseases</button>
         <button style={filterBtnStyle(diseaseType === 'animal')} onClick={() => setDiseaseType('animal')}>Animal Diseases</button>
         <button style={filterBtnStyle(diseaseType === 'human')}  onClick={() => setDiseaseType('human')}>Human Diseases</button>
@@ -159,6 +201,9 @@ const MapSection = () => {
           <option value=''>All {diseaseType !== 'all' ? diseaseType : ''} diseases</option>
           {diseases.map(d => <option key={d} value={d}>{d}</option>)}
         </select>
+        <span style={{ fontSize: 12, color: '#3d5af1', fontWeight: 600 }}>
+          {diseaseType === 'human' ? 'Metric: Cases' : 'Metric: Outbreaks'}
+        </span>
       </div>
 
       {noData ? (
@@ -166,10 +211,10 @@ const MapSection = () => {
           No data available for the selected filter.
         </div>
       ) : (
-        <div style={{ overflowX: 'auto' }}>
+        <div style={{ overflowX: 'auto', overflowY: 'hidden' }}>
           <div style={{
             position: 'relative',
-            width:  (maxCol + 1) * (MAX_CELL + GAP),
+            width:  (maxCol + 2) * (MAX_CELL + GAP),
             height: (maxRow + 1) * (MAX_CELL + GAP),
             margin: '0 auto',
           }}>
@@ -216,7 +261,7 @@ const MapSection = () => {
                   <span>{abbr}</span>
                   {val > 0 && cellSize >= 30 && (
                     <span style={{ fontSize: Math.max(7, Math.round(cellSize * 0.18)), fontWeight: 400, marginTop: 1, opacity: 0.85 }}>
-                      {val}
+                      {val.toLocaleString()}
                     </span>
                   )}
                 </div>
@@ -244,23 +289,23 @@ const MapSection = () => {
         }}>
           <strong>{tooltip.name}</strong><br />
           {tooltip.val > 0
-            ? `${tooltip.val} ${tooltip.val === 1 ? 'outbreak' : 'outbreaks'}`
+            ? `${tooltip.val.toLocaleString()} ${metricLabel}`
             : 'No data'}
         </div>
       )}
 
       {/* legend */}
       <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginTop: 14 }}>
-        <span style={{ fontSize: 11, color: '#999' }}>Fewer outbreaks</span>
+        <span style={{ fontSize: 11, color: '#555' }}>Fewer {metricLabel}</span>
         <div style={{ display: 'flex', flex: 1, height: 10, borderRadius: 6, overflow: 'hidden' }}>
           {Array.from({ length: 50 }, (_, i) => (
             <div key={i} style={{ flex: 1, background: choroplethColor((i / 50) * maxVal, maxVal) }} />
           ))}
         </div>
-        <span style={{ fontSize: 11, color: '#999' }}>More outbreaks</span>
+        <span style={{ fontSize: 11, color: '#555' }}>More {metricLabel}</span>
       </div>
       <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginTop: 8 }}>
-        <span style={{ fontSize: 11, color: '#999' }}>Smaller square</span>
+        <span style={{ fontSize: 11, color: '#555' }}>Smaller square</span>
         <div style={{ display: 'flex', flex: 1, alignItems: 'center', gap: 4 }}>
           {[0.2, 0.4, 0.6, 0.8, 1.0].map((t, i) => {
             const s = MIN_CELL + Math.round(t * (MAX_CELL - MIN_CELL));
@@ -274,7 +319,7 @@ const MapSection = () => {
             );
           })}
         </div>
-        <span style={{ fontSize: 11, color: '#999' }}>Larger square = more outbreaks</span>
+        <span style={{ fontSize: 11, color: '#555' }}>Larger square = more {metricLabel}</span>
       </div>
     </div>
   );
