@@ -78,8 +78,6 @@ function update_profile(array $body): void {
 }
 
 // Upload and save profile image for the currently logged-in user
-// (Disabled: frontend now uses a hardcoded default avatar URL instead of file upload)
-/*
 function upload_profile_image(): void {
     if (!isset($_SESSION['user_id'])) {
         json_response(['ok' => false, 'error' => 'Not logged in'], 401);
@@ -147,7 +145,6 @@ function upload_profile_image(): void {
 
     json_response(['ok' => true, 'image_url' => $imageUrl], 200);
 }
-*/
 
 // Delete the currently logged-in user's account and log out
 function delete_account(): void {
