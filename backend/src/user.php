@@ -63,6 +63,9 @@ class User {
         // Email validation
         if (isset($body['email'])) {
             $email = trim((string)$body['email']);
+            if ($email === '') {
+                return ['ok' => false, 'error' => 'Email cannot be empty'];
+            }
             if (!filter_var($email, FILTER_VALIDATE_EMAIL)) {
                 return ['ok' => false, 'error' => 'Invalid email format'];
             }
