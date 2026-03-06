@@ -63,27 +63,29 @@ export default function ViewProfile() {
     fetchUserData();
   }, []);
 
-  const handlePhotoChange = async (e) => {
+  const handlePhotoChange = (e) => {
     const file = e.target.files[0];
     if (!file) return;
-    setProfileImg(URL.createObjectURL(file));
-    const formData = new FormData();
-    formData.append("image", file);
-    try {
-      const res = await fetch(`${API_BASE}?r=uploadImage`, {
-        method: "POST",
-        credentials: "include",
-        body: formData,
-      });
-      const data = await res.json();
-      if (data.ok) {
-        setProfileImg(data.image_url);
-      } else {
-        console.error("Image upload failed:", data.error);
+    const reader = new FileReader();
+    reader.onload = async (event) => {
+      const base64 = event.target.result;
+      setProfileImg(base64);
+      try {
+        const res = await fetch(`${API_BASE}?r=uploadImage`, {
+          method: "POST",
+          credentials: "include",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ image: base64 }),
+        });
+        const data = await res.json();
+        if (!data.ok) {
+          console.error("Image upload failed:", data.error);
+        }
+      } catch (err) {
+        console.error("Image upload error:", err);
       }
-    } catch (err) {
-      console.error("Image upload error:", err);
-    }
+    };
+    reader.readAsDataURL(file);
   };
 
   const handleEditClick = () => {
