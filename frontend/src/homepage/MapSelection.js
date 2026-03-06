@@ -85,9 +85,10 @@ const MapSection = () => {
   const listBtnRef                            = useRef(null);
 
   useEffect(() => {
+    setSpecificDisease('');
     const params = diseaseType !== 'all' ? `&disease_type=${diseaseType}` : '';
     axios.get(`${HOMEPAGE_API}?r=homepage-diseases${params}`)
-      .then(r => { setDiseases(r.data); setSpecificDisease(''); })
+      .then(r => { setDiseases(r.data); })
       .catch(() => {});
   }, [diseaseType]);
 
