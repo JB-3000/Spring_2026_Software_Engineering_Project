@@ -7,6 +7,7 @@ import {
 import { MapContainer, TileLayer, GeoJSON } from 'react-leaflet';
 import 'leaflet/dist/leaflet.css';
 import logo from './LivestockEpidemicTracker.jpeg';
+import SiteFooter from './components/SiteFooter';
 import Navbar from './homepage/Navbar';
 
 // ─── Constants ────────────────────────────────────────────────────────────────
@@ -165,7 +166,7 @@ const PURPLE = '#5c6bc0';
 const RED    = '#e63946';
 
 const S = {
-  page:        { minHeight: '100vh', background: '#f0f2f8', fontFamily: "'Segoe UI','Helvetica Neue',Arial,sans-serif", color: '#1a1a2e' },
+  page:        { minHeight: '100vh', background: '#f0f4f8', fontFamily: "'Segoe UI','Helvetica Neue',Arial,sans-serif", color: '#1a1a2e' },
   header:      { background: 'linear-gradient(90deg,#b8bfcc 0%,#9aa0b0 100%)', borderBottom: `3px solid ${PURPLE}` },
   headerRow:   { display: 'flex', alignItems: 'center', gap: 14, padding: '10px 28px' },
   logo:        { width: 52, height: 52, objectFit: 'contain', borderRadius: 4 },
@@ -955,13 +956,15 @@ const NAV_LINKS = {
 
   return (
     <div style={S.page}>
-      <header style={S.header}>
-        <div style={S.headerRow}>
-          <img src={logo} alt="Livestock Epidemic Tracker Logo" style={S.logo} />
-          <h1 style={S.headerTitle}>LIVESTOCK EPIDEMIC TRACKER</h1>
-        </div>
-        <Navbar />
-      </header>
+  <div style={{ background: '#ffffff', color: 'black', padding: '20px 0', fontFamily: 'Arial, Helvetica, sans-serif' }}>
+  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '12px' }}>
+    <img src={logo} alt="logo" style={{ width: 52, height: 52, objectFit: 'contain', borderRadius: 4 }} />
+    <h1 style={{ margin: 0, fontSize: '2.4rem', letterSpacing: '1.5px', fontWeight: 'bold' }}>
+      LIVESTOCK EPIDEMIC TRACKER
+    </h1>
+  </div>
+</div>
+  <Navbar />
 
       <main style={S.main}>
         <div style={S.toolbar}>
@@ -992,7 +995,7 @@ const NAV_LINKS = {
         <ChoroplethMap stateData={byState} />
       </main>
 
-      <footer style={S.footer}>2026 - JNWSL Corp tm.</footer>
+      <SiteFooter />
     </div>
   );
 };
