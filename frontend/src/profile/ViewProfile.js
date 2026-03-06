@@ -103,6 +103,12 @@ export default function ViewProfile() {
   };
 
   const handleSave = async () => {
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(editData.email)) {
+      alert("Please enter a valid email address.");
+      return;
+    }
+
     try {
       const res = await fetch(
         `${API_BASE}?r=updateProfile`,
