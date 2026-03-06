@@ -7,6 +7,7 @@ import {
 import { MapContainer, TileLayer, GeoJSON } from 'react-leaflet';
 import 'leaflet/dist/leaflet.css';
 import logo from './LivestockEpidemicTracker.jpeg';
+import Navbar from './homepage/Navbar';
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
@@ -959,11 +960,7 @@ const NAV_LINKS = {
           <img src={logo} alt="Livestock Epidemic Tracker Logo" style={S.logo} />
           <h1 style={S.headerTitle}>LIVESTOCK EPIDEMIC TRACKER</h1>
         </div>
-        <nav style={S.nav}>
-          {Object.entries(NAV_LINKS).map(([label, href]) => (
-            <a key={label} href={href} style={S.navLink}>{label}</a>
-          ))}
-        </nav>
+        <Navbar />
       </header>
 
       <main style={S.main}>
