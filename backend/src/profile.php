@@ -1,6 +1,6 @@
 <?php
 // src/profile.php
-require_once 'config.php';
+require_once __DIR__ . '/response.php';
 
 // Get profile of the currently logged-in user
 function get_profile(): void {
@@ -8,19 +8,44 @@ function get_profile(): void {
         json_response(['ok' => false, 'error' => 'Not logged in'], 401);
     }
 
-    $pdo  = getDBConnection();
-    $stmt = $pdo->prepare(
-        "SELECT id, username, first_name, last_name, state, city, address, zip, email, phone, profile_image
-         FROM users WHERE id = ?"
-    );
-    $stmt->execute([$_SESSION['user_id']]);
-    $user = $stmt->fetch(PDO::FETCH_ASSOC);
+    $pdo  = db();
+    try {
+        $stmt = $pdo->prepare(
+            "SELECT id,
+                    first_name AS firstName, last_name AS lastName,
+                    state, city, address, zip, email, phone,
+                    profile_image AS profileImg
+             FROM users WHERE id = ?"
+        );
+        $stmt->execute([$_SESSION['user_id']]);
+        $user = $stmt->fetch(PDO::FETCH_ASSOC);
+    } catch (Throwable $e) {
+        // Fallback for environments where optional profile columns are missing.
+        $stmt = $pdo->prepare(
+            "SELECT id,
+                    first_name AS firstName, last_name AS lastName,
+                    email
+             FROM users WHERE id = ?"
+        );
+        $stmt->execute([$_SESSION['user_id']]);
+        $user = $stmt->fetch(PDO::FETCH_ASSOC);
+    }
 
     if (!$user) {
         json_response(['ok' => false, 'error' => 'User not found'], 404);
     }
 
-    json_response(['ok' => true, 'data' => $user], 200);
+    $user['state'] = (string)($user['state'] ?? '');
+    $user['city'] = (string)($user['city'] ?? '');
+    $user['address'] = (string)($user['address'] ?? '');
+    $user['zip'] = (string)($user['zip'] ?? '');
+    $user['phone'] = (string)($user['phone'] ?? '');
+    $user['profileImg'] = (string)($user['profileImg'] ?? '');
+
+    // Keep response shape stable for frontend even when users.username is not present.
+    $user['username'] = trim(((string)($user['firstName'] ?? '')) . ' ' . ((string)($user['lastName'] ?? '')));
+
+    json_response(array_merge(['ok' => true], $user), 200);
 }
 
 // Update profile fields for the currently logged-in user
@@ -45,7 +70,7 @@ function update_profile(array $body): void {
     }
 
     $values[] = $_SESSION['user_id'];
-    $pdo = getDBConnection();
+    $pdo = db();
     $pdo->prepare("UPDATE users SET " . implode(", ", $updates) . " WHERE id = ?")
         ->execute($values);
 
@@ -85,10 +110,25 @@ function upload_profile_image(): void {
 
     // Save image URL to database
     $imageUrl = "https://aptitude.cse.buffalo.edu/CSE442/2026-Spring/cse-442c/uploads/profiles/" . $fileName;
-    $pdo = getDBConnection();
+    $pdo = db();
     $pdo->prepare("UPDATE users SET profile_image = ? WHERE id = ?")
         ->execute([$imageUrl, $_SESSION['user_id']]);
 
     json_response(['ok' => true, 'image_url' => $imageUrl], 200);
+}
+
+// Delete the currently logged-in user's account and log out
+function delete_account(): void {
+    if (!isset($_SESSION['user_id'])) {
+        json_response(['ok' => false, 'error' => 'Not logged in'], 401);
+    }
+
+    $pdo = db();
+    $stmt = $pdo->prepare("DELETE FROM users WHERE id = ?");
+    $stmt->execute([$_SESSION['user_id']]);
+
+    session_destroy();
+
+    json_response(['ok' => true, 'message' => 'Account deleted'], 200);
 }
 ?>
