@@ -13,9 +13,12 @@ import logo from './LivestockEpidemicTracker.jpeg';
 const IS_LOCAL = window.location.hostname === 'localhost'
               || window.location.hostname === '127.0.0.1';
 
-const API_BASE = IS_LOCAL
-  ? 'http://localhost/s26-jnswl-corp/backend/public/api/index.php'
-  : 'https://aptitude.cse.buffalo.edu/CSE442/2026-Spring/cse-442c/backend/public/api/index.php';
+const API_ROOT = IS_LOCAL
+  ? 'http://localhost/s26-jnswl-corp/backend/public/api'
+  : 'https://aptitude.cse.buffalo.edu/CSE442/2026-Spring/cse-442c/backend/public/api';
+
+const API_BASE = `${API_ROOT}/index.php`;
+const EXPORT_OUTBREAKS_URL = `${API_ROOT}/exportOutbreaks.php`;
 
 const DEBUG_API = false;
 
@@ -895,8 +898,9 @@ const Data = () => {
   const [activeFilter, setActiveFilter] = useState('All Diseases');
   const [yearFrom,     setYearFrom]     = useState(String(CURRENT_YEAR));
   const [yearTo,       setYearTo]       = useState(String(CURRENT_YEAR));
-  const [exportToast, setExportToast] = useState(false);
-  const showExportToast = () => { setExportToast(true); setTimeout(() => setExportToast(false), 3000); };
+  const handleExportOutbreaks = () => {
+    window.open(EXPORT_OUTBREAKS_URL, '_blank', 'noopener,noreferrer');
+  };
 
   const BASE = '/CSE442/2026-Spring/cse-442c/#';
 
@@ -965,17 +969,7 @@ const NAV_LINKS = {
       <main style={S.main}>
         <div style={S.toolbar}>
           <span style={S.breadcrumb}>Data &amp; Statistics Dashboard</span>
-          <div style={{ position: 'relative' }}>
-            <button style={S.btnBlue} onClick={showExportToast}>⬇ Export</button>
-            {exportToast && (
-              <div style={{
-                position: 'absolute', top: 'calc(100% + 8px)', right: 0,
-                background: '#1a1a2e', color: '#fff', fontSize: 12,
-                padding: '8px 14px', borderRadius: 6, whiteSpace: 'nowrap',
-                zIndex: 200, boxShadow: '0 4px 12px rgba(0,0,0,0.2)',
-              }}>Export feature coming soon</div>
-            )}
-          </div>
+          <button style={S.btnBlue} onClick={handleExportOutbreaks}>Export</button>
         </div>
 
         <div style={{ marginBottom: 6 }}>
