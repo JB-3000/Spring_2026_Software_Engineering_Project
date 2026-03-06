@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import DOMPurify from "dompurify";
 import logo from '../LivestockEpidemicTracker.jpeg';
@@ -6,12 +6,14 @@ import Navbar from '../homepage/Navbar';
 import "./ViewProfile.css";
 
 export default function ViewProfile() {
+  const HARDCODED_PROFILE_IMG = "https://www.gravatar.com/avatar/?d=mp&s=200";
   const API_BASE =
     process.env.NODE_ENV === "production"
       ? "/CSE442/2026-Spring/cse-442c/backend/public/api/index.php"
       : "http://localhost:8000/api/index.php";
 
-  const [profileImg, setProfileImg] = useState(null);
+  const [profileImg, setProfileImg] = useState(HARDCODED_PROFILE_IMG);
+  const fileInputRef = useRef(null);
   const [isEditing, setIsEditing] = useState(false);
   const [showCancelModal, setShowCancelModal] = useState(false);
   const [userData, setUserData] = useState({
@@ -50,7 +52,6 @@ export default function ViewProfile() {
           };
           setUserData(sanitized);
           setEditData(sanitized);
-          if (data.profileImg) setProfileImg(data.profileImg);
         }
       } catch (err) {
         console.error("Failed to fetch user data:", err);
@@ -59,31 +60,11 @@ export default function ViewProfile() {
     fetchUserData();
   }, []);
 
-  const handleImgChange = async (e) => {
+  const handlePhotoChange = (e) => {
     const file = e.target.files[0];
     if (!file) return;
-
-    const previousImg = profileImg;
-    setProfileImg(URL.createObjectURL(file));
-
-    const formData = new FormData();
-    formData.append("image", file);
-    try {
-      const res = await fetch(
-        `${API_BASE}?r=uploadImage`,
-        { method: "POST", credentials: "include", body: formData }
-      );
-      const data = await res.json();
-      if (data.ok) {
-        setProfileImg(data.image_url);
-      } else {
-        setProfileImg(previousImg);
-        alert("Image upload failed: " + data.error);
-      }
-    } catch (err) {
-      setProfileImg(previousImg);
-      console.error("Image upload error:", err);
-    }
+    const url = URL.createObjectURL(file);
+    setProfileImg(url);
   };
 
   const handleEditClick = () => {
@@ -179,23 +160,23 @@ export default function ViewProfile() {
 
         <div className="vp-top-card">
           <div className="vp-top-left">
-            <label className="vp-avatar-wrap" htmlFor="avatar-upload">
+            <div className="vp-avatar-wrap" onClick={() => fileInputRef.current.click()}>
               <div className="vp-avatar">
                 {profileImg ? (
                   <img src={profileImg} alt="Profile" className="vp-avatar-img" />
                 ) : (
                   <div className="vp-avatar-default" />
                 )}
-                <div className="vp-avatar-overlay">Edit Photo</div>
+                <div className="vp-avatar-overlay">Change Photo</div>
               </div>
-              <input
-                id="avatar-upload"
-                type="file"
-                accept="image/*"
-                style={{ display: "none" }}
-                onChange={handleImgChange}
-              />
-            </label>
+            </div>
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept="image/*"
+              style={{ display: "none" }}
+              onChange={handlePhotoChange}
+            />
 
             <div className="vp-user-info">
               <p className="vp-username">{userData.firstName} {userData.lastName}</p>
