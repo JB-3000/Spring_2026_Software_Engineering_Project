@@ -2,6 +2,7 @@
 declare(strict_types=1);
 
 require __DIR__ . '/../../src/db.php';
+require __DIR__ . '/../../src/response.php';
 require __DIR__ . '/../../src/auth.php';    // Provides login() and session_start()
 require __DIR__ . '/../../src/profile.php'; // Added for ViewProfile
 
@@ -67,6 +68,11 @@ try {
 
         $_SESSION['user_id'] = (int)$user['id']; // Store user ID in session for subsequent requests
         echo json_encode(['ok' => true, 'user_id' => (int)$user['id']], JSON_UNESCAPED_SLASHES);
+        exit;
+    }
+
+    if ($route === 'createAccount') {
+        require __DIR__ . '/../../src/create-account.php';
         exit;
     }
 
