@@ -32,9 +32,6 @@ const MapSection = () => {
           <button style={{ marginLeft: '0.5rem', padding: '0.4rem 0.9rem' }}>
             List View
           </button>
-          <button style={{ marginLeft: '0.5rem', padding: '0.4rem 0.9rem' }}>
-            Export
-          </button>
         </div>
       </div>
 
