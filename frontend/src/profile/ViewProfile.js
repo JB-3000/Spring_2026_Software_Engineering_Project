@@ -52,6 +52,9 @@ export default function ViewProfile() {
           };
           setUserData(sanitized);
           setEditData(sanitized);
+          if (data.profileImg) {
+            setProfileImg(data.profileImg);
+          }
         }
       } catch (err) {
         console.error("Failed to fetch user data:", err);
@@ -60,11 +63,27 @@ export default function ViewProfile() {
     fetchUserData();
   }, []);
 
-  const handlePhotoChange = (e) => {
+  const handlePhotoChange = async (e) => {
     const file = e.target.files[0];
     if (!file) return;
-    const url = URL.createObjectURL(file);
-    setProfileImg(url);
+    setProfileImg(URL.createObjectURL(file));
+    const formData = new FormData();
+    formData.append("image", file);
+    try {
+      const res = await fetch(`${API_BASE}?r=uploadImage`, {
+        method: "POST",
+        credentials: "include",
+        body: formData,
+      });
+      const data = await res.json();
+      if (data.ok) {
+        setProfileImg(data.image_url);
+      } else {
+        console.error("Image upload failed:", data.error);
+      }
+    } catch (err) {
+      console.error("Image upload error:", err);
+    }
   };
 
   const handleEditClick = () => {
