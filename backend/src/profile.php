@@ -78,6 +78,8 @@ function update_profile(array $body): void {
 }
 
 // Upload and save profile image for the currently logged-in user
+// (Disabled: frontend now uses a hardcoded default avatar URL instead of file upload)
+/*
 function upload_profile_image(): void {
     if (!isset($_SESSION['user_id'])) {
         json_response(['ok' => false, 'error' => 'Not logged in'], 401);
@@ -88,24 +90,53 @@ function upload_profile_image(): void {
     }
 
     $file         = $_FILES['image'];
-    $allowedTypes = ['image/jpeg', 'image/png', 'image/gif', 'image/webp'];
+    $allowedTypes = [
+        'image/jpeg' => 'jpg',
+        'image/png'  => 'png',
+        'image/gif'  => 'gif',
+        'image/webp' => 'webp',
+    ];
 
-    if (!in_array($file['type'], $allowedTypes)) {
+    $uploadErrorMessages = [
+        UPLOAD_ERR_INI_SIZE   => 'File exceeds server upload_max_filesize limit',
+        UPLOAD_ERR_FORM_SIZE  => 'File exceeds form MAX_FILE_SIZE limit',
+        UPLOAD_ERR_PARTIAL    => 'File upload was incomplete',
+        UPLOAD_ERR_NO_FILE    => 'No file was uploaded',
+        UPLOAD_ERR_NO_TMP_DIR => 'Server missing temporary upload directory',
+        UPLOAD_ERR_CANT_WRITE => 'Server failed to write uploaded file',
+        UPLOAD_ERR_EXTENSION  => 'Upload blocked by server extension',
+    ];
+
+    if (($file['error'] ?? UPLOAD_ERR_NO_FILE) !== UPLOAD_ERR_OK) {
+        $code = (int)$file['error'];
+        $message = $uploadErrorMessages[$code] ?? 'Unknown upload error';
+        json_response(['ok' => false, 'error' => $message, 'code' => $code], 400);
+    }
+
+    $mimeType = mime_content_type($file['tmp_name']) ?: '';
+    if (!isset($allowedTypes[$mimeType])) {
         json_response(['ok' => false, 'error' => 'Only JPG, PNG, GIF, WEBP allowed'], 400);
     }
     if ($file['size'] > 5 * 1024 * 1024) {
         json_response(['ok' => false, 'error' => 'Max file size is 5MB'], 400);
     }
 
-    // Save to server uploads directory
-    $uploadDir = "/data/web/CSE442/2026-Spring/cse-442c/uploads/profiles/";
-    if (!is_dir($uploadDir)) mkdir($uploadDir, 0755, true);
+    // Save to project-level uploads directory to avoid environment-specific absolute paths.
+    $projectRoot = dirname(__DIR__, 2);
+    $uploadDir = $projectRoot . "/uploads/profiles/";
 
-    $ext      = pathinfo($file['name'], PATHINFO_EXTENSION);
+    if (!is_dir($uploadDir) && !mkdir($uploadDir, 0755, true)) {
+        json_response(['ok' => false, 'error' => 'Could not create upload directory'], 500);
+    }
+    if (!is_writable($uploadDir)) {
+        json_response(['ok' => false, 'error' => 'Upload directory is not writable'], 500);
+    }
+
+    $ext      = $allowedTypes[$mimeType];
     $fileName = "profile_" . $_SESSION['user_id'] . "_" . time() . "." . $ext;
 
     if (!move_uploaded_file($file['tmp_name'], $uploadDir . $fileName)) {
-        json_response(['ok' => false, 'error' => 'Upload failed'], 500);
+        json_response(['ok' => false, 'error' => 'Failed to move uploaded file'], 500);
     }
 
     // Save image URL to database
@@ -116,6 +147,7 @@ function upload_profile_image(): void {
 
     json_response(['ok' => true, 'image_url' => $imageUrl], 200);
 }
+*/
 
 // Delete the currently logged-in user's account and log out
 function delete_account(): void {
