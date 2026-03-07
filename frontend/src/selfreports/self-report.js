@@ -1,0 +1,201 @@
+import React, { useState } from "react";
+import logo from '../LivestockEpidemicTracker.jpeg';
+import SiteFooter from "../components/SiteFooter";
+import Navbar from "../homepage/Navbar";
+import "../pages/LoginPage.css";
+
+const US_STATES = [
+  "Alabama","Alaska","Arizona","Arkansas","California","Colorado","Connecticut",
+  "Delaware","Florida","Georgia","Hawaii","Idaho","Illinois","Indiana","Iowa",
+  "Kansas","Kentucky","Louisiana","Maine","Maryland","Massachusetts","Michigan",
+  "Minnesota","Mississippi","Missouri","Montana","Nebraska","Nevada",
+  "New Hampshire","New Jersey","New Mexico","New York","North Carolina",
+  "North Dakota","Ohio","Oklahoma","Oregon","Pennsylvania","Rhode Island",
+  "South Carolina","South Dakota","Tennessee","Texas","Utah","Vermont",
+  "Virginia","Washington","West Virginia","Wisconsin","Wyoming"
+];
+
+const DISEASE_OPTIONS = [
+  "Bluetongue",
+  "H5N1 (Avian Flu)",
+  "Mad Cow Disease (BSE)",
+  "Swine Flu",
+  "Other"
+];
+
+export default function SelfReport() {
+  console.log("SelfReport component is being rendered / mounted!");
+
+  const [formData, setFormData] = useState({
+    diseaseType: "",
+    location: "",
+    affectedAnimal: "",
+  });
+
+  const [success, setSuccess] = useState("");
+  const [error, setError] = useState("");
+
+  const handleChange = (e) => {
+    setFormData({
+      ...formData,
+      [e.target.name]: e.target.value,
+    });
+  };
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    console.log("handleSubmit was triggered!");
+
+    setError("");
+    setSuccess("");
+
+    if (!formData.diseaseType || !formData.location) {
+      setError("Disease and Location are required.");
+      return;
+    }
+
+    if (!US_STATES.includes(formData.location)) {
+      setError("Please select a valid U.S. state from the list.");
+      return;
+    }
+
+    // Optional: you can keep affectedAnimal in the form but we won't send it
+    console.log("Submitting:", { diseaseType: formData.diseaseType, location: formData.location });
+
+    try {
+      const response = await fetch(
+        "https://aptitude.cse.buffalo.edu/CSE442/2026-Spring/cse-442c/backend/public/api/create_outbreak.php",
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            diseaseType: formData.diseaseType,
+            location: formData.location,
+            // affectedAnimal is NOT sent to backend
+          }),
+        }
+      );
+
+      console.log("Response status:", response.status);
+
+      const data = await response.json();
+      console.log("Response data:", data);
+
+      if (!response.ok || !data.ok) {
+        setError(data.error || "Failed to submit report.");
+        return;
+      }
+
+      setSuccess("Report submitted successfully!");
+
+      setFormData({
+        diseaseType: "",
+        location: "",
+        affectedAnimal: "",
+      });
+
+    } catch (err) {
+      console.error("Fetch error:", err);
+      setError("Server connection failed. Check console for details.");
+    }
+  };
+
+  return (
+    <div className="login-page">
+      <div className="login-page">
+  <div style={{ background: '#ffffff', color: 'black', padding: '20px 0', fontFamily: 'Arial, Helvetica, sans-serif' }}>
+    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '12px' }}>
+      <img src={logo} alt="logo" style={{ width: 52, height: 52, objectFit: 'contain', borderRadius: 4 }} />
+      <h1 style={{ margin: 0, fontSize: '2.4rem', letterSpacing: '1.5px', fontWeight: 'bold' }}>
+        LIVESTOCK EPIDEMIC TRACKER
+      </h1>
+    </div>
+  </div>
+      <Navbar />
+
+      <main className="login-main">
+        <div className="form-center-wrapper">
+          <section className="card card--fixed">
+            <div className="card__title">New Disease Entry</div>
+
+            <form className="login-form" onSubmit={handleSubmit}>
+
+              {/* Disease Dropdown */}
+              <label className="field">
+                <span className="field__label">Disease Type</span>
+                <select
+                  className="field__input"
+                  name="diseaseType"
+                  value={formData.diseaseType}
+                  onChange={handleChange}
+                  required
+                >
+                  <option value="">Select Disease</option>
+                  {DISEASE_OPTIONS.map((disease) => (
+                    <option key={disease} value={disease}>
+                      {disease}
+                    </option>
+                  ))}
+                </select>
+              </label>
+
+              {/* State with Datalist */}
+              <label className="field">
+                <span className="field__label">State</span>
+                <input
+                  className="field__input"
+                  type="text"
+                  name="location"
+                  list="states"
+                  value={formData.location}
+                  onChange={handleChange}
+                  placeholder="Start typing a state..."
+                  required
+                />
+                <datalist id="states">
+                  {US_STATES.map((state) => (
+                    <option key={state} value={state} />
+                  ))}
+                </datalist>
+              </label>
+
+              {/* Affected Animal – kept in form but not sent to backend */}
+              <label className="field">
+                <span className="field__label">Affected Animal (optional note)</span>
+                <input
+                  className="field__input"
+                  type="text"
+                  name="affectedAnimal"
+                  value={formData.affectedAnimal}
+                  onChange={handleChange}
+                  placeholder="e.g. cattle, birds, pigs..."
+                />
+              </label>
+
+              {error && (
+                <div style={{ color: "red", fontWeight: 700, textAlign: "center" }}>
+                  {error}
+                </div>
+              )}
+
+              {success && (
+                <div style={{ color: "green", fontWeight: 700, textAlign: "center" }}>
+                  {success}
+                </div>
+              )}
+
+              <button className="login-btn" type="submit">
+                Upload Report
+              </button>
+            </form>
+          </section>
+        </div>
+      </main>
+
+      <SiteFooter />
+    </div>
+    </div>
+  );
+}
