@@ -904,15 +904,6 @@ const Data = () => {
     window.open(EXPORT_OUTBREAKS_URL, '_blank', 'noopener,noreferrer');
   };
 
-  const BASE = '/CSE442/2026-Spring/cse-442c/#';
-
-const NAV_LINKS = {
-  'Home':    `${BASE}/home`,
-  'News':    `${BASE}/news`,
-  'FAQ':     `${BASE}/faq`,
-  'Log Out': `${BASE}/`,
-  'Profile': `${BASE}/profile`,
-};
 
   const summaryParams = useMemo(() => activeFilter !== 'All Diseases' ? { disease: activeFilter } : {}, [activeFilter]);
   const byStateParams = useMemo(() => activeFilter !== 'All Diseases' ? { disease: activeFilter } : {}, [activeFilter]);
