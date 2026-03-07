@@ -5,6 +5,7 @@ import MapSection from './MapSelection';
 import Stats from './Stats';
 import RecentOutbreaks from './RecentOutbreaks';
 import logo from '../LivestockEpidemicTracker.jpeg';
+import SiteFooter from '../components/SiteFooter';
 
 const HomePage = () => {
   const [activeFilters, setActiveFilters] = useState({});
@@ -93,18 +94,7 @@ const HomePage = () => {
       </main>
 
       {/* Footer */}
-      <footer
-        style={{
-          textAlign: 'center',
-          padding: '1rem',
-          background: '#003087',
-          color: 'white',
-          fontSize: '0.9rem',
-          marginTop: '2rem',
-        }}
-      >
-        © 2026 JFWSL Corp ™
-      </footer>
+      <SiteFooter />
     </div>
   );
 };
