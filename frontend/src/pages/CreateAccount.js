@@ -1,6 +1,6 @@
 import React, { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import SiteHeader from "../components/SiteHeader";
+import logo from '../LivestockEpidemicTracker.jpeg';
 import SiteFooter from "../components/SiteFooter";
 import "./CreateAccount.css";
 
@@ -77,7 +77,14 @@ export default function CreateAccount({ onCancel }) {
 
   return (
     <div className="create-account-page">
-      <SiteHeader />
+      <div style={{ background: '#ffffff', color: 'black', padding: '20px 0', fontFamily: 'Arial, Helvetica, sans-serif' }}>
+    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '12px' }}>
+      <img src={logo} alt="logo" style={{ width: 52, height: 52, objectFit: 'contain', borderRadius: 4 }} />
+      <h1 style={{ margin: 0, fontSize: '2.4rem', letterSpacing: '1.5px', fontWeight: 'bold' }}>
+        LIVESTOCK EPIDEMIC TRACKER
+      </h1>
+    </div>
+  </div>
 
       <main className="form-container">
         <h2>Create Account</h2>

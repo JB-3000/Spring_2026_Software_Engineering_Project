@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import SiteHeader from "../components/SiteHeader";
+import logo from '../LivestockEpidemicTracker.jpeg';
 import SiteFooter from "../components/SiteFooter";
 import Navbar from "../homepage/Navbar";
 import "../pages/LoginPage.css";
@@ -104,7 +104,15 @@ export default function SelfReport() {
 
   return (
     <div className="login-page">
-      <SiteHeader />
+      <div className="login-page">
+  <div style={{ background: '#ffffff', color: 'black', padding: '20px 0', fontFamily: 'Arial, Helvetica, sans-serif' }}>
+    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '12px' }}>
+      <img src={logo} alt="logo" style={{ width: 52, height: 52, objectFit: 'contain', borderRadius: 4 }} />
+      <h1 style={{ margin: 0, fontSize: '2.4rem', letterSpacing: '1.5px', fontWeight: 'bold' }}>
+        LIVESTOCK EPIDEMIC TRACKER
+      </h1>
+    </div>
+  </div>
       <Navbar />
 
       <main className="login-main">
@@ -187,6 +195,7 @@ export default function SelfReport() {
       </main>
 
       <SiteFooter />
+    </div>
     </div>
   );
 }

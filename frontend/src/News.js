@@ -1,6 +1,7 @@
 import { useState } from "react";
 import logo from './LivestockEpidemicTracker.jpeg';
 import Navbar from './homepage/Navbar';
+import SiteFooter from './components/SiteFooter';
 
 const mockNews = [
   {
@@ -149,12 +150,14 @@ export default function News() {
 
       <div className="news-page">
         {/* Header */}
-        <div className="news-header">
-          <div className="news-header-inner">
-            <img src={logo} alt="logo" style={{ width: 52, height: 52, objectFit: 'contain', borderRadius: 4 }} />
-            <h1>LIVESTOCK EPIDEMIC TRACKER</h1>
-          </div>
-        </div>
+        <div style={{ background: '#ffffff', color: 'black', padding: '20px 0', fontFamily: 'Arial, Helvetica, sans-serif' }}>
+  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '12px' }}>
+    <img src={logo} alt="logo" style={{ width: 52, height: 52, objectFit: 'contain', borderRadius: 4 }} />
+    <h1 style={{ margin: 0, fontSize: '2.4rem', letterSpacing: '1.5px', fontWeight: 'bold' }}>
+      LIVESTOCK EPIDEMIC TRACKER
+    </h1>
+  </div>
+</div>
 
         {/* Nav */}
         <Navbar />
@@ -268,7 +271,7 @@ export default function News() {
         </div>
 
         {/* Footer */}
-        <div className="news-footer">2026 - JNWSL Corp tm.</div>
+        <SiteFooter />
       </div>
     </>
   );
