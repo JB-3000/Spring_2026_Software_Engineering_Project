@@ -67,8 +67,6 @@ const HomePage = () => {
       {/* Nav */}
       <Navbar />
 
-      {/* Filters */}
-      <Filters onFilterChange={handleFilterChange} />
 
       {/* Main Content */}
       <main
