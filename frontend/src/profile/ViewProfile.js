@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom";
 import DOMPurify from "dompurify";
 import logo from '../LivestockEpidemicTracker.jpeg';
 import Navbar from '../homepage/Navbar';
+import SiteFooter from '../components/SiteFooter';
 import "./ViewProfile.css";
 
 export default function ViewProfile() {
@@ -52,6 +53,9 @@ export default function ViewProfile() {
           };
           setUserData(sanitized);
           setEditData(sanitized);
+          if (data.profileImg) {
+            setProfileImg(data.profileImg);
+          }
         }
       } catch (err) {
         console.error("Failed to fetch user data:", err);
@@ -63,8 +67,26 @@ export default function ViewProfile() {
   const handlePhotoChange = (e) => {
     const file = e.target.files[0];
     if (!file) return;
-    const url = URL.createObjectURL(file);
-    setProfileImg(url);
+    const reader = new FileReader();
+    reader.onload = async (event) => {
+      const base64 = event.target.result;
+      setProfileImg(base64);
+      try {
+        const res = await fetch(`${API_BASE}?r=uploadImage`, {
+          method: "POST",
+          credentials: "include",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ image: base64 }),
+        });
+        const data = await res.json();
+        if (!data.ok) {
+          console.error("Image upload failed:", data.error);
+        }
+      } catch (err) {
+        console.error("Image upload error:", err);
+      }
+    };
+    reader.readAsDataURL(file);
   };
 
   const handleEditClick = () => {
@@ -82,6 +104,16 @@ export default function ViewProfile() {
   };
 
   const handleSave = async () => {
+    if (!editData.email || editData.email.trim() === "") {
+      alert("Email cannot be empty.");
+      return;
+    }
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(editData.email)) {
+      alert("Please enter a valid email address.");
+      return;
+    }
+
     try {
       const res = await fetch(
         `${API_BASE}?r=updateProfile`,
@@ -147,12 +179,14 @@ export default function ViewProfile() {
   return (
     <div className="vp-page">
 
-      <header className="vp-header">
-        <div className="vp-header-inner">
-          <img src={logo} alt="logo" className="vp-logo-img" />
-          <h1 className="vp-title">LIVESTOCK EPIDEMIC TRACKER</h1>
-        </div>
-      </header>
+      <div style={{ background: '#ffffff', color: 'black', padding: '20px 0', fontFamily: 'Arial, Helvetica, sans-serif' }}>
+  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '12px' }}>
+    <img src={logo} alt="logo" style={{ width: 52, height: 52, objectFit: 'contain', borderRadius: 4 }} />
+    <h1 style={{ margin: 0, fontSize: '2.4rem', letterSpacing: '1.5px', fontWeight: 'bold' }}>
+      LIVESTOCK EPIDEMIC TRACKER
+    </h1>
+  </div>
+</div>
 
       <Navbar />
 
@@ -223,9 +257,7 @@ export default function ViewProfile() {
         </div>
       </div>
 
-      <footer className="vp-footer">
-        <p>2026 — JNWSL Corp tm.</p>
-      </footer>
+      <SiteFooter />
     
     
     {/* Cancel Subscription */}
