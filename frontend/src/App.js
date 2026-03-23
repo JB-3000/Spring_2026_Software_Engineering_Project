@@ -11,6 +11,7 @@ import ForgotPasswordPage from "./pages/ForgotPasswordPage";
 import ResetPasswordPage from "./pages/ResetPasswordPage";
 import CreateAccount from './pages/CreateAccount';
 import SelfReport from './selfreports/self-report';
+import BiosecurityGuide from './pages/BiosecurityGuide';
 
 
 function App() {
@@ -27,6 +28,7 @@ function App() {
         <Route path="/profile" element={<ViewProfile />} />
         <Route path="/createAccount" element={<CreateAccount />} />
         <Route path="/self-report" element={<SelfReport />} />
+        <Route path="/biosecurity" element={<BiosecurityGuide />} />
       </Routes>
     </div>
   );

@@ -1,7 +1,7 @@
 import React from 'react';
 import { useNavigate } from 'react-router-dom';
 
-const PURPLE = '#6a5acd'; // change if you already define this elsewhere
+const PURPLE = '#6a5acd'; // Change if already defined elsewhere
 
 const Navbar = () => {
   const navigate = useNavigate();
@@ -12,6 +12,7 @@ const Navbar = () => {
       <button onClick={() => navigate('/news')} style={styles.button}>News</button>
       <button onClick={() => navigate('/data')} style={styles.button}>Data</button>
       <button onClick={() => navigate('/faq')} style={styles.button}>FAQ</button>
+      <button onClick={() => navigate('/biosecurity')} style={styles.button}>Biosecurity Guide</button>
       <button onClick={() => navigate('/profile')} style={styles.button}>Profile</button>
       <button onClick={() => navigate('/')} style={styles.button}>Log Out</button>
     </nav>
