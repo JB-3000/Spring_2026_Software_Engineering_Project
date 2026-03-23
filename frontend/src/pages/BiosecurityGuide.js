@@ -12,27 +12,26 @@ const BiosecurityGuide = () => {
   };
 
   const generalTips = [
-    { title: "Sanitation", description: "Disinfect all equipment and surfaces frequently and between uses to prevent the spread of disease." },
-    { title: "Quarantine", description: "Isolate new animals for a minimum of 14 days before introducing them to your livestock." },
-    { title: "Visitor Access", description: "Limit farm access to essential personnel only." },
-    { title: "Protective Clothing", description: "Use dedicated protective clothing and footwear when handling livestock to prevent cross-contamination." },
-    { title: "Health Monitoring", description: "Regularly monitor the health of your livestock and keep detailed health records." }
+    { title: "Sanitation", description: "Disinfect all equipment and surfaces frequently and between uses to prevent the spread of disease.", color: "#4CAF50" },
+    { title: "Quarantine", description: "Isolate new animals for a minimum of 14 days before introducing them to your livestock.", color: "#2196F3" },
+    { title: "Visitor Access", description: "Limit farm access to essential personnel only.", color: "#FF9800" },
+    { title: "Protective Clothing", description: "Use dedicated protective clothing and footwear when handling livestock to prevent cross-contamination.", color: "#9C27B0" },
+    { title: "Health Monitoring", description: "Regularly monitor the health of your livestock and keep detailed health records.", color: "#F44336" }
   ];
 
   const avianFluTips = [
-    { title: "Monitoring", description: "Check your livestock daily for symptoms." },
-    { title: "Wild Bird Exposure", description: "Avoid exposing livestock to wild birds to prevent the spread of disease." },
-    { title: "Contact Authorities", description: "If you have an animal that tests positive for Avian Flu or is displaying symptoms, contact your local/state wildlife management agency per your state's reporting regulations." },
-    { title: "Isolation", description: "Immediately isolate any livestock showing symptoms of Avian Flu." },
-    { title: "Sanitize Equipment", description: "Regularly sanitize equipment and surfaces that come into contact with livestock." }
+    { title: "Monitoring", description: "Check your livestock daily for symptoms.", color: "#4CAF50" },
+    { title: "Wild Bird Exposure", description: "Avoid exposing livestock to wild birds to prevent the spread of disease.", color: "#2196F3" },
+    { title: "Contact Authorities", description: "If you have an animal that tests positive for Avian Flu or is displaying symptoms, contact your local/state wildlife management agency per your state's reporting regulations.", color: "#FF9800" },
+    { title: "Isolation", description: "Immediately isolate any livestock showing symptoms of Avian Flu.", color: "#9C27B0" },
+    { title: "Sanitize Equipment", description: "Regularly sanitize equipment and surfaces that come into contact with livestock.", color: "#F44336" }
   ];
 
   const sources = [
     { name: "USDA Animal and Plant Health Inspection Service", url: "https://www.aphis.usda.gov/livestock-poultry-disease/avian/avian-influenza/hpai-detections/livestock/enhance-biosecurity" },
     { name: "Minnesota Board of Animal Health", url: "https://bah.state.mn.us/biosecurity" },
-    { name: "Centers for Disease Control and Prevention (CDC)", url: "https://www.cdc.gov/flu/avianflu/index.htm" },
-    { name: "World Organisation for Animal Health (OIE)", url: "https://www.oie.int/" },
-    { name: "American Veterinary Medical Association (AVMA)", url: "https://www.avma.org/" }
+    { name: "Centers for Disease Control and Prevention (CDC) - Avian Influenza", url: "https://www.cdc.gov/flu/avianflu/" },
+    { name: "World Organisation for Animal Health (OIE) - Avian Influenza", url: "https://www.woah.org/en/disease/avian-influenza/" }
   ];
 
   return (
@@ -51,6 +50,7 @@ const BiosecurityGuide = () => {
         background: '#ffffff',
         color: 'black',
         padding: '20px 0',
+        boxShadow: '0 2px 4px rgba(0, 0, 0, 0.1)'
       }}>
         <div style={{
           display: 'flex',
@@ -91,7 +91,11 @@ const BiosecurityGuide = () => {
         gap: '1.5rem',
       }}>
         <div style={{ textAlign: 'center', marginBottom: '20px' }}>
-          <h2 style={{ fontSize: '1.8rem', color: '#1f2a44' }}>
+          <h2 style={{
+            fontSize: '1.8rem',
+            color: '#1f2a44',
+            transition: 'all 0.3s ease'
+          }}>
             {isAvianFlu ? "Avian Flu Prevention Guidelines" : "Biosecurity Guide"}
           </h2>
         </div>
@@ -101,13 +105,21 @@ const BiosecurityGuide = () => {
             onClick={toggleView}
             style={{
               padding: '10px 20px',
-              background: '#4CAF50',
+              background: isAvianFlu ? '#9C27B0' : '#4CAF50',
               color: 'white',
               border: 'none',
               borderRadius: '5px',
               cursor: 'pointer',
               fontSize: '16px',
+              transition: 'all 0.3s ease',
+              boxShadow: '0 2px 4px rgba(0, 0, 0, 0.1)',
+              transform: 'scale(1)',
+              ':hover': {
+                transform: 'scale(1.05)'
+              }
             }}
+            onMouseOver={(e) => e.currentTarget.style.transform = 'scale(1.05)'}
+            onMouseOut={(e) => e.currentTarget.style.transform = 'scale(1)'}
           >
             {isAvianFlu ? "General Biosecurity Guidelines" : "Avian Flu Biosecurity"}
           </button>
@@ -120,14 +132,31 @@ const BiosecurityGuide = () => {
           flex: 1,
         }}>
           {(isAvianFlu ? avianFluTips : generalTips).map((tip, index) => (
-            <div key={index} style={{
-              background: 'white',
-              border: '1px solid #e0e3ec',
-              borderRadius: '8px',
-              padding: '18px 22px',
-              boxShadow: '0 1px 4px rgba(0, 0, 0, 0.06)',
-            }}>
-              <h3 style={{ marginTop: 0, color: '#1f2a44' }}>{tip.title}</h3>
+            <div
+              key={index}
+              style={{
+                background: 'white',
+                border: '1px solid #e0e3ec',
+                borderRadius: '8px',
+                padding: '18px 22px',
+                boxShadow: '0 1px 4px rgba(0, 0, 0, 0.06)',
+                borderLeft: `4px solid ${tip.color}`,
+                transition: 'transform 0.3s ease, box-shadow 0.3s ease',
+                ':hover': {
+                  transform: 'translateY(-2px)',
+                  boxShadow: '0 4px 8px rgba(0, 0, 0, 0.1)'
+                }
+              }}
+              onMouseOver={(e) => {
+                e.currentTarget.style.transform = 'translateY(-2px)';
+                e.currentTarget.style.boxShadow = '0 4px 8px rgba(0, 0, 0, 0.1)';
+              }}
+              onMouseOut={(e) => {
+                e.currentTarget.style.transform = 'translateY(0)';
+                e.currentTarget.style.boxShadow = '0 1px 4px rgba(0, 0, 0, 0.06)';
+              }}
+            >
+              <h3 style={{ marginTop: 0, color: tip.color, fontWeight: 'bold' }}>{tip.title}</h3>
               <p style={{ color: '#555' }}>{tip.description}</p>
             </div>
           ))}
@@ -142,7 +171,16 @@ const BiosecurityGuide = () => {
                   href={source.url}
                   target="_blank"
                   rel="noopener noreferrer"
-                  style={{ color: '#0066cc', textDecoration: 'none' }}
+                  style={{
+                    color: '#0066cc',
+                    textDecoration: 'none',
+                    transition: 'color 0.3s ease',
+                    ':hover': {
+                      color: '#FF9800'
+                    }
+                  }}
+                  onMouseOver={(e) => e.currentTarget.style.color = '#FF9800'}
+                  onMouseOut={(e) => e.currentTarget.style.color = '#0066cc'}
                 >
                   {source.name}
                 </a>
