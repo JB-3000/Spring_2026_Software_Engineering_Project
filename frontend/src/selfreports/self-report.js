@@ -3,6 +3,7 @@ import logo from '../LivestockEpidemicTracker.jpeg';
 import SiteFooter from "../components/SiteFooter";
 import Navbar from "../homepage/Navbar";
 import "../pages/LoginPage.css";
+import { Link } from "react-router-dom"; // ← Add this import (if using React Router)
 
 const US_STATES = [
   "Alabama","Alaska","Arizona","Arkansas","California","Colorado","Connecticut",
@@ -64,7 +65,7 @@ export default function SelfReport() {
         "https://aptitude.cse.buffalo.edu/CSE442/2026-Spring/cse-442c/backend/public/api/create_outbreak.php",
         {
           method: "POST",
-          credentials: "include", // ✅ CRITICAL (session cookie)
+          credentials: "include",
           headers: {
             "Content-Type": "application/json",
           },
@@ -88,7 +89,6 @@ export default function SelfReport() {
 
       setSuccess("Report submitted successfully!");
 
-      // Reset form
       setFormData({
         diseaseType: "",
         location: "",
@@ -117,8 +117,85 @@ export default function SelfReport() {
 
       <Navbar />
 
-      <main className="login-main">
-        <div className="form-center-wrapper">
+      <main className="login-main" style={{ 
+        display: 'flex', 
+        justifyContent: 'center', 
+        gap: '40px', 
+        padding: '40px 20px',
+        maxWidth: '1200px',
+        margin: '0 auto',
+        flexWrap: 'wrap'
+      }}>
+        
+        {/* Left sidebar with button */}
+        <aside style={{
+          flex: 1,                // ⬅️ lets it grow like the form
+          minWidth: '320px',
+          maxWidth: '500px',      // ⬅️ same as form box
+          display: 'flex',
+          flexDirection: 'column',
+          gap: '16px',
+          padding: '20px',
+          background: '#f8f9fa',
+          borderRadius: '8px',
+          boxShadow: '0 2px 8px rgba(0,0,0,0.1)',
+          height: 'fit-content'
+        }}>
+        <h3 style={{ 
+          margin: '0 0 12px 0', 
+          fontSize: '1.3rem',
+          textAlign: 'center'   // ⬅️ centers the text
+        }}>
+          Your Reports
+        </h3>          
+          <Link 
+            to="/my-reports" // ← Change this to your actual route/path
+            style={{ textDecoration: 'none' }}
+          >
+          <button 
+            className="login-btn" 
+            style={{ 
+              width: '100%',
+              padding: '14px 18px',   // ⬅️ more vertical + horizontal space
+              fontSize: '1.05rem',
+              background: '#4a90e2',
+              color: 'white',
+              border: 'none',
+              borderRadius: '6px',
+              cursor: 'pointer',
+              whiteSpace: 'nowrap'    // ⬅️ prevents text wrapping/cramping
+            }}
+          >
+            View My Reports
+          </button>
+          </Link>
+          
+          <Link 
+            to="/all-reports"   // ⬅️ change this route if needed
+            style={{ textDecoration: 'none' }}
+          >
+            <button 
+              className="login-btn" 
+              style={{ 
+                width: '100%',
+                padding: '14px 18px',
+                fontSize: '1.05rem',
+                background: '#2ecc71',   // ⬅️ green to differentiate
+                color: 'white',
+                border: 'none',
+                borderRadius: '6px',
+                cursor: 'pointer',
+                whiteSpace: 'nowrap'
+              }}
+            >
+              View self reports by everyone
+            </button>
+          </Link>
+          {/* You can add more sidebar links/buttons later */}
+        </aside>
+
+        {/* Main form section */}
+        <div className="form-center-wrapper" style={{ flex: 1, minWidth: '320px', maxWidth: '500px' }}>
           <section className="card card--fixed">
             <div className="card__title">New Disease Entry</div>
 
@@ -163,7 +240,7 @@ export default function SelfReport() {
                 </datalist>
               </label>
 
-              {/* Optional field (not sent) */}
+              {/* Optional field */}
               <label className="field">
                 <span className="field__label">Affected Animal (optional)</span>
                 <input
@@ -189,7 +266,7 @@ export default function SelfReport() {
                 </div>
               )}
 
-              {/* Button */}
+              {/* Submit Button */}
               <button className="login-btn" type="submit" disabled={loading}>
                 {loading ? "Submitting..." : "Upload Report"}
               </button>

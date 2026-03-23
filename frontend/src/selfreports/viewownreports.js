@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from "react";
+import { useNavigate } from "react-router-dom";
 import logo from '../LivestockEpidemicTracker.jpeg';
 import SiteFooter from "../components/SiteFooter";
 import Navbar from "../homepage/Navbar";
@@ -8,6 +9,10 @@ export default function MyReports() {
   const [reports, setReports] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  const navigate = useNavigate();
+
+  // Updated grid: 4 columns for Date, Disease, Location, and Status
+  const gridLayout = "1fr 1.5fr 1.5fr 1fr"; 
 
   useEffect(() => {
     const fetchMyReports = async () => {
@@ -16,20 +21,13 @@ export default function MyReports() {
           "https://aptitude.cse.buffalo.edu/CSE442/2026-Spring/cse-442c/backend/public/api/get_my_outbreaks.php",
           {
             method: "GET",
-            credentials: "include", // ✅ REQUIRED for sessions
-            headers: {
-              "Accept": "application/json",
-            },
+            credentials: "include",
+            headers: { "Accept": "application/json" },
           }
         );
 
-        // 🔥 Handle non-JSON errors safely
         let data;
-        try {
-          data = await response.json();
-        } catch {
-          throw new Error("Invalid server response");
-        }
+        try { data = await response.json(); } catch { throw new Error("Invalid server response"); }
 
         if (!response.ok || !data.ok) {
           throw new Error(data.error || "Failed to load reports");
@@ -37,103 +35,90 @@ export default function MyReports() {
 
         setReports(data.reports || []);
       } catch (err) {
-        console.error("Fetch error:", err);
         setError(err.message || "Could not load your reports.");
       } finally {
         setLoading(false);
       }
     };
-
     fetchMyReports();
   }, []);
 
   return (
-    <div className="login-page">
-      {/* Header */}
+    <div className="login-page" style={{ minHeight: "100vh", display: "flex", flexDirection: "column", background: "#f5f5f5" }}>
       <div style={{ background: '#ffffff', color: 'black', padding: '20px 0' }}>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '12px' }}>
           <img src={logo} alt="logo" style={{ width: 52, height: 52 }} />
-          <h1 style={{ margin: 0, fontSize: '2.4rem', fontWeight: 'bold' }}>
-            LIVESTOCK EPIDEMIC TRACKER
-          </h1>
+          <h1 style={{ margin: 0, fontSize: '2.4rem', fontWeight: 'bold' }}>LIVESTOCK EPIDEMIC TRACKER</h1>
         </div>
       </div>
 
       <Navbar />
 
-      <main className="login-main">
-        <div className="form-center-wrapper" style={{ maxWidth: '900px' }}>
-          <section className="card card--fixed">
-            <div className="card__title">My Submitted Reports</div>
+      <main style={{ flex: 1, display: "flex", justifyContent: "center", padding: "2rem 1rem" }}>
+        <div style={{ width: "100%", maxWidth: "1000px", display: "flex", flexDirection: "column" }}>
+          
+          <button
+            onClick={() => navigate("/self-report")}
+            style={{ alignSelf: "flex-start", marginBottom: "1.5rem", backgroundColor: "#3498db", color: "white", border: "none", padding: "0.6rem 1.2rem", borderRadius: "6px", fontWeight: "bold", cursor: "pointer" }}
+          >
+            + Create Report
+          </button>
 
-            {/* Loading */}
-            {loading && (
-              <div style={{ textAlign: 'center', padding: '2rem' }}>
-                Loading your reports...
-              </div>
-            )}
+          <section style={{ background: "#ffffff", borderRadius: "12px", boxShadow: "0 4px 14px rgba(0,0,0,0.08)", padding: "2rem", minHeight: "60vh" }}>
+            <div style={{ fontSize: "1.8rem", fontWeight: "bold", marginBottom: "2rem", color: "#333" }}>My Submitted Reports</div>
 
-            {/* Error */}
-            {error && (
-              <div style={{ color: "red", fontWeight: 700, textAlign: "center", padding: '1rem' }}>
-                {error}
-              </div>
-            )}
+            {/* --- DARK GRAY HEADER BOX --- */}
+            <div style={{ 
+              display: "grid", 
+              gridTemplateColumns: gridLayout, 
+              backgroundColor: "#d1d1d1", 
+              padding: "15px 20px", 
+              borderRadius: "12px", 
+              fontWeight: "bold", 
+              fontSize: "1.2rem",
+              textAlign: "center",
+              marginBottom: "15px" 
+            }}>
+              <div>Date</div>
+              <div>Disease</div>
+              <div>Location</div>
+              <div>Status</div>
+            </div>
 
-            {/* Empty */}
-            {!loading && !error && reports.length === 0 && (
-              <div style={{ textAlign: 'center', padding: '2rem', color: '#555' }}>
-                You haven't submitted any outbreak reports yet.
-              </div>
-            )}
-
-            {/* Reports */}
-            {!loading && !error && reports.length > 0 && (
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '1.2rem', marginTop: '1rem' }}>
-                {reports.map((report) => (
-                  <div
-                    key={report.id}
-                    style={{
-                      border: '1px solid #ddd',
-                      borderRadius: '8px',
-                      padding: '1.25rem',
-                      background: '#fafafa',
-                      boxShadow: '0 2px 6px rgba(0,0,0,0.08)',
-                    }}
-                  >
-                    <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                      <h3 style={{ margin: 0, color: '#c0392b' }}>
-                        {report.diseaseType}
-                      </h3>
-
-                      <span style={{ fontSize: '0.9rem', color: '#777' }}>
-                        {report.created_at
-                          ? new Date(report.created_at).toLocaleString()
-                          : "No date"}
-                      </span>
-                    </div>
-
-                    <div>
-                      <strong>Location:</strong> {report.location}
-                    </div>
-
-                    <div>
-                      <strong>Cases:</strong> {report.cases ?? 1}
-                    </div>
-
-                    {report.report_date && (
-                      <div>
-                        <strong>Reported Date:</strong> {report.report_date}
-                      </div>
-                    )}
+            {/* --- REPORT ROWS --- */}
+            <div style={{ display: "flex", flexDirection: "column", gap: "12px" }}>
+              {loading && <div style={{ textAlign: "center", padding: "20px" }}>Loading...</div>}
+              {error && <div style={{ color: "red", textAlign: "center" }}>{error}</div>}
+              
+              {!loading && reports.map((report) => (
+                <div 
+                  key={report.id}
+                  style={{ 
+                    display: "grid", 
+                    gridTemplateColumns: gridLayout, 
+                    backgroundColor: "#f2f2f2", 
+                    padding: "15px 20px", 
+                    borderRadius: "15px", 
+                    alignItems: "center", 
+                    textAlign: "center",
+                    border: "1px solid #e0e0e0",
+                  }}
+                >
+                  <div>{report.report_date || "N/A"}</div>
+                  <div style={{ fontWeight: "500" }}>{report.diseaseType}</div>
+                  <div>{report.location}</div>
+                  <div style={{ 
+                    color: report.status === "Rejected" ? "#e74c3c" : "#333",
+                    fontWeight: "500"
+                  }}>
+                    {report.status || "Confirmed"}
                   </div>
-                ))}
-              </div>
-            )}
+                </div>
+              ))}
+            </div>
           </section>
         </div>
       </main>
-
       <SiteFooter />
     </div>
   );
