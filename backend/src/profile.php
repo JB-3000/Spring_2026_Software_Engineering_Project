@@ -77,34 +77,77 @@ function update_profile(array $body): void {
     json_response(['ok' => true, 'message' => 'Profile updated'], 200);
 }
 
-// Upload and save profile image (base64) for the currently logged-in user
+// Upload and save profile image for the currently logged-in user
+// (Disabled: frontend now uses a hardcoded default avatar URL instead of file upload)
+/*
 function upload_profile_image(): void {
     if (!isset($_SESSION['user_id'])) {
         json_response(['ok' => false, 'error' => 'Not logged in'], 401);
     }
 
-    $body = json_decode(file_get_contents('php://input'), true);
-    if (empty($body['image'])) {
-        json_response(['ok' => false, 'error' => 'No image data provided'], 400);
+    if (!isset($_FILES['image'])) {
+        json_response(['ok' => false, 'error' => 'No image file provided'], 400);
     }
 
-    $base64 = $body['image'];
+    $file         = $_FILES['image'];
+    $allowedTypes = [
+        'image/jpeg' => 'jpg',
+        'image/png'  => 'png',
+        'image/gif'  => 'gif',
+        'image/webp' => 'webp',
+    ];
 
-    if (!preg_match('/^data:image\/(jpeg|png|gif|webp);base64,/', $base64)) {
-        json_response(['ok' => false, 'error' => 'Invalid image format'], 400);
+    $uploadErrorMessages = [
+        UPLOAD_ERR_INI_SIZE   => 'File exceeds server upload_max_filesize limit',
+        UPLOAD_ERR_FORM_SIZE  => 'File exceeds form MAX_FILE_SIZE limit',
+        UPLOAD_ERR_PARTIAL    => 'File upload was incomplete',
+        UPLOAD_ERR_NO_FILE    => 'No file was uploaded',
+        UPLOAD_ERR_NO_TMP_DIR => 'Server missing temporary upload directory',
+        UPLOAD_ERR_CANT_WRITE => 'Server failed to write uploaded file',
+        UPLOAD_ERR_EXTENSION  => 'Upload blocked by server extension',
+    ];
+
+    if (($file['error'] ?? UPLOAD_ERR_NO_FILE) !== UPLOAD_ERR_OK) {
+        $code = (int)$file['error'];
+        $message = $uploadErrorMessages[$code] ?? 'Unknown upload error';
+        json_response(['ok' => false, 'error' => $message, 'code' => $code], 400);
     }
 
-    // ~2MB image becomes ~2.7MB base64 string
-    if (strlen($base64) > 3 * 1024 * 1024) {
-        json_response(['ok' => false, 'error' => 'Image too large (max 2MB)'], 400);
+    $mimeType = mime_content_type($file['tmp_name']) ?: '';
+    if (!isset($allowedTypes[$mimeType])) {
+        json_response(['ok' => false, 'error' => 'Only JPG, PNG, GIF, WEBP allowed'], 400);
+    }
+    if ($file['size'] > 5 * 1024 * 1024) {
+        json_response(['ok' => false, 'error' => 'Max file size is 5MB'], 400);
     }
 
+    // Save to project-level uploads directory to avoid environment-specific absolute paths.
+    $projectRoot = dirname(__DIR__, 2);
+    $uploadDir = $projectRoot . "/uploads/profiles/";
+
+    if (!is_dir($uploadDir) && !mkdir($uploadDir, 0755, true)) {
+        json_response(['ok' => false, 'error' => 'Could not create upload directory'], 500);
+    }
+    if (!is_writable($uploadDir)) {
+        json_response(['ok' => false, 'error' => 'Upload directory is not writable'], 500);
+    }
+
+    $ext      = $allowedTypes[$mimeType];
+    $fileName = "profile_" . $_SESSION['user_id'] . "_" . time() . "." . $ext;
+
+    if (!move_uploaded_file($file['tmp_name'], $uploadDir . $fileName)) {
+        json_response(['ok' => false, 'error' => 'Failed to move uploaded file'], 500);
+    }
+
+    // Save image URL to database
+    $imageUrl = "https://aptitude.cse.buffalo.edu/CSE442/2026-Spring/cse-442c/uploads/profiles/" . $fileName;
     $pdo = db();
     $pdo->prepare("UPDATE users SET profile_image = ? WHERE id = ?")
-        ->execute([$base64, $_SESSION['user_id']]);
+        ->execute([$imageUrl, $_SESSION['user_id']]);
 
-    json_response(['ok' => true, 'image_url' => $base64], 200);
+    json_response(['ok' => true, 'image_url' => $imageUrl], 200);
 }
+*/
 
 // Delete the currently logged-in user's account and log out
 function delete_account(): void {
