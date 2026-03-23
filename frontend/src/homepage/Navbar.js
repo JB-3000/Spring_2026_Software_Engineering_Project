@@ -1,7 +1,7 @@
 import React from 'react';
 import { useNavigate } from 'react-router-dom';
 
-const PURPLE = '#6a5acd'; // Change if already defined elsewhere
+const PURPLE = '#6a5acd';
 
 const Navbar = () => {
   const navigate = useNavigate();
@@ -23,17 +23,18 @@ const styles = {
   nav: {
     display: 'flex',
     justifyContent: 'center',
+    flexWrap: 'wrap',
     gap: 4,
-    padding: '6px 28px',
+    padding: '6px 12px',
     background: '#c4c9d8',
     borderTop: `1px solid ${PURPLE}`,
   },
   button: {
-    padding: '4px 14px',
+    padding: '4px 10px',
     border: '1px solid #888',
     backgroundColor: '#e8e8e8',
     cursor: 'pointer',
-    fontSize: 14,
+    fontSize: 13,
     borderRadius: 2,
   },
 };
