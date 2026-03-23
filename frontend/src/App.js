@@ -29,6 +29,8 @@ function App() {
         <Route path="/profile" element={<ViewProfile />} />
         <Route path="/createAccount" element={<CreateAccount />} />
         <Route path="/self-report" element={<SelfReport />} />
+        <Route path="/my-reports" element={<MyReports />} />
+        <Route path="/biosecurity" element={<BiosecurityGuide />} />
       </Routes>
     </div>
   );
