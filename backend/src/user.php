@@ -55,28 +55,10 @@ class User {
         return (int)$pdo->lastInsertId();
     }
     // Update profile fields for the currently logged-in user
-    public static function updateProfile(int $id, array $body): array {
+    public static function updateProfile(int $id, array $body): bool {
         $allowedFields = ['first_name', 'last_name', 'state', 'city', 'address', 'zip', 'email', 'phone'];
         $updates = [];
         $values  = [];
-
-        // Email validation
-        if (isset($body['email'])) {
-            $email = trim((string)$body['email']);
-            if ($email === '') {
-                return ['ok' => false, 'error' => 'Email cannot be empty'];
-            }
-            if (!filter_var($email, FILTER_VALIDATE_EMAIL)) {
-                return ['ok' => false, 'error' => 'Invalid email format'];
-            }
-            // Check if email is already used by another user
-            $pdo = db();
-            $stmt = $pdo->prepare("SELECT id FROM users WHERE email = ? AND id != ? LIMIT 1");
-            $stmt->execute([$email, $id]);
-            if ($stmt->fetch()) {
-                return ['ok' => false, 'error' => 'Email is already in use by another account'];
-            }
-        }
 
         foreach ($allowedFields as $field) {
             if (isset($body[$field])) {
@@ -85,13 +67,13 @@ class User {
             }
         }
 
-        if (empty($updates)) return ['ok' => false, 'error' => 'No fields to update'];
+        if (empty($updates)) return false;
 
         $values[] = $id;
         db()->prepare("UPDATE users SET " . implode(", ", $updates) . " WHERE id = ?")
            ->execute($values);
 
-        return ['ok' => true];
+        return true;
     }
 }
 ?>

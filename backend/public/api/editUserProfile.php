@@ -15,8 +15,8 @@ if (!$body) {
 
 $result = User::updateProfile((int)$_SESSION['user_id'], $body);
 
-if (!$result['ok']) {
-    json_response(['ok' => false, 'error' => $result['error']], 400);
+if (!$result) {
+    json_response(['ok' => false, 'error' => 'No fields to update'], 400);
 }
 
 json_response(['ok' => true, 'message' => 'Profile updated'], 200);
