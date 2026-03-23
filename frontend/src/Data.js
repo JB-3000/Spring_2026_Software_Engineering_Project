@@ -13,20 +13,18 @@ import Navbar from './homepage/Navbar';
 // ─── Constants ────────────────────────────────────────────────────────────────
 
 const IS_LOCAL = window.location.hostname === 'localhost'
-              || window.location.hostname === '127.0.0.1';
+  || window.location.hostname === '127.0.0.1';
 
 const API_ROOT = IS_LOCAL
   ? 'http://localhost/s26-jnswl-corp/backend/public/api'
   : 'https://aptitude.cse.buffalo.edu/CSE442/2026-Spring/cse-442c/backend/public/api';
 
-const API_BASE = `${API_ROOT}/index.php`;
+const API_BASE             = `${API_ROOT}/index.php`;
 const EXPORT_OUTBREAKS_URL = `${API_ROOT}/exportOutbreaks.php`;
-
-const DEBUG_API = false;
-
+const DEBUG_API     = false;
 const MAX_DISEASES  = 5;
 const CURRENT_YEAR  = new Date().getFullYear();
-const CURRENT_MONTH = new Date().getMonth(); // 0-indexed
+const CURRENT_MONTH = new Date().getMonth();
 
 const DISEASE_LIST = [
   'H5N1 (Avian Flu)', 'Swine Flu', 'Bluetongue',
@@ -42,8 +40,6 @@ const MONTHS = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov
 const GEOJSON_URL     = 'https://raw.githubusercontent.com/PublicaMundi/MappingAPI/master/data/geojson/us-states.json';
 const GEOJSON_ALL_URL = 'https://cdn.jsdelivr.net/npm/us-atlas@3/states-10m.json';
 
-// Recharts uses dataKey strings as JS property accessors.
-// Special chars in disease names (parens, spaces) can silently break that lookup.
 function safeKey(disease) {
   return disease.replace(/[^a-zA-Z0-9_]/g, '_');
 }
@@ -118,7 +114,6 @@ function choroplethColor(value, max) {
 function useAPI(route, fallback, params = {}) {
   const [data,   setData]   = useState(null);
   const [source, setSource] = useState('loading');
-
   // eslint-disable-next-line react-hooks/exhaustive-deps
   const paramStr = useMemo(() => new URLSearchParams(params).toString(), [JSON.stringify(params)]);
 
@@ -126,32 +121,26 @@ function useAPI(route, fallback, params = {}) {
     let cancelled = false;
     setData(null);
     setSource('loading');
-
     const url = paramStr
       ? `${API_BASE}?r=${route}&${paramStr}`
       : `${API_BASE}?r=${route}`;
-
     axios.get(url, { timeout: 10000 })
       .then((r) => {
         if (cancelled) return;
         const d = r.data;
         const isError = d && typeof d === 'object' && !Array.isArray(d) && d.error;
         if (!isError && d != null) {
-          setData(d);
-          setSource('db');
+          setData(d); setSource('db');
         } else {
           if (DEBUG_API) console.warn(`[API] ${route} returned error/null → mock`, d);
-          setData(fallback);
-          setSource('mock');
+          setData(fallback); setSource('mock');
         }
       })
       .catch((err) => {
         if (cancelled) return;
         if (DEBUG_API) console.error(`[API] ${route} FAILED → mock\n  URL: ${url}\n  Error: ${err.message}`);
-        setData(fallback);
-        setSource('mock');
+        setData(fallback); setSource('mock');
       });
-
     return () => { cancelled = true; };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [route, paramStr]);
@@ -173,7 +162,7 @@ const S = {
   headerTitle: { fontSize: 26, fontWeight: 900, letterSpacing: '0.1em', color: '#1a1a2e', margin: 0 },
   nav:         { display: 'flex', justifyContent: 'center', gap: 4, padding: '6px 28px', background: '#c4c9d8', borderTop: `1px solid ${PURPLE}` },
   navLink:     { color: '#1a1a2e', textDecoration: 'none', padding: '5px 16px', borderRadius: 3, border: '1px solid #9aa0b0', fontSize: 13, cursor: 'pointer', background: '#dde0ea' },
-  main:        { maxWidth: 1050, margin: '0 auto', padding: '22px 20px' },
+  main:        { maxWidth: 1050, margin: '0 auto', padding: 'clamp(12px, 3vw, 22px) clamp(10px, 3vw, 20px)' },
   toolbar:     { display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14 },
   breadcrumb:  { fontSize: 12, color: '#666' },
   btnOutline:  { background: '#fff', border: '1px solid #bbb', color: '#333', padding: '5px 14px', borderRadius: 4, cursor: 'pointer', fontSize: 12 },
@@ -182,10 +171,10 @@ const S = {
   sectionSub:  { fontSize: 12, color: '#777', margin: 0 },
   filterBox:   { display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 7, background: '#fff', border: '1px solid #ddd', borderRadius: 8, padding: '10px 14px', margin: '14px 0', boxShadow: '0 1px 3px rgba(0,0,0,0.06)' },
   filterLabel: { fontSize: 12, color: '#555', fontWeight: 600, marginRight: 4 },
-  statsGrid:   { display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: 12, marginBottom: 18 },
+  statsGrid:   { display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))', gap: 12, marginBottom: 18 },
   statCard:    (color) => ({ background: '#fff', border: '1px solid #e0e3ec', borderLeft: `4px solid ${color}`, borderRadius: 8, padding: '14px 18px', display: 'flex', flexDirection: 'column', gap: 3, boxShadow: '0 1px 4px rgba(0,0,0,0.06)', position: 'relative' }),
   statLabel:   { fontSize: 10, color: '#888', textTransform: 'uppercase', letterSpacing: '0.1em' },
-  statValue:   { fontSize: 34, fontWeight: 700, color: '#1a1a2e', lineHeight: 1.1 },
+  statValue:   { fontSize: 'clamp(22px, 5vw, 34px)', fontWeight: 700, color: '#1a1a2e', lineHeight: 1.1 },
   card:        { background: '#fff', border: '1px solid #e0e3ec', borderRadius: 10, padding: '18px 22px', marginBottom: 18, boxShadow: '0 1px 4px rgba(0,0,0,0.06)' },
   cardHeader:  { display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14 },
   cardTitle:   { fontSize: 14, fontWeight: 700, color: '#1a1a2e', margin: 0 },
@@ -203,7 +192,7 @@ const S = {
   footer:      { textAlign: 'center', fontSize: 12, color: '#666', padding: '12px', borderTop: `3px solid ${PURPLE}`, background: '#c4c9d8' },
 };
 
-// ─── Debug Source Badge ────────────────────────────────────────────────────────
+// ─── Debug Source Badge ───────────────────────────────────────────────────────
 
 function SourceBadge({ source }) {
   if (!DEBUG_API) return null;
@@ -213,10 +202,9 @@ function SourceBadge({ source }) {
     loading: { bg: '#f3f4f6', color: '#9ca3af', text: '...'    },
   }[source] || { bg: '#f3f4f6', color: '#9ca3af', text: '?' };
   return (
-    <span style={{
-      fontSize: 9, fontWeight: 700, padding: '2px 6px', borderRadius: 10,
-      background: cfg.bg, color: cfg.color, letterSpacing: '0.05em',
-    }}>{cfg.text}</span>
+    <span style={{ fontSize: 9, fontWeight: 700, padding: '2px 6px', borderRadius: 10, background: cfg.bg, color: cfg.color, letterSpacing: '0.05em' }}>
+      {cfg.text}
+    </span>
   );
 }
 
@@ -225,7 +213,6 @@ function SourceBadge({ source }) {
 function StatCard({ label, value, delta, neg = true, accent = PURPLE, source }) {
   return (
     <div style={S.statCard(accent)}>
-      {/* SourceBadge is absolute-positioned inside statCard which has position:relative */}
       {DEBUG_API && (
         <span style={{ position: 'absolute', top: 8, right: 10 }}>
           <SourceBadge source={source} />
@@ -267,7 +254,6 @@ function FilterBar({ active, onChange }) {
 
 function formatVal(v, logScale) {
   const real = logScale ? Math.pow(10, v) : v;
-  // For log scale, snap to nearest clean power-of-10 label
   if (logScale) {
     if (real >= 1_000_000) return `${Math.round(real / 1_000_000)}M`;
     if (real >= 1_000)     return `${Math.round(real / 1_000)}k`;
@@ -310,25 +296,19 @@ function SparseLineChart({ data, diseases, logScale, height = 300 }) {
   const rawMin = allVals.length ? Math.min(...allVals) : 0;
   const rawMax = allVals.length ? Math.max(...allVals) : 1;
   const span   = rawMax - rawMin || 1;
-  // Clamp to 0 — negative log values produce nonsense labels like "-1M"
   const minV   = Math.max(0, rawMin - span * 0.15);
   const maxV   = rawMax + span * 0.15;
   const rangeV = maxV - minV || 1;
 
   const toX = (i) => PAD.left + (data.length <= 1 ? innerW / 2 : (i / (data.length - 1)) * innerW);
   const toY = (v) => PAD.top + (1 - (v - minV) / rangeV) * innerH;
-
   const xInterval = Math.max(1, Math.ceil(data.length / 12));
 
-  // For log scale: clean power-of-10 ticks (1, 10, 100, 1k, 10k…)
-  // For linear: 5 evenly-spaced ticks
   let yTicks;
   if (logScale) {
     yTicks = [];
     for (let p = Math.floor(minV); p <= Math.ceil(maxV); p++) {
-      if (p >= minV - 0.01 && p <= maxV + 0.01) {
-        yTicks.push({ val: p, y: toY(p) });
-      }
+      if (p >= minV - 0.01 && p <= maxV + 0.01) yTicks.push({ val: p, y: toY(p) });
     }
   } else {
     yTicks = [0, 0.25, 0.5, 0.75, 1].map(t => ({ val: minV + t * rangeV, y: PAD.top + (1 - t) * innerH }));
@@ -364,16 +344,11 @@ function SparseLineChart({ data, diseases, logScale, height = 300 }) {
             if (v == null || !isFinite(v)) return null;
             return { x: toX(i), y: toY(v), v, label: row.label, i, year: row.year };
           }).filter(Boolean);
-
           if (pts.length === 0) return null;
-
           let pathD = '';
           pts.forEach((pt, pi) => {
-            // Always connect all points for this disease into one continuous line.
-            // Never break the line — sparse data should still show trends.
             pathD += pi === 0 ? ` M${pt.x.toFixed(1)},${pt.y.toFixed(1)}` : ` L${pt.x.toFixed(1)},${pt.y.toFixed(1)}`;
           });
-
           return (
             <g key={d}>
               {pts.length > 1 && (
@@ -390,7 +365,6 @@ function SparseLineChart({ data, diseases, logScale, height = 300 }) {
           );
         })}
       </svg>
-
       {tooltip && (
         <div style={{
           position: 'absolute',
@@ -408,7 +382,6 @@ function SparseLineChart({ data, diseases, logScale, height = 300 }) {
           </div>
         </div>
       )}
-
       <div style={{ display: 'flex', justifyContent: 'center', flexWrap: 'wrap', gap: '6px 20px', paddingTop: 4 }}>
         {diseases.map(d => (
           <span key={d} style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 11, color: '#666' }}>
@@ -435,7 +408,7 @@ function TrendChart({ rawTrends, activeFilter, yearFrom, yearTo, setYearFrom, se
 
   useEffect(() => {
     if (!activeFilter || activeFilter === 'All Diseases') {
-      setSelected([...DISEASE_LIST]); // show all diseases when no filter active
+      setSelected([...DISEASE_LIST]);
     } else {
       setSelected([activeFilter]);
     }
@@ -445,8 +418,6 @@ function TrendChart({ rawTrends, activeFilter, yearFrom, yearTo, setYearFrom, se
 
   const availableDiseases = useMemo(() => {
     if (!rawTrends || !rawTrends.length) return DISEASE_LIST;
-    // Use normalized comparison to match DB strings to DISEASE_LIST entries.
-    // norm() strips \r (Windows line endings from PHP), extra spaces, and lowercases.
     const norm = (s) => String(s).replace(/\r/g, '').trim().toLowerCase().replace(/\s+/g, ' ');
     const dbNames = [...new Set(rawTrends.map(r => r.disease))];
     const mapped = dbNames.map(db => {
@@ -471,7 +442,6 @@ function TrendChart({ rawTrends, activeFilter, yearFrom, yearTo, setYearFrom, se
   const chartData = useMemo(() => {
     if (!rawTrends || !rawTrends.length) return [];
     const norm = (s) => String(s).replace(/\r/g, '').trim().toLowerCase().replace(/\s+/g, ' ');
-
     const rows = [];
     for (let y = fromY; y <= toY; y++) {
       const monthsToShow = (y === CURRENT_YEAR) ? MONTHS.slice(0, CURRENT_MONTH + 1) : MONTHS;
@@ -480,9 +450,7 @@ function TrendChart({ rawTrends, activeFilter, yearFrom, yearTo, setYearFrom, se
         const row = { label, year: y };
         selected.forEach((d) => {
           const matches = rawTrends.filter(r =>
-            r.month === month &&
-            norm(r.disease) === norm(d) &&
-            r.year === y
+            r.month === month && norm(r.disease) === norm(d) && r.year === y
           );
           row[safeKey(d)] = matches.length > 0
             ? matches.reduce((sum, r) => sum + Number(r.cases), 0)
@@ -556,7 +524,6 @@ function TrendChart({ rawTrends, activeFilter, yearFrom, yearTo, setYearFrom, se
             {logScale ? 'Log Scale' : 'Linear Scale'}
             {logScaleManual === null && <span style={{ fontSize: 9, marginLeft: 4, opacity: 0.7 }}>auto</span>}
           </button>
-
           <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
             <span style={{ fontSize: 11, color: '#888' }}>From</span>
             <select value={yearFrom} onChange={e => { setYearFrom(e.target.value); if (parseInt(e.target.value) > parseInt(yearTo)) setYearTo(e.target.value); }}
@@ -569,7 +536,6 @@ function TrendChart({ rawTrends, activeFilter, yearFrom, yearTo, setYearFrom, se
               {YEAR_OPTIONS.map(y => <option key={y} value={y}>{y}</option>)}
             </select>
           </div>
-
           <div style={{ position: 'relative' }} ref={dropRef}>
             <button style={S.dropBtn} onClick={() => setDropOpen(!dropOpen)}>Select Diseases ▾</button>
             {dropOpen && (
@@ -589,7 +555,6 @@ function TrendChart({ rawTrends, activeFilter, yearFrom, yearTo, setYearFrom, se
           </div>
         </div>
       </div>
-
       {logScale && logScaleManual === null && (
         <div style={S.infoBox}>
           📊 Log scale auto-enabled — case counts span multiple orders of magnitude.
@@ -597,21 +562,18 @@ function TrendChart({ rawTrends, activeFilter, yearFrom, yearTo, setYearFrom, se
         </div>
       )}
       {error && <div style={S.errorBox}>⚠ {error}</div>}
-
       {!hasAnyData && chartData.length > 0 && (
         <div style={S.infoBox}>
           ℹ No outbreak data found for <strong>{selected.join(', ')}</strong> in{' '}
           {fromY === toY ? String(fromY) : `${fromY}–${toY}`}. Try expanding the year range.
         </div>
       )}
-
       {hasAnyData && diseasesWithData.length < selected.length && (
         <div style={S.infoBox}>
           ℹ No data in {fromY === toY ? String(fromY) : `${fromY}–${toY}`} for:{' '}
           <strong>{selected.filter(d => !diseasesWithData.includes(d)).join(', ')}</strong> — expand the year range.
         </div>
       )}
-
       <div style={S.pillRow}>
         {selected.map((d) => (
           <span key={d} style={S.pill(colorForDisease(d))}>
@@ -620,7 +582,6 @@ function TrendChart({ rawTrends, activeFilter, yearFrom, yearTo, setYearFrom, se
           </span>
         ))}
       </div>
-
       <SparseLineChart data={displayData} diseases={selected} logScale={logScale} height={320} />
     </div>
   );
@@ -725,7 +686,6 @@ function InsetMap({ geoJson, stateName, stateMap, maxVal }) {
       <div style={{ fontSize: 9, textAlign: 'center', color: '#666', padding: '2px 0', background: '#f4f4f4', borderBottom: '1px solid #eee', height: LABEL_H, lineHeight: `${LABEL_H}px` }}>
         {stateName}
       </div>
-      {/* key forces Leaflet to fully remount when the state's outbreak value changes */}
       <MapContainer key={`${stateName}-${val}-${maxVal}`} center={center} zoom={zoom} scrollWheelZoom={false} zoomControl={false}
         dragging={false} doubleClickZoom={false} attributionControl={false}
         style={{ height: h, width: '100%', background: '#e8eaf0' }}>
@@ -736,12 +696,142 @@ function InsetMap({ geoJson, stateName, stateMap, maxVal }) {
   );
 }
 
+// ─── Choropleth Fullscreen Overlay ────────────────────────────────────────────
+
+function ChoroplethFullscreen({ geoJson, stateMap, maxVal, onClose }) {
+  const geoJsonLayerRef = useRef(null);
+  const stateMapRef     = useRef(stateMap);
+  const maxValRef       = useRef(maxVal);
+  const mapRef          = useRef(null);
+
+  useEffect(() => { stateMapRef.current = stateMap; maxValRef.current = maxVal; }, [stateMap, maxVal]);
+
+  useEffect(() => {
+    const prev = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    return () => { document.body.style.overflow = prev; };
+  }, []);
+
+  useEffect(() => {
+    const handler = (e) => { if (e.key === 'Escape') onClose(); };
+    window.addEventListener('keydown', handler);
+    return () => window.removeEventListener('keydown', handler);
+  }, [onClose]);
+
+  const handleReset = () => {
+    if (mapRef.current) {
+      mapRef.current.setView([38.5, -96], 5);
+    }
+  };
+
+  // Repaint layers when stateMap changes
+  useEffect(() => {
+    const layer = geoJsonLayerRef.current;
+    if (!layer) return;
+    layer.eachLayer((l) => {
+      const name = l.feature?.properties?.name;
+      const val  = stateMap[name] ?? 0;
+      l.setStyle({
+        fillColor:   choroplethColor(val, maxVal),
+        weight:      val > 0 ? 1.5 : 1,
+        color:       '#555e7a',
+        fillOpacity: val > 0 ? 0.88 : 0.15,
+      });
+    });
+  }, [stateMap, maxVal]);
+
+  const styleFeature = useCallback((feature) => {
+    const val = stateMapRef.current[feature.properties.name] ?? 0;
+    const max = maxValRef.current;
+    return { fillColor: choroplethColor(val, max), weight: val > 0 ? 1.5 : 1, color: '#555e7a', fillOpacity: val > 0 ? 0.88 : 0.15 };
+  }, []);
+
+  const onEachFeature = useCallback((feature, layer) => {
+    const name = feature.properties.name;
+    const getTooltipHtml = () => {
+      const val = stateMapRef.current[name] ?? 0;
+      return `<div style="background:#fff;border:1px solid #ddd;border-radius:6px;padding:6px 10px;font-family:sans-serif;font-size:12px;color:#1a1a2e;white-space:nowrap;">
+        <strong>${name}</strong><br/>
+        ${val > 0 ? `${val} ${val === 1 ? 'outbreak' : 'outbreaks'}` : 'No data'}
+      </div>`;
+    };
+    layer.bindTooltip(getTooltipHtml, { sticky: true, direction: 'top', offset: [0, -4], opacity: 1 });
+    layer.on({
+      mouseover: (e) => {
+        const val = stateMapRef.current[name] ?? 0;
+        if (!val) return;
+        e.target.setStyle({ weight: 2, color: BLUE, fillOpacity: 1 });
+        e.target.openTooltip();
+      },
+      mouseout:  (e) => { e.target.setStyle(styleFeature(feature)); e.target.closeTooltip(); },
+      click:     (e) => { e.target.setStyle(styleFeature(feature)); e.target._path?.blur(); },
+    });
+  }, [styleFeature]);
+
+  if (!geoJson) return null;
+
+  return (
+    <div style={{ position: 'fixed', inset: 0, zIndex: 10000, background: '#e8f0ff', display: 'flex', flexDirection: 'column' }}>
+      {/* Top bar — light, matches homepage */}
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '10px 16px', background: '#fff', borderBottom: '1px solid #ccd5df', flexShrink: 0, gap: 8 }}>
+        <h3 style={{ margin: 0, fontSize: 'clamp(13px, 3vw, 17px)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', flex: 1 }}>
+          Outbreak Density by State
+        </h3>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexShrink: 0 }}>
+          <button
+            onClick={handleReset}
+            style={{ background: '#f0f4f8', border: '1px solid #ccc', borderRadius: 6, padding: '0 12px', height: 34, fontSize: 12, cursor: 'pointer' }}>Reset</button>
+          <button
+            onClick={onClose}
+            title="Close (Esc)"
+            style={{ background: '#fee2e2', border: '1px solid #fca5a5', color: '#dc2626', fontSize: 18, cursor: 'pointer', borderRadius: 6, width: 36, height: 36, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}
+          >✕</button>
+        </div>
+      </div>
+
+      {/* Map */}
+      <div style={{ flex: 1, position: 'relative' }}>
+        <MapContainer
+          center={[38.5, -96]} zoom={5} scrollWheelZoom={false}
+          style={{ height: '100%', width: '100%', background: '#e8eaf0' }}
+          ref={mapRef}
+        >
+          <TileLayer
+            url="https://{s}.basemaps.cartocdn.com/light_nolabels/{z}/{x}/{y}{r}.png"
+            attribution='&copy; <a href="https://carto.com/">CARTO</a>'
+          />
+          <GeoJSON
+            data={geoJson}
+            style={styleFeature}
+            onEachFeature={onEachFeature}
+            ref={geoJsonLayerRef}
+          />
+        </MapContainer>
+      </div>
+
+      {/* Legend */}
+      <div style={{ padding: '8px 16px', background: '#fff', borderTop: '1px solid #ccd5df', display: 'flex', alignItems: 'center', gap: 8, flexShrink: 0, flexWrap: 'wrap' }}>
+        <span style={{ fontSize: 11, color: '#555', whiteSpace: 'nowrap' }}>Fewer outbreaks</span>
+        <div style={{ display: 'flex', flex: 1, minWidth: 60, height: 10, borderRadius: 6, overflow: 'hidden' }}>
+          {Array.from({ length: 50 }, (_, i) => (
+            <div key={i} style={{ flex: 1, background: choroplethColor((i / 50) * maxVal, maxVal) }} />
+          ))}
+        </div>
+        <span style={{ fontSize: 11, color: '#555', whiteSpace: 'nowrap' }}>More outbreaks</span>
+        <span style={{ fontSize: 10, color: '#555', fontWeight: 500 }}>Use +/− to zoom · Drag to pan · Esc to close</span>
+      </div>
+    </div>
+  );
+}
+
+// ─── Choropleth Map (dashboard card) ─────────────────────────────────────────
 
 function ChoroplethMap({ stateData }) {
   const [geoJson,    setGeoJson]    = useState(null);
   const [geoJsonAll, setGeoJsonAll] = useState(null);
   const [loadError,  setLoadError]  = useState(false);
-  const geoJsonLayerRef = useRef(null); // ref to the Leaflet GeoJSON layer instance
+  const [fullscreen, setFullscreen] = useState(false);
+  const geoJsonLayerRef = useRef(null);
 
   useEffect(() => {
     fetch(GEOJSON_URL).then(r => r.json()).then(setGeoJson).catch(() => setLoadError(true));
@@ -783,13 +873,10 @@ function ChoroplethMap({ stateData }) {
     Object.values(stateMap).length ? Math.max(...Object.values(stateMap)) : 1,
   [stateMap]);
 
-  // Mutable refs so event handlers always read the latest values without
-  // needing to re-register listeners (which would require remounting the layer).
   const stateMapRef = useRef(stateMap);
   const maxValRef   = useRef(maxVal);
   useEffect(() => { stateMapRef.current = stateMap; maxValRef.current = maxVal; }, [stateMap, maxVal]);
 
-  // When stateMap changes (filter applied), imperatively repaint every layer.
   useEffect(() => {
     const layer = geoJsonLayerRef.current;
     if (!layer) return;
@@ -802,43 +889,36 @@ function ChoroplethMap({ stateData }) {
         color:       '#555e7a',
         fillOpacity: val > 0 ? 0.88 : 0.15,
       });
-      l.unbindTooltip();
-      l.bindTooltip(
-        `<div style="background:#fff;border:1px solid #ddd;border-radius:6px;padding:6px 10px;font-family:sans-serif;font-size:12px;color:#1a1a2e;white-space:nowrap;">
-          <strong>${name}</strong><br/>
-          ${val > 0 ? `${val} ${val === 1 ? 'outbreak' : 'outbreaks'}` : 'No data'}
-        </div>`,
-        { sticky: true, direction: 'top', offset: [0, -4], opacity: 1 }
-      );
     });
   }, [stateMap, maxVal]);
 
-  // styleFeature reads from refs so it's always current even in stale closures
   const styleFeature = useCallback((feature) => {
     const val = stateMapRef.current[feature.properties.name] ?? 0;
     const max = maxValRef.current;
     return { fillColor: choroplethColor(val, max), weight: val>0?1.5:1, color: '#555e7a', fillOpacity: val>0?0.88:0.15 };
-  }, []); // stable — reads from refs, no deps needed
+  }, []);
 
   const onEachFeature = useCallback((feature, layer) => {
     const name = feature.properties.name;
-    // Tooltip text is updated imperatively in the eachLayer effect above
-    layer.bindTooltip('', { sticky: true, direction: 'top', offset: [0,-4], opacity: 1 });
+    const getTooltipHtml = () => {
+      const val = stateMapRef.current[name] ?? 0;
+      return `<div style="background:#fff;border:1px solid #ddd;border-radius:6px;padding:6px 10px;font-family:sans-serif;font-size:12px;color:#1a1a2e;white-space:nowrap;">
+        <strong>${name}</strong><br/>
+        ${val > 0 ? `${val} ${val === 1 ? 'outbreak' : 'outbreaks'}` : 'No data'}
+      </div>`;
+    };
+    layer.bindTooltip(getTooltipHtml, { sticky: true, direction: 'top', offset: [0, -4], opacity: 1 });
     layer.on({
       mouseover: (e) => {
         const val = stateMapRef.current[name] ?? 0;
         if (!val) return;
         e.target.setStyle({ weight: 2, color: BLUE, fillOpacity: 1 });
+        e.target.openTooltip();
       },
-      mouseout: (e) => {
-        e.target.setStyle(styleFeature(feature));
-      },
-      click: (e) => {
-        e.target.setStyle(styleFeature(feature));
-        e.target._path?.blur();
-      },
+      mouseout: (e) => { e.target.setStyle(styleFeature(feature)); e.target.closeTooltip(); },
+      click:    (e) => { e.target.setStyle(styleFeature(feature)); e.target._path?.blur(); },
     });
-  }, [styleFeature]); // stable
+  }, [styleFeature]);
 
   useEffect(() => {
     const style = document.createElement('style');
@@ -848,51 +928,75 @@ function ChoroplethMap({ stateData }) {
   }, []);
 
   return (
-    <div style={S.card}>
-      <div style={S.cardHeader}>
-        <h3 style={S.cardTitle}>Outbreak Density by State</h3>
-        <span style={S.badge}>Choropleth Map</span>
-      </div>
-      {loadError ? (
-        <div style={{height:200,display:'flex',alignItems:'center',justifyContent:'center',color:'#999',fontSize:13}}>Map unavailable — check network.</div>
-      ) : !geoJson ? (
-        <div style={{height:200,display:'flex',alignItems:'center',justifyContent:'center',color:'#aaa',fontSize:13}}>Loading map...</div>
-      ) : (
-        <>
-          <div style={{height:380,borderRadius:8,overflow:'hidden',border:'1px solid #ddd'}}>
-            <MapContainer center={[37.8,-96]} zoom={4} scrollWheelZoom={false}
-              style={{height:'100%',width:'100%',background:'#e8eaf0'}}>
-              <TileLayer url="https://{s}.basemaps.cartocdn.com/light_nolabels/{z}/{x}/{y}{r}.png"
-                attribution='&copy; <a href="https://carto.com/">CARTO</a>' />
-              <GeoJSON
-                data={geoJson}
-                style={styleFeature}
-                onEachFeature={onEachFeature}
-                ref={geoJsonLayerRef}
-              />
-            </MapContainer>
-          </div>
-          {geoJsonAll && (
-            <div style={{display:'flex',gap:8,marginTop:8}}>
-              <InsetMap geoJson={geoJsonAll} stateName="Alaska" stateMap={stateMap} maxVal={maxVal} />
-              <InsetMap geoJson={geoJsonAll} stateName="Hawaii" stateMap={stateMap} maxVal={maxVal} />
-            </div>
-          )}
-          <div style={{display:'flex',alignItems:'center',gap:10,marginTop:10}}>
-            <span style={{fontSize:11,color:'#999'}}>Fewer outbreaks</span>
-            <div style={{display:'flex',flex:1,height:10,borderRadius:6,overflow:'hidden'}}>
-              {Array.from({length:50},(_,i)=>(
-                <div key={i} style={{flex:1,background:choroplethColor((i/50)*maxVal,maxVal)}} />
-              ))}
-            </div>
-            <span style={{fontSize:11,color:'#999'}}>More outbreaks</span>
-          </div>
-        </>
+    <>
+      {/* Fullscreen overlay — filters persist because stateMap/maxVal/geoJson pass through */}
+      {fullscreen && (
+        <ChoroplethFullscreen
+          geoJson={geoJson}
+          stateMap={stateMap}
+          maxVal={maxVal}
+          onClose={() => setFullscreen(false)}
+        />
       )}
-    </div>
+
+      <div style={S.card}>
+        <div style={{ ...S.cardHeader, flexWrap: 'wrap', gap: 8 }}>
+          <h3 style={S.cardTitle}>Outbreak Density by State</h3>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+            <span style={S.badge}>Choropleth Map</span>
+            <button
+              onClick={() => setFullscreen(true)}
+              title="Open full screen map"
+              style={{
+                padding: '3px 10px', background: '#fff', border: '1px solid #ccc',
+                borderRadius: 6, cursor: 'pointer', fontSize: 12,
+                display: 'flex', alignItems: 'center', gap: 4,
+              }}
+            >
+              <span style={{ fontSize: 13 }}>⤢</span> Full Screen
+            </button>
+          </div>
+        </div>
+        {loadError ? (
+          <div style={{height:200,display:'flex',alignItems:'center',justifyContent:'center',color:'#999',fontSize:13}}>Map unavailable — check network.</div>
+        ) : !geoJson ? (
+          <div style={{height:200,display:'flex',alignItems:'center',justifyContent:'center',color:'#aaa',fontSize:13}}>Loading map...</div>
+        ) : (
+          <>
+            <div style={{height:380,borderRadius:8,overflow:'hidden',border:'1px solid #ddd'}}>
+              <MapContainer center={[37.8,-96]} zoom={4} scrollWheelZoom={false}
+                style={{height:'100%',width:'100%',background:'#e8eaf0'}}>
+                <TileLayer url="https://{s}.basemaps.cartocdn.com/light_nolabels/{z}/{x}/{y}{r}.png"
+                  attribution='&copy; <a href="https://carto.com/">CARTO</a>' />
+                <GeoJSON
+                  data={geoJson}
+                  style={styleFeature}
+                  onEachFeature={onEachFeature}
+                  ref={geoJsonLayerRef}
+                />
+              </MapContainer>
+            </div>
+            {geoJsonAll && (
+              <div style={{display:'flex',gap:8,marginTop:8}}>
+                <InsetMap geoJson={geoJsonAll} stateName="Alaska" stateMap={stateMap} maxVal={maxVal} />
+                <InsetMap geoJson={geoJsonAll} stateName="Hawaii" stateMap={stateMap} maxVal={maxVal} />
+              </div>
+            )}
+            <div style={{display:'flex',alignItems:'center',gap:10,marginTop:10}}>
+              <span style={{fontSize:11,color:'#999'}}>Fewer outbreaks</span>
+              <div style={{display:'flex',flex:1,height:10,borderRadius:6,overflow:'hidden'}}>
+                {Array.from({length:50},(_,i)=>(
+                  <div key={i} style={{flex:1,background:choroplethColor((i/50)*maxVal,maxVal)}} />
+                ))}
+              </div>
+              <span style={{fontSize:11,color:'#999'}}>More outbreaks</span>
+            </div>
+          </>
+        )}
+      </div>
+    </>
   );
 }
-
 
 // ─── Main Component ───────────────────────────────────────────────────────────
 
@@ -900,10 +1004,10 @@ const Data = () => {
   const [activeFilter, setActiveFilter] = useState('All Diseases');
   const [yearFrom,     setYearFrom]     = useState(String(CURRENT_YEAR));
   const [yearTo,       setYearTo]       = useState(String(CURRENT_YEAR));
+
   const handleExportOutbreaks = () => {
     window.open(EXPORT_OUTBREAKS_URL, '_blank', 'noopener,noreferrer');
   };
-
 
   const summaryParams = useMemo(() => activeFilter !== 'All Diseases' ? { disease: activeFilter } : {}, [activeFilter]);
   const byStateParams = useMemo(() => activeFilter !== 'All Diseases' ? { disease: activeFilter } : {}, [activeFilter]);
@@ -915,10 +1019,6 @@ const Data = () => {
   const { data: trends    } = useAPI('outbreaks-trends',     MOCK_TRENDS,     trendsParams);
   const { data: byState   } = useAPI('outbreaks-by-state',   MOCK_BY_STATE,   byStateParams);
 
-  // Normalise trend rows coming from DB:
-  // - PDO returns all values as strings → cast year/cases to numbers
-  // - PHP on Windows may append \r to string fields → strip it
-  // - This ensures norm() comparisons in TrendChart work correctly
   const normalizedTrends = useMemo(() => {
     if (!trends || !Array.isArray(trends)) return [];
     return trends.map(r => ({
@@ -928,7 +1028,6 @@ const Data = () => {
       cases:   Number(r.cases   ?? 0),
     }));
   }, [trends]);
-
 
   const byDiseaseProcessed = useMemo(() =>
     (byDisease || [])
@@ -947,15 +1046,15 @@ const Data = () => {
 
   return (
     <div style={S.page}>
-  <div style={{ background: '#ffffff', color: 'black', padding: '20px 0', fontFamily: 'Arial, Helvetica, sans-serif' }}>
-  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '12px' }}>
-    <img src={logo} alt="logo" style={{ width: 52, height: 52, objectFit: 'contain', borderRadius: 4 }} />
-    <h1 style={{ margin: 0, fontSize: '2.4rem', letterSpacing: '1.5px', fontWeight: 'bold' }}>
-      LIVESTOCK EPIDEMIC TRACKER
-    </h1>
-  </div>
-</div>
-  <Navbar />
+      <div style={{ background: '#ffffff', color: 'black', padding: '20px 0', fontFamily: 'Arial, Helvetica, sans-serif' }}>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '12px' }}>
+          <img src={logo} alt="logo" style={{ width: 52, height: 52, objectFit: 'contain', borderRadius: 4 }} />
+          <h1 style={{ margin: 0, fontSize: 'clamp(1.2rem, 4vw, 2.4rem)', letterSpacing: '1.5px', fontWeight: 'bold' }}>
+            LIVESTOCK EPIDEMIC TRACKER
+          </h1>
+        </div>
+      </div>
+      <Navbar />
 
       <main style={S.main}>
         <div style={S.toolbar}>
