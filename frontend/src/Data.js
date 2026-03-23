@@ -703,6 +703,7 @@ function ChoroplethFullscreen({ geoJson, stateMap, maxVal, onClose }) {
   const stateMapRef     = useRef(stateMap);
   const maxValRef       = useRef(maxVal);
   const mapRef          = useRef(null);
+  const tooltipTimerRef = useRef(null);
 
   useEffect(() => { stateMapRef.current = stateMap; maxValRef.current = maxVal; }, [stateMap, maxVal]);
 
@@ -755,7 +756,7 @@ function ChoroplethFullscreen({ geoJson, stateMap, maxVal, onClose }) {
         ${val > 0 ? `${val} ${val === 1 ? 'outbreak' : 'outbreaks'}` : 'No data'}
       </div>`;
     };
-    layer.bindTooltip(getTooltipHtml, { sticky: true, direction: 'top', offset: [0, -4], opacity: 1 });
+    layer.bindTooltip(getTooltipHtml, { sticky: false, direction: 'top', offset: [0, -4], opacity: 1 });
     layer.on({
       mouseover: (e) => {
         const val = stateMapRef.current[name] ?? 0;
@@ -763,8 +764,21 @@ function ChoroplethFullscreen({ geoJson, stateMap, maxVal, onClose }) {
         e.target.setStyle({ weight: 2, color: BLUE, fillOpacity: 1 });
         e.target.openTooltip();
       },
-      mouseout:  (e) => { e.target.setStyle(styleFeature(feature)); e.target.closeTooltip(); },
-      click:     (e) => { e.target.setStyle(styleFeature(feature)); e.target._path?.blur(); },
+      mouseout: (e) => {
+        e.target.setStyle(styleFeature(feature));
+        e.target.closeTooltip();
+      },
+      click: (e) => {
+        const val = stateMapRef.current[name] ?? 0;
+        if (!val) return;
+        e.target.setStyle({ weight: 2, color: BLUE, fillOpacity: 1 });
+        e.target.openTooltip();
+        if (tooltipTimerRef.current) clearTimeout(tooltipTimerRef.current);
+        tooltipTimerRef.current = setTimeout(() => {
+          e.target.setStyle(styleFeature(feature));
+          e.target.closeTooltip();
+        }, 2000);
+      },
     });
   }, [styleFeature]);
 
@@ -772,7 +786,7 @@ function ChoroplethFullscreen({ geoJson, stateMap, maxVal, onClose }) {
 
   return (
     <div style={{ position: 'fixed', inset: 0, zIndex: 10000, background: '#e8f0ff', display: 'flex', flexDirection: 'column' }}>
-      {/* Top bar — light, matches homepage */}
+      {/* Top bar */}
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '10px 16px', background: '#fff', borderBottom: '1px solid #ccd5df', flexShrink: 0, gap: 8 }}>
         <h3 style={{ margin: 0, fontSize: 'clamp(13px, 3vw, 17px)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', flex: 1 }}>
           Outbreak Density by State
@@ -818,7 +832,7 @@ function ChoroplethFullscreen({ geoJson, stateMap, maxVal, onClose }) {
           ))}
         </div>
         <span style={{ fontSize: 11, color: '#555', whiteSpace: 'nowrap' }}>More outbreaks</span>
-        <span style={{ fontSize: 10, color: '#555', fontWeight: 500 }}>Use +/− to zoom · Drag to pan · Esc to close</span>
+        <span style={{ fontSize: 10, color: '#555', fontWeight: 500 }}>Tap a state to see data · Esc to close</span>
       </div>
     </div>
   );
@@ -832,6 +846,7 @@ function ChoroplethMap({ stateData }) {
   const [loadError,  setLoadError]  = useState(false);
   const [fullscreen, setFullscreen] = useState(false);
   const geoJsonLayerRef = useRef(null);
+  const tooltipTimerRef = useRef(null);
 
   useEffect(() => {
     fetch(GEOJSON_URL).then(r => r.json()).then(setGeoJson).catch(() => setLoadError(true));
@@ -907,7 +922,7 @@ function ChoroplethMap({ stateData }) {
         ${val > 0 ? `${val} ${val === 1 ? 'outbreak' : 'outbreaks'}` : 'No data'}
       </div>`;
     };
-    layer.bindTooltip(getTooltipHtml, { sticky: true, direction: 'top', offset: [0, -4], opacity: 1 });
+    layer.bindTooltip(getTooltipHtml, { sticky: false, direction: 'top', offset: [0, -4], opacity: 1 });
     layer.on({
       mouseover: (e) => {
         const val = stateMapRef.current[name] ?? 0;
@@ -915,8 +930,21 @@ function ChoroplethMap({ stateData }) {
         e.target.setStyle({ weight: 2, color: BLUE, fillOpacity: 1 });
         e.target.openTooltip();
       },
-      mouseout: (e) => { e.target.setStyle(styleFeature(feature)); e.target.closeTooltip(); },
-      click:    (e) => { e.target.setStyle(styleFeature(feature)); e.target._path?.blur(); },
+      mouseout: (e) => {
+        e.target.setStyle(styleFeature(feature));
+        e.target.closeTooltip();
+      },
+      click: (e) => {
+        const val = stateMapRef.current[name] ?? 0;
+        if (!val) return;
+        e.target.setStyle({ weight: 2, color: BLUE, fillOpacity: 1 });
+        e.target.openTooltip();
+        if (tooltipTimerRef.current) clearTimeout(tooltipTimerRef.current);
+        tooltipTimerRef.current = setTimeout(() => {
+          e.target.setStyle(styleFeature(feature));
+          e.target.closeTooltip();
+        }, 2000);
+      },
     });
   }, [styleFeature]);
 
@@ -929,7 +957,6 @@ function ChoroplethMap({ stateData }) {
 
   return (
     <>
-      {/* Fullscreen overlay — filters persist because stateMap/maxVal/geoJson pass through */}
       {fullscreen && (
         <ChoroplethFullscreen
           geoJson={geoJson}
