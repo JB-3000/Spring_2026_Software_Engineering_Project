@@ -12,7 +12,7 @@ const HomePage = () => {
 
       {/* Header */}
       <div style={{ background: '#ffffff', color: 'black', padding: '12px 16px' }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 12 }}>
           <img src={logo} alt="logo" style={{ width: 44, height: 44, objectFit: 'contain', borderRadius: 4, flexShrink: 0 }} />
           <h1 style={{ margin: 0, fontWeight: 'bold', letterSpacing: '1.5px', fontSize: 'clamp(14px, 3vw, 26px)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
             LIVESTOCK EPIDEMIC TRACKER
