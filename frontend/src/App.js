@@ -12,6 +12,7 @@ import ResetPasswordPage from "./pages/ResetPasswordPage";
 import CreateAccount from './pages/CreateAccount';
 import SelfReport from './selfreports/self-report';
 import MyReports from './selfreports/viewownreports'
+import BiosecurityGuide from './pages/BiosecurityGuide';
 
 
 function App() {
@@ -29,6 +30,7 @@ function App() {
         <Route path="/createAccount" element={<CreateAccount />} />
         <Route path="/self-report" element={<SelfReport />} />
         <Route path="/my-reports" element={<MyReports />} />
+        <Route path="/biosecurity" element={<BiosecurityGuide />} />
       </Routes>
     </div>
   );
