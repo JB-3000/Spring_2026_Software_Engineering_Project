@@ -11,16 +11,20 @@ const HomePage = () => {
     <div className="m-0 font-sans bg-[#f0f4f8] text-[#1f2a44] leading-relaxed">
 
       {/* Header */}
-      <div style={{ background: '#ffffff', color: 'black', padding: '12px 16px' }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-          <img src={logo} alt="logo" style={{ width: 44, height: 44, objectFit: 'contain', borderRadius: 4, flexShrink: 0 }} />
-          <h1 style={{ margin: 0, fontWeight: 'bold', letterSpacing: '1.5px', fontSize: 'clamp(14px, 3vw, 26px)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+      <header style={{ background: '#ffffff', color: 'black', padding: '16px 0' }}>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '12px' }}>
+          <img
+            src={logo}
+            alt="logo"
+            style={{ width: 52, height: 52, objectFit: 'contain', borderRadius: 4 }}
+          />
+          <h1 style={{ margin: 0, fontSize: '2.4rem', fontWeight: 'bold', letterSpacing: '1.5px' }}>
             LIVESTOCK EPIDEMIC TRACKER
           </h1>
         </div>
-      </div>
+      </header>
 
-      {/* Nav */}
+      {/* Navbar */}
       <Navbar />
 
       {/* Main Content */}
