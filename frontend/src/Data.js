@@ -6,8 +6,8 @@ import {
 } from 'recharts';
 import { MapContainer, TileLayer, GeoJSON } from 'react-leaflet';
 import 'leaflet/dist/leaflet.css';
-import logo from './LivestockEpidemicTracker.jpeg';
 import SiteFooter from './components/SiteFooter';
+import SiteHeader from './components/SiteHeader';
 import Navbar from './homepage/Navbar';
 
 // ─── Constants ────────────────────────────────────────────────────────────────
@@ -1073,14 +1073,7 @@ const Data = () => {
 
   return (
     <div style={S.page}>
-      <div style={{ background: '#ffffff', color: 'black', padding: '20px 0', fontFamily: 'Arial, Helvetica, sans-serif' }}>
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '12px' }}>
-          <img src={logo} alt="logo" style={{ width: 52, height: 52, objectFit: 'contain', borderRadius: 4 }} />
-          <h1 style={{ margin: 0, fontSize: 'clamp(1.2rem, 4vw, 2.4rem)', letterSpacing: '1.5px', fontWeight: 'bold' }}>
-            LIVESTOCK EPIDEMIC TRACKER
-          </h1>
-        </div>
-      </div>
+      <SiteHeader />
       <Navbar />
 
       <main style={S.main}>

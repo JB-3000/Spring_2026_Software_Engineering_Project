@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import Navbar from '../homepage/Navbar';
-import logo from '../LivestockEpidemicTracker.jpeg';
+import SiteHeader from '../components/SiteHeader';
 import SiteFooter from '../components/SiteFooter';
 import './BiosecurityGuide.css';
 
@@ -37,12 +37,7 @@ const BiosecurityGuide = () => {
   return (
     <div className="biosecurity-guide-page">
       {/* Header */}
-      <header className="biosecurity-guide-header">
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '12px' }}>
-          <img src={logo} alt="logo" style={{ width: 52, height: 52, objectFit: 'contain', borderRadius: 4 }} />
-          <h1 style={{ margin: 0, fontSize: '2.4rem', letterSpacing: '1.5px', fontWeight: 'bold' }}>LIVESTOCK EPIDEMIC TRACKER</h1>
-        </div>
-      </header>
+      <SiteHeader />
 
       {/* Navbar */}
       <Navbar />

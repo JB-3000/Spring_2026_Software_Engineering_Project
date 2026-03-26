@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import logo from '../LivestockEpidemicTracker.jpeg';
+import SiteHeader from "../components/SiteHeader";
 import SiteFooter from "../components/SiteFooter";
 import Navbar from "../homepage/Navbar";
 import "../pages/LoginPage.css";
@@ -45,12 +45,7 @@ export default function MyReports() {
 
   return (
     <div className="login-page" style={{ minHeight: "100vh", display: "flex", flexDirection: "column", background: "#f5f5f5" }}>
-      <div style={{ background: '#ffffff', color: 'black', padding: '20px 0' }}>
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '12px' }}>
-          <img src={logo} alt="logo" style={{ width: 52, height: 52 }} />
-          <h1 style={{ margin: 0, fontSize: '2.4rem', fontWeight: 'bold' }}>LIVESTOCK EPIDEMIC TRACKER</h1>
-        </div>
-      </div>
+      <SiteHeader />
 
       <Navbar />
 
