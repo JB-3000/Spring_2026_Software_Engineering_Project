@@ -69,7 +69,8 @@ try {
         ':disease'  => $diseaseType,
         ':state'    => $location,
         ':cases'    => 1,
-        ':user_id'  => $userId
+        ':user_id'  => $userId,
+        ':status'   => "pending"
     ]);
 
     $insertId = $pdo->lastInsertId();
