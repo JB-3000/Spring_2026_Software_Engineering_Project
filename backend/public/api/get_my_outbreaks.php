@@ -1,33 +1,28 @@
 <?php
 declare(strict_types=1);
 
-// Adjust this path to correctly point to your db.php file
 require __DIR__ . '/../../src/db.php';
 
-// Start session (required for $_SESSION['user_id'])
 session_start();
 
-// === CORS headers (restrict in production to your frontend domain) ===
+// CORS headers
 header("Access-Control-Allow-Origin: *");
 header("Access-Control-Allow-Methods: GET, OPTIONS");
 header("Access-Control-Allow-Headers: Content-Type, Authorization");
-header("Access-Control-Allow-Credentials: true"); // Important for cookies/sessions
+header("Access-Control-Allow-Credentials: true");
 header("Content-Type: application/json; charset=utf-8");
 
-// Handle preflight OPTIONS request
 if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
     http_response_code(200);
     exit;
 }
 
-// Only allow GET
 if ($_SERVER['REQUEST_METHOD'] !== 'GET') {
     http_response_code(405);
     echo json_encode(['ok' => false, 'error' => 'Method not allowed. Use GET.']);
     exit;
 }
 
-// Require login
 if (!isset($_SESSION['user_id']) || !is_numeric($_SESSION['user_id'])) {
     http_response_code(401);
     echo json_encode(['ok' => false, 'error' => 'You must be logged in to view your reports']);
@@ -36,7 +31,6 @@ if (!isset($_SESSION['user_id']) || !is_numeric($_SESSION['user_id'])) {
 
 try {
     $pdo = db();
-
     $userId = (int)$_SESSION['user_id'];
 
     $stmt = $pdo->prepare("
@@ -46,7 +40,8 @@ try {
             state           AS location,
             cases,
             report_date,
-            created_at
+            created_at,
+            status                            -- ← Added this
         FROM outbreaks
         WHERE User_ID = :userId
         ORDER BY created_at DESC
@@ -57,7 +52,7 @@ try {
 
     $reports = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
-    // Nicer date formatting for frontend
+    // Nicer date formatting
     foreach ($reports as &$report) {
         if (!empty($report['created_at'])) {
             $report['created_at'] = date('Y-m-d H:i:s', strtotime($report['created_at']));

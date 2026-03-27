@@ -5,52 +5,52 @@ import Navbar from '../homepage/Navbar';
 import SiteFooter from '../components/SiteFooter';
 import "./AdminPage.css";
 
-const MOCK_OUTBREAKS = [
-  { id: 1, disease: "H5N1 (Avian Flu)", state: "Texas", date_flagged: "2026-03-20" },
-  { id: 2, disease: "Swine Flu", state: "Iowa", date_flagged: "2026-03-21" },
-  { id: 3, disease: "Bovine Tuberculosis", state: "California", date_flagged: "2026-03-22" },
-];
-
 export default function AdminPage() {
-  const API_BASE =
-    process.env.NODE_ENV === "production"
-      ? "/CSE442/2026-Spring/cse-442c/backend/public/api/index.php"
-      : "http://localhost:8000/api/index.php";
-
-  const [isAdmin, setIsAdmin] = useState(null); // null = checking, true/false = result
+  const [isAdmin, setIsAdmin] = useState(null);
   const [outbreaks, setOutbreaks] = useState([]);
   const [notification, setNotification] = useState(null);
   const [loadingOutbreaks, setLoadingOutbreaks] = useState(false);
   const navigate = useNavigate();
 
-  // Check admin status on mount
+  const FLAGGED_OUTBREAKS_URL = "https://aptitude.cse.buffalo.edu/CSE442/2026-Spring/cse-442c/backend/public/api/view_flagged_outbreak.php";
+
   useEffect(() => {
-    // TODO: remove this bypass when backend is_admin is ready
     setIsAdmin(true);
   }, []);
 
-  // Fetch flagged outbreaks once admin status confirmed
   useEffect(() => {
     if (!isAdmin) return;
+
     const fetchOutbreaks = async () => {
       setLoadingOutbreaks(true);
       try {
-        const res = await fetch(`${API_BASE}?r=getFlaggedOutbreaks`, {
+        const res = await fetch(FLAGGED_OUTBREAKS_URL, {
           method: "GET",
           credentials: "include",
         });
         const data = await res.json();
+
         if (data.ok && Array.isArray(data.outbreaks)) {
-          setOutbreaks(data.outbreaks);
+          const formatted = data.outbreaks.map((o) => ({
+            id: o.id,
+            // FIXED: Use 'disease' column for the actual disease name (Bluetongue, etc.)
+            diseaseType: o.diseaseType || o.disease || o.disease_type || "Unknown Disease",
+            userId: o.reportedBy || o.User_ID || "Unknown",
+            location: o.location || o.state || "Unknown",
+            timeCreated: o.date_flagged || o.created_at || o.report_date || "N/A",
+          }));
+          setOutbreaks(formatted);
         } else {
-          setOutbreaks(MOCK_OUTBREAKS);
+          setOutbreaks([]);
         }
       } catch (err) {
-        setOutbreaks(MOCK_OUTBREAKS);
+        console.error("Failed to fetch flagged outbreaks:", err);
+        setOutbreaks([]);
       } finally {
         setLoadingOutbreaks(false);
       }
     };
+
     fetchOutbreaks();
   }, [isAdmin]);
 
@@ -61,32 +61,34 @@ export default function AdminPage() {
 
   const handleApprove = async (id) => {
     try {
-      await fetch(`${API_BASE}?r=approveOutbreak`, {
+      await fetch("https://aptitude.cse.buffalo.edu/CSE442/2026-Spring/cse-442c/backend/public/api/approveOutbreak.php", {
         method: "POST",
         credentials: "include",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ id }),
       });
+      setOutbreaks((prev) => prev.filter((o) => o.id !== id));
+      showNotification("The outbreak has been approved");
     } catch (err) {
-      // proceed with UI update even if API not yet available
+      console.error("Failed to approve outbreak:", err);
+      showNotification("Error approving outbreak");
     }
-    setOutbreaks((prev) => prev.filter((o) => o.id !== id));
-    showNotification("The outbreak has been approved");
   };
 
   const handleReject = async (id) => {
     try {
-      await fetch(`${API_BASE}?r=rejectOutbreak`, {
+      await fetch("https://aptitude.cse.buffalo.edu/CSE442/2026-Spring/cse-442c/backend/public/api/rejectOutbreak.php", {
         method: "POST",
         credentials: "include",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ id }),
       });
+      setOutbreaks((prev) => prev.filter((o) => o.id !== id));
+      showNotification("The outbreak has been rejected");
     } catch (err) {
-      // proceed with UI update even if API not yet available
+      console.error("Failed to reject outbreak:", err);
+      showNotification("Error rejecting outbreak");
     }
-    setOutbreaks((prev) => prev.filter((o) => o.id !== id));
-    showNotification("The outbreak has been rejected");
   };
 
   const Header = () => (
@@ -100,7 +102,6 @@ export default function AdminPage() {
     </div>
   );
 
-  // Loading state
   if (isAdmin === null) {
     return (
       <div className="ap-page">
@@ -111,7 +112,6 @@ export default function AdminPage() {
     );
   }
 
-  // Access Denied
   if (!isAdmin) {
     return (
       <div className="ap-page">
@@ -136,9 +136,7 @@ export default function AdminPage() {
       <Header />
       <Navbar />
 
-      {notification && (
-        <div className="ap-notification">{notification}</div>
-      )}
+      {notification && <div className="ap-notification">{notification}</div>}
 
       <div className="ap-content">
         <h1 className="ap-heading">Admin Dashboard</h1>
@@ -155,21 +153,16 @@ export default function AdminPage() {
               {outbreaks.map((outbreak) => (
                 <li key={outbreak.id} className="ap-queue-item">
                   <div className="ap-item-info">
-                    <span className="ap-item-disease">{outbreak.disease}</span>
-                    <span className="ap-item-state">{outbreak.state}</span>
-                    <span className="ap-item-date">{outbreak.date_flagged}</span>
+                    <span className="ap-item-disease">{outbreak.diseaseType}</span>
+                    <span className="ap-item-userid">Submitted by: User #{outbreak.userId}</span>
+                    <span className="ap-item-state">{outbreak.location}</span>
+                    <span className="ap-item-date">{outbreak.timeCreated}</span>
                   </div>
                   <div className="ap-item-actions">
-                    <button
-                      className="ap-approve-btn"
-                      onClick={() => handleApprove(outbreak.id)}
-                    >
+                    <button className="ap-approve-btn" onClick={() => handleApprove(outbreak.id)}>
                       Approve
                     </button>
-                    <button
-                      className="ap-reject-btn"
-                      onClick={() => handleReject(outbreak.id)}
-                    >
+                    <button className="ap-reject-btn" onClick={() => handleReject(outbreak.id)}>
                       Reject
                     </button>
                   </div>
