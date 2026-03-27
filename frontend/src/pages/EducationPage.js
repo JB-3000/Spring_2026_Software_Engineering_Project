@@ -1,6 +1,6 @@
 import React from 'react';
 import Navbar from '../homepage/Navbar';
-import logo from '../LivestockEpidemicTracker.jpeg';
+import SiteHeader from '../components/SiteHeader';
 import SiteFooter from '../components/SiteFooter';
 import './EducationPage.css';
 
@@ -40,12 +40,7 @@ const diseaseSections = [
 const EducationPage = () => {
   return (
     <div className="education-page">
-      <header className="education-page-header">
-        <div className="education-page-brand">
-          <img src={logo} alt="logo" className="education-page-logo" />
-          <h1>LIVESTOCK EPIDEMIC TRACKER</h1>
-        </div>
-      </header>
+      <SiteHeader />
 
       <Navbar />
 
