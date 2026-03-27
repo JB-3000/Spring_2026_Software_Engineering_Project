@@ -14,6 +14,7 @@ const Navbar = () => {
       <button onClick={() => navigate('/faq')} style={styles.button}>FAQ</button>
       <button onClick={() => navigate('/biosecurity')} style={styles.button}>Biosecurity Guide</button>
       <button onClick={() => navigate('/profile')} style={styles.button}>Profile</button>
+      <button onClick={() => navigate('/education')} style={styles.button}>Education</button>
       <button onClick={() => navigate('/')} style={styles.button}>Log Out</button>
     </nav>
   );
