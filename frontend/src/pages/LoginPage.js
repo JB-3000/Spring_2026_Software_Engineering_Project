@@ -46,6 +46,10 @@ export default function LoginPage() {
 			if (res.ok && data && data.ok === true) {
 				// optionally store user id for later
 				// localStorage.setItem("user_id", String(data.user_id));
+				if (data.is_admin === true) {   // added this block to check if the user is an admin
+        		navigate("/admin");          // navigate to the admin page if they are an admin
+        		return;                      // return here to prevent navigating to the home page after navigating to the admin page
+    			}                                // if the user is not an admin, navigate to the home page as normal
 				navigate("/home");
 				return;
 			}
