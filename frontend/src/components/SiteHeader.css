@@ -37,10 +37,11 @@
 	width: 100%;
 }
 
-@media (max-width: 768px) {
+@media (max-width: 1024px) {
 	.site-header__title {
-		font-size: 1.2rem;
+		font-size: clamp(0.85rem, 4.5vw, 1.2rem);
 		letter-spacing: 0.5px;
+		white-space: nowrap;
 	}
 
 	.site-header__logo {
