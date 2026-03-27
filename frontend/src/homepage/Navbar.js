@@ -1,43 +1,38 @@
-import React from 'react';
+import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-
-const PURPLE = '#6a5acd';
+import './Navbar.css';
 
 const Navbar = () => {
   const navigate = useNavigate();
+  const [menuOpen, setMenuOpen] = useState(false);
+
+  const handleNav = (path) => {
+    navigate(path);
+    setMenuOpen(false);
+  };
 
   return (
-    <nav style={styles.nav}>
-      <button onClick={() => navigate('/home')} style={styles.button}>Home</button>
-      <button onClick={() => navigate('/news')} style={styles.button}>News</button>
-      <button onClick={() => navigate('/data')} style={styles.button}>Data</button>
-      <button onClick={() => navigate('/faq')} style={styles.button}>FAQ</button>
-      <button onClick={() => navigate('/biosecurity')} style={styles.button}>Biosecurity Guide</button>
-      <button onClick={() => navigate('/profile')} style={styles.button}>Profile</button>
-      <button onClick={() => navigate('/education')} style={styles.button}>Education</button>
-      <button onClick={() => navigate('/')} style={styles.button}>Log Out</button>
+    <nav className="navbar">
+      <button
+        className="navbar__hamburger"
+        onClick={() => setMenuOpen((prev) => !prev)}
+        aria-label="Toggle navigation menu"
+      >
+        {menuOpen ? '✕' : '☰'}
+      </button>
+
+      <div className={`navbar__links${menuOpen ? ' navbar__links--open' : ''}`}>
+        <button className="navbar__btn" onClick={() => handleNav('/home')}>Home</button>
+        <button className="navbar__btn" onClick={() => handleNav('/news')}>News</button>
+        <button className="navbar__btn" onClick={() => handleNav('/data')}>Data</button>
+        <button className="navbar__btn" onClick={() => handleNav('/faq')}>FAQ</button>
+        <button className="navbar__btn" onClick={() => handleNav('/biosecurity')}>Biosecurity Guide</button>
+        <button className="navbar__btn" onClick={() => handleNav('/education')}>Education</button>
+        <button className="navbar__btn" onClick={() => handleNav('/profile')}>Profile</button>
+        <button className="navbar__btn" onClick={() => handleNav('/')}>Log Out</button>
+      </div>
     </nav>
   );
-};
-
-const styles = {
-  nav: {
-    display: 'flex',
-    justifyContent: 'center',
-    flexWrap: 'wrap',
-    gap: 4,
-    padding: '6px 12px',
-    background: '#c4c9d8',
-    borderTop: `1px solid ${PURPLE}`,
-  },
-  button: {
-    padding: '4px 10px',
-    border: '1px solid #888',
-    backgroundColor: '#e8e8e8',
-    cursor: 'pointer',
-    fontSize: 13,
-    borderRadius: 2,
-  },
 };
 
 export default Navbar;
