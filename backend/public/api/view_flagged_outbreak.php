@@ -54,7 +54,7 @@ try {
 
     // Format for frontend
     foreach ($outbreaks as &$o) {
-        $o['diseaseType'] = $o['disease_type'];
+        $o['diseaseType'] = $o['disease'];   // make it consistent for frontend    
         $o['location']    = $o['state'];
         $o['date_flagged'] = !empty($o['created_at']) ? date('Y-m-d H:i:s', strtotime($o['created_at'])) : null;
         $o['reportedBy']   = $o['User_ID'] ?? 'Unknown';
