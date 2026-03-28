@@ -7,32 +7,6 @@
   flex-direction: column;
 }
 
-.education-page-header {
-  background: #ffffff;
-  color: #000000;
-  padding: 16px 0;
-}
-
-.education-page-brand {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 12px;
-}
-
-.education-page-brand h1 {
-  margin: 0;
-  font-size: 2.4rem;
-  font-weight: bold;
-  letter-spacing: 1.5px;
-}
-
-.education-page-logo {
-  width: 52px;
-  height: 52px;
-  object-fit: contain;
-  border-radius: 4px;
-}
 
 .education-page-main {
   max-width: 1100px;
@@ -94,11 +68,6 @@
 }
 
 @media (max-width: 768px) {
-  .education-page-brand h1 {
-    font-size: 1.7rem;
-    text-align: center;
-  }
-
   .education-page-main {
     padding: 1rem;
   }
