@@ -100,6 +100,13 @@ try {
         require __DIR__ . '/reset_password.php';
         exit;
     }
+
+    // Route for Data page weather filter
+    if ($route === 'weather'){
+        require __DIR__ . '/weather.php';
+        exit;
+    }
+
     // Recent Outbreaks for homepage widget WILL
     if ($route === 'create_outbreak'){
         require __DIR__ . '/create_outbreak.php';
