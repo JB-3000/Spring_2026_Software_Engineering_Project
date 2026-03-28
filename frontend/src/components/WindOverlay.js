@@ -17,7 +17,7 @@ function buildWindIcon(direction = 0, speed = 0, index = 0) {
         html: `
       <div
         class="wind-arrow-outer"
-        style="left: 50%; top: 50%; opacity: ${opacity}; transform: translate(-50%, -50%) rotate(${safeDirection}deg) scale(${scale});"
+        style="left: 50%; top: 50%; opacity: ${opacity}; transform: translate(-50%, -50%) rotate(${(safeDirection + 180) % 360}deg) scale(${scale});"
       >
         <div class="wind-arrow-inner ${delayClass}">
           <svg viewBox="0 0 32 32" width="28" height="28" aria-hidden="true">
