@@ -58,6 +58,7 @@ const MOCK_SUMMARY = {
   quarantineZones: 50,       zonesDelta:    '+8 last 30 days',
   resolvedCases:   96,       resolvedNote:  '90-day USDA resolution protocol',
   economicImpact:  '$79.3M', economicDelta: '$56.5M last 30 days',
+  last_updated:    '2026-03-29 12:00:00',
 };
 
 const MOCK_BY_DISEASE = [
@@ -95,6 +96,16 @@ const MOCK_TRENDS = DISEASE_LIST.flatMap((disease, di) =>
 function colorForDisease(d) {
   const idx = DISEASE_LIST.indexOf(d);
   return DISEASE_COLORS[idx >= 0 ? idx : DISEASE_COLORS.length - 1];
+}
+
+function formatLastUpdated(raw) {
+  if (!raw) return 'Not available';
+  const d = new Date(raw.replace(' ', 'T'));
+  if (isNaN(d.getTime())) return 'Not available';
+  return d.toLocaleString('en-US', {
+    year: 'numeric', month: 'long', day: 'numeric',
+    hour: 'numeric', minute: '2-digit', hour12: true,
+  });
 }
 
 function choroplethColor(value, max) {
@@ -1508,6 +1519,10 @@ const Data = () => {
         <div style={S.statsGrid}>
           {STATS.map((s) => <StatCard key={s.label} {...s} />)}
         </div>
+
+        <p style={{ fontSize: 13, color: '#5c6bc0', fontWeight: 600, margin: '-6px 0 14px', textAlign: 'right' }}>
+          🕒 Last Updated: <span style={{ fontWeight: 400 }}>{formatLastUpdated(summary.last_updated)}</span>
+        </p>
 
         <FilterBar active={activeFilter} onChange={setActiveFilter} />
 
