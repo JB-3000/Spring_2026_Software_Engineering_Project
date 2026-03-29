@@ -22,6 +22,52 @@ const API_ROOT = IS_LOCAL
 const API_BASE             = `${API_ROOT}/index.php`;
 const EXPORT_OUTBREAKS_URL = `${API_ROOT}/exportOutbreaks.php`;
 const DEBUG_API     = false;
+
+// ─── Backend Integration ──────────────────────────────────────────────────────
+//
+// ╔══════════════════════════════════════════════════════════════════════════╗
+// ║  HOW TO WIRE UP THE REAL BACKEND FOR MORTALITY FILTERING                ║
+// ║                                                                          ║
+// ║  Step 1 — Flip this flag to true once the backend accepts               ║
+// ║           the `mortality` query param on all four routes below.          ║
+// ║           The frontend will immediately stop using mock-filtered data    ║
+// ║           and defer entirely to real API responses.                      ║
+// ╚══════════════════════════════════════════════════════════════════════════╝
+const BACKEND_SUPPORTS_MORTALITY = false; // ← flip to true when backend is ready
+
+//
+// ── Query parameter the frontend sends ───────────────────────────────────────
+//
+//   ?mortality=High | Moderate | Low      (omitted entirely when "All")
+//   ?disease=H5N1%20(Avian%20Flu)         (omitted entirely when "All Diseases")
+//
+// All four API routes below receive these params when the user has a filter
+// active.  The routes that currently ignore `mortality` will simply continue
+// to ignore it — no breaking change — until BACKEND_SUPPORTS_MORTALITY=true.
+//
+// ── Route reference ───────────────────────────────────────────────────────────
+//
+//   r=outbreaks-summary      → expects response shape:
+//       { totalOutbreaks, affectedFarms, farmsDelta, livestockCases,
+//         quarantineZones, resolvedCases, economicImpact }
+//
+//   r=outbreaks-by-disease   → expects response shape:
+//       [ { disease: string, count: number }, … ]
+//
+//   r=outbreaks-trends       → expects response shape:
+//       [ { month: string, year: number, disease: string, cases: number }, … ]
+//       (add `mortality` field here too if you want per-record granularity)
+//
+//   r=outbreaks-by-state     → expects response shape:
+//       [ { state: string, outbreaks: number }, … ]
+//
+// ── No-results handling ───────────────────────────────────────────────────────
+//
+//   When a filter combo has no data the backend should return an empty array []
+//   (or { totalOutbreaks: 0 } for the summary route).  The frontend will
+//   automatically show the "No outbreak data available" banner.
+//   Do NOT return an error object — that triggers the mock fallback instead.
+//
 const MAX_DISEASES  = 5;
 const CURRENT_YEAR  = new Date().getFullYear();
 const CURRENT_MONTH = new Date().getMonth();
@@ -1141,26 +1187,32 @@ const Data = () => {
     window.open(EXPORT_OUTBREAKS_URL, '_blank', 'noopener,noreferrer');
   };
 
-  // ── Mock data filtered by current selections ──────────────────────────────
-  // When the API falls back to mock data these derived values power the UI.
-  // When the real API is live it returns pre-filtered results and these are
-  // ignored — the API response is used directly.
-
+  // ── Mock data — filtered by current UI selections ────────────────────────
+  //
+  // These values are passed as fallbacks to useAPI().  When the real API
+  // responds successfully they are never used.
+  //
+  // Once BACKEND_SUPPORTS_MORTALITY=true the backend handles all filtering,
+  // so these will only fire if an API call fails (network error / timeout)
+  // — acting as a safe offline fallback rather than the primary data source.
   const filteredMockOutbreaks = useMemo(
     () => filterMockOutbreaks(MOCK_OUTBREAKS_RAW, activeFilter, activeMortality),
     [activeFilter, activeMortality]
   );
 
-  const mockByDisease = useMemo(() => buildMockByDisease(filteredMockOutbreaks), [filteredMockOutbreaks]);
-  const mockByState   = useMemo(() => buildMockByState(filteredMockOutbreaks),   [filteredMockOutbreaks]);
-  const mockSummary   = useMemo(() => buildMockSummary(activeMortality),         [activeMortality]);
-
+  const mockByDisease      = useMemo(() => buildMockByDisease(filteredMockOutbreaks), [filteredMockOutbreaks]);
+  const mockByState        = useMemo(() => buildMockByState(filteredMockOutbreaks),   [filteredMockOutbreaks]);
+  const mockSummary        = useMemo(() => buildMockSummary(activeMortality),         [activeMortality]);
   const mockTrendsFiltered = useMemo(() => {
     if (activeMortality === 'All') return MOCK_TRENDS;
     return MOCK_TRENDS.filter(r => r.mortality === activeMortality);
   }, [activeMortality]);
 
-  // ── API params — pass filters so backend can use them when ready ──────────
+  // ── API query params ──────────────────────────────────────────────────────
+  //
+  // `mortality` is always forwarded so the backend can start reading it at
+  // any time without any further frontend changes.  Set
+  // BACKEND_SUPPORTS_MORTALITY=true (top of file) when it does.
   const summaryParams = useMemo(() => {
     const p = {};
     if (activeFilter    !== 'All Diseases') p.disease  = activeFilter;
@@ -1183,11 +1235,14 @@ const Data = () => {
 
   const emptyParams = useMemo(() => ({}), []);
 
-  // ── API calls — fallback to filtered mock data ────────────────────────────
-  const { data: summary   } = useAPI('outbreaks-summary',    mockSummary,    summaryParams);
-  const { data: byDisease } = useAPI('outbreaks-by-disease', mockByDisease,  emptyParams);
+  // ── API calls ─────────────────────────────────────────────────────────────
+  //
+  // Each call passes its filtered mock data as the fallback.  When the real
+  // API is healthy it overrides the mock entirely — no further changes needed.
+  const { data: summary   } = useAPI('outbreaks-summary',    mockSummary,        summaryParams);
+  const { data: byDisease } = useAPI('outbreaks-by-disease', mockByDisease,      emptyParams);
   const { data: trends    } = useAPI('outbreaks-trends',     mockTrendsFiltered, trendsParams);
-  const { data: byState   } = useAPI('outbreaks-by-state',   mockByState,    byStateParams);
+  const { data: byState   } = useAPI('outbreaks-by-state',   mockByState,        byStateParams);
 
   const normalizedTrends = useMemo(() => {
     if (!trends || !Array.isArray(trends)) return [];
@@ -1205,9 +1260,28 @@ const Data = () => {
       .filter(d => d.count > 0),
   [byDisease]);
 
-  // No-results: show banner when filtered mock data is empty (or API returns 0)
+  // ── No-results detection ──────────────────────────────────────────────────
+  //
+  // While BACKEND_SUPPORTS_MORTALITY=false  → use mock filtered count so the
+  //   banner works correctly even before the API handles mortality.
+  //
+  // Once BACKEND_SUPPORTS_MORTALITY=true    → flip to checking the real API
+  //   response (totalOutbreaks===0 or empty arrays) so the banner reflects
+  //   actual backend data instead of the mock.
   const hasActiveFilter = activeFilter !== 'All Diseases' || activeMortality !== 'All';
-  const showNoResults   = hasActiveFilter && filteredMockOutbreaks.length === 0;
+
+  const showNoResults = useMemo(() => {
+    if (!hasActiveFilter) return false;
+    if (BACKEND_SUPPORTS_MORTALITY) {
+      // Real API is filtering — trust its response
+      const summaryEmpty  = Number(summary?.totalOutbreaks ?? -1) === 0;
+      const byStateEmpty  = Array.isArray(byState)   && byState.length   === 0;
+      const byDiseaseEmpty = Array.isArray(byDisease) && byDisease.length === 0;
+      return summaryEmpty || (byStateEmpty && byDiseaseEmpty);
+    }
+    // Still on mock — use the pre-filtered mock record count
+    return filteredMockOutbreaks.length === 0;
+  }, [hasActiveFilter, filteredMockOutbreaks, summary, byState, byDisease]);
 
   const STATS = [
     { label: 'Total Outbreaks',  value: summary.totalOutbreaks,                                             delta: 'confirmed outbreak events',         neg: false, accent: '#e63946' },
