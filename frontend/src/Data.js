@@ -43,33 +43,20 @@ const BACKEND_SUPPORTS_MORTALITY = false; // ← flip to true when backend is re
 //   ?mortality=High | Moderate | Low      (omitted entirely when "All")
 //   ?disease=H5N1%20(Avian%20Flu)         (omitted entirely when "All Diseases")
 //
-// All four API routes below receive these params when the user has a filter
-// active.  The routes that currently ignore `mortality` will simply continue
-// to ignore it — no breaking change — until BACKEND_SUPPORTS_MORTALITY=true.
-//
 // ── Route reference ───────────────────────────────────────────────────────────
 //
-//   r=outbreaks-summary      → expects response shape:
-//       { totalOutbreaks, affectedFarms, farmsDelta, livestockCases,
-//         quarantineZones, resolvedCases, economicImpact }
-//
-//   r=outbreaks-by-disease   → expects response shape:
-//       [ { disease: string, count: number }, … ]
-//
-//   r=outbreaks-trends       → expects response shape:
-//       [ { month: string, year: number, disease: string, cases: number }, … ]
-//       (add `mortality` field here too if you want per-record granularity)
-//
-//   r=outbreaks-by-state     → expects response shape:
-//       [ { state: string, outbreaks: number }, … ]
+//   r=outbreaks-summary      → { totalOutbreaks, affectedFarms, farmsDelta,
+//                               livestockCases, quarantineZones, resolvedCases,
+//                               economicImpact }
+//   r=outbreaks-by-disease   → [ { disease, count }, … ]
+//   r=outbreaks-trends       → [ { month, year, disease, cases }, … ]
+//   r=outbreaks-by-state     → [ { state, outbreaks }, … ]
 //
 // ── No-results handling ───────────────────────────────────────────────────────
 //
-//   When a filter combo has no data the backend should return an empty array []
-//   (or { totalOutbreaks: 0 } for the summary route).  The frontend will
-//   automatically show the "No outbreak data available" banner.
-//   Do NOT return an error object — that triggers the mock fallback instead.
+//   Return [] (or { totalOutbreaks: 0 } for summary) — NOT an error object.
 //
+
 const MAX_DISEASES  = 5;
 const CURRENT_YEAR  = new Date().getFullYear();
 const CURRENT_MONTH = new Date().getMonth();
@@ -99,12 +86,7 @@ const MORTALITY_COLORS = {
   Low:      '#10b981',
 };
 
-// Deterministically assign a mortality level to mock outbreaks so filtering
-// produces varied, believable results across all combinations.
 const MORTALITY_CYCLE = ['High', 'High', 'Moderate', 'Moderate', 'Low'];
-function mockMortality(index) {
-  return MORTALITY_CYCLE[index % MORTALITY_CYCLE.length];
-}
 
 function safeKey(disease) {
   return disease.replace(/[^a-zA-Z0-9_]/g, '_');
@@ -115,49 +97,46 @@ for (let y = 2005; y <= CURRENT_YEAR; y++) YEAR_OPTIONS.push(String(y));
 
 // ─── Mock Fallback Data ───────────────────────────────────────────────────────
 
-// Each mock outbreak record now carries a `mortality` field so the frontend
-// can filter by it while the real backend is not yet returning that field.
-
+// Test note: disease="Bovine Tuberculosis" + mortality="High" or "Moderate"
+// has zero records → triggers the no-results banner (Frontend Test 5).
 const MOCK_OUTBREAKS_RAW = [
-  { disease: 'H5N1 (Avian Flu)',      state: 'California',   count: 9800000, mortality: 'High'     },
-  { disease: 'H5N1 (Avian Flu)',      state: 'Texas',        count: 3200000, mortality: 'High'     },
-  { disease: 'H5N1 (Avian Flu)',      state: 'Indiana',      count: 1100000, mortality: 'Moderate' },
-  { disease: 'Swine Flu',             state: 'Missouri',     count: 6240,    mortality: 'Moderate' },
-  { disease: 'Swine Flu',             state: 'Minnesota',    count: 2800,    mortality: 'Low'      },
-  { disease: 'Bluetongue',            state: 'Pennsylvania', count: 280,     mortality: 'Low'      },
-  { disease: 'Bluetongue',            state: 'Texas',        count: 140,     mortality: 'Moderate' },
-  { disease: 'Bovine Tuberculosis',   state: 'Michigan',     count: 95,      mortality: 'Low'      },
-  { disease: 'Mad Cow Disease (BSE)', state: 'California',   count: 5,       mortality: 'High'     },
-  { disease: 'Other',                 state: 'Ohio',         count: 82500,   mortality: 'Moderate' },
-  { disease: 'Other',                 state: 'Iowa',         count: 34000,   mortality: 'Low'      },
-  { disease: 'H5N1 (Avian Flu)',      state: 'Wisconsin',    count: 870000,  mortality: 'High'     },
-  { disease: 'Swine Flu',             state: 'North Carolina', count: 1200,  mortality: 'High'     },
-  { disease: 'Bluetongue',            state: 'Virginia',     count: 60,      mortality: 'Low'      },
-  { disease: 'Other',                 state: 'Kansas',       count: 11000,   mortality: 'Moderate' },
+  { disease: 'H5N1 (Avian Flu)',      state: 'California',     count: 9800000, mortality: 'High'     },
+  { disease: 'H5N1 (Avian Flu)',      state: 'Texas',          count: 3200000, mortality: 'High'     },
+  { disease: 'H5N1 (Avian Flu)',      state: 'Indiana',        count: 1100000, mortality: 'Moderate' },
+  { disease: 'H5N1 (Avian Flu)',      state: 'Minnesota',      count:  450000, mortality: 'Low'      },
+  { disease: 'Swine Flu',             state: 'Missouri',       count:    6240, mortality: 'Moderate' },
+  { disease: 'Swine Flu',             state: 'Minnesota',      count:    2800, mortality: 'Low'      },
+  { disease: 'Swine Flu',             state: 'North Carolina', count:    1200, mortality: 'High'     },
+  { disease: 'Bluetongue',            state: 'Pennsylvania',   count:     280, mortality: 'Low'      },
+  { disease: 'Bluetongue',            state: 'Texas',          count:     140, mortality: 'Moderate' },
+  { disease: 'Bluetongue',            state: 'Virginia',       count:      60, mortality: 'Low'      },
+  { disease: 'Bovine Tuberculosis',   state: 'Michigan',       count:      95, mortality: 'Low'      },
+  { disease: 'Mad Cow Disease (BSE)', state: 'California',     count:       5, mortality: 'High'     },
+  { disease: 'Other',                 state: 'Ohio',           count:   82500, mortality: 'Moderate' },
+  { disease: 'Other',                 state: 'Iowa',           count:   34000, mortality: 'Low'      },
+  { disease: 'Other',                 state: 'Kansas',         count:   11000, mortality: 'Moderate' },
 ];
 
-// Summary values keyed by mortality level — used to make stat cards feel
-// responsive to the filter without a real backend.
 const MOCK_SUMMARY_BY_MORTALITY = {
   All: {
     totalOutbreaks: 119, affectedFarms: 41, livestockCases: '13M',
     quarantineZones: 50, resolvedCases: 96, economicImpact: '$79.3M',
-    farmsDelta: '41 states affected',
+    farmsDelta: '41 states affected', last_updated: '2026-03-29 12:00:00',
   },
   High: {
     totalOutbreaks: 48, affectedFarms: 22, livestockCases: '9.8M',
     quarantineZones: 20, resolvedCases: 38, economicImpact: '$52.1M',
-    farmsDelta: '22 states affected',
+    farmsDelta: '22 states affected', last_updated: '2026-03-29 12:00:00',
   },
   Moderate: {
     totalOutbreaks: 43, affectedFarms: 18, livestockCases: '2.8M',
     quarantineZones: 18, resolvedCases: 35, economicImpact: '$19.6M',
-    farmsDelta: '18 states affected',
+    farmsDelta: '18 states affected', last_updated: '2026-03-29 12:00:00',
   },
   Low: {
     totalOutbreaks: 28, affectedFarms: 12, livestockCases: '410K',
     quarantineZones: 12, resolvedCases: 23, economicImpact: '$7.6M',
-    farmsDelta: '12 states affected',
+    farmsDelta: '12 states affected', last_updated: '2026-03-29 12:00:00',
   },
 };
 
@@ -167,7 +146,6 @@ const MOCK_TRENDS = DISEASE_LIST.flatMap((disease, di) =>
     const monthsToShow = y === CURRENT_YEAR ? MONTHS.slice(0, CURRENT_MONTH + 1) : MONTHS;
     return monthsToShow.map((month, mi) => ({
       month, year: y, disease,
-      // Assign mortality deterministically so trend filtering is consistent
       mortality: MORTALITY_CYCLE[(di * 12 + mi) % MORTALITY_CYCLE.length],
       cases: Math.floor(
         Math.abs(Math.sin((disease.charCodeAt(0) * 13 + di * 47) * (mi + 1) * 0.5 + di)) * 9000
@@ -179,12 +157,10 @@ const MOCK_TRENDS = DISEASE_LIST.flatMap((disease, di) =>
 );
 
 // ─── Mock Filtering Helpers ───────────────────────────────────────────────────
-// These run only on mock data. When the real API returns filtered results these
-// functions are bypassed entirely — the API response is used as-is.
 
 function filterMockOutbreaks(records, disease, mortality) {
   return records.filter(r => {
-    const diseaseMatch   = disease  === 'All Diseases' || r.disease  === disease;
+    const diseaseMatch   = disease   === 'All Diseases' || r.disease   === disease;
     const mortalityMatch = mortality === 'All'          || r.mortality === mortality;
     return diseaseMatch && mortalityMatch;
   });
@@ -192,23 +168,17 @@ function filterMockOutbreaks(records, disease, mortality) {
 
 function buildMockByDisease(filtered) {
   const map = {};
-  filtered.forEach(r => {
-    map[r.disease] = (map[r.disease] || 0) + r.count;
-  });
+  filtered.forEach(r => { map[r.disease] = (map[r.disease] || 0) + r.count; });
   return Object.entries(map).map(([disease, count]) => ({ disease, count }));
 }
 
 function buildMockByState(filtered) {
   const map = {};
-  filtered.forEach(r => {
-    map[r.state] = (map[r.state] || 0) + 1;
-  });
+  filtered.forEach(r => { map[r.state] = (map[r.state] || 0) + 1; });
   return Object.entries(map).map(([state, outbreaks]) => ({ state, outbreaks }));
 }
 
 function buildMockSummary(mortality) {
-  // Use pre-defined totals per mortality level; disease sub-filter not applied
-  // to summary counts to keep the UX simple (matches backend behaviour intent).
   return MOCK_SUMMARY_BY_MORTALITY[mortality] || MOCK_SUMMARY_BY_MORTALITY.All;
 }
 
@@ -290,20 +260,12 @@ const RED    = '#e63946';
 
 const S = {
   page:        { minHeight: '100vh', background: '#f0f4f8', fontFamily: "'Segoe UI','Helvetica Neue',Arial,sans-serif", color: '#1a1a2e' },
-  header:      { background: 'linear-gradient(90deg,#b8bfcc 0%,#9aa0b0 100%)', borderBottom: `3px solid ${PURPLE}` },
-  headerRow:   { display: 'flex', alignItems: 'center', gap: 14, padding: '10px 28px' },
-  logo:        { width: 52, height: 52, objectFit: 'contain', borderRadius: 4 },
-  headerTitle: { fontSize: 26, fontWeight: 900, letterSpacing: '0.1em', color: '#1a1a2e', margin: 0 },
-  nav:         { display: 'flex', justifyContent: 'center', gap: 4, padding: '6px 28px', background: '#c4c9d8', borderTop: `1px solid ${PURPLE}` },
-  navLink:     { color: '#1a1a2e', textDecoration: 'none', padding: '5px 16px', borderRadius: 3, border: '1px solid #9aa0b0', fontSize: 13, cursor: 'pointer', background: '#dde0ea' },
   main:        { maxWidth: 1050, margin: '0 auto', padding: 'clamp(12px, 3vw, 22px) clamp(10px, 3vw, 20px)' },
   toolbar:     { display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14 },
   breadcrumb:  { fontSize: 12, color: '#666' },
-  btnOutline:  { background: '#fff', border: '1px solid #bbb', color: '#333', padding: '5px 14px', borderRadius: 4, cursor: 'pointer', fontSize: 12 },
   btnBlue:     { background: BLUE, border: 'none', color: '#fff', fontWeight: 700, padding: '5px 14px', borderRadius: 4, cursor: 'pointer', fontSize: 12 },
   sectionTitle:{ fontSize: 19, fontWeight: 700, color: '#1a1a2e', margin: '0 0 3px' },
   sectionSub:  { fontSize: 12, color: '#777', margin: 0 },
-  // filterBox stacks into two tidy rows; each row wraps on mobile
   filterBox:   {
     display: 'flex', flexDirection: 'column', gap: 10,
     background: '#fff', border: '1px solid #ddd', borderRadius: 8,
@@ -330,7 +292,6 @@ const S = {
   errorBox:    { background: '#fff5f5', border: '1px solid #e63946', color: '#c0000a', borderRadius: 5, padding: '7px 13px', fontSize: 13, fontWeight: 600, marginBottom: 10 },
   infoBox:     { background: '#f0f4ff', border: '1px solid #c0cbf7', color: '#3d5af1', borderRadius: 5, padding: '6px 12px', fontSize: 11, marginBottom: 10 },
   warnBox:     { background: '#fff8e1', border: '1px solid #f59e0b', color: '#b45309', borderRadius: 5, padding: '6px 12px', fontSize: 11, marginBottom: 10 },
-  footer:      { textAlign: 'center', fontSize: 12, color: '#666', padding: '12px', borderTop: `3px solid ${PURPLE}`, background: '#c4c9d8' },
 };
 
 // ─── Debug Source Badge ───────────────────────────────────────────────────────
@@ -360,28 +321,31 @@ function StatCard({ label, value, delta, neg = true, accent = PURPLE, source }) 
         </span>
       )}
       <span style={S.statLabel}>{label}</span>
-      <span style={S.statValue}>{value ?? '—'}</span>
+      <span
+        data-testid={`stat-value-${label.toLowerCase().replace(/[^a-z0-9]/g, '-')}`}
+        style={S.statValue}
+      >{value ?? '—'}</span>
       <span style={{ fontSize: 13, fontWeight: 600, color: neg ? RED : BLUE }}>{delta}</span>
     </div>
   );
 }
 
 // ─── Filter Bar ───────────────────────────────────────────────────────────────
-// Two rows in one card: Disease (row 1) and Mortality Status (row 2).
-// Both rows wrap gracefully on narrow / mobile screens.
 
 const DISEASE_FILTER_OPTIONS = ['All Diseases', ...DISEASE_LIST];
 
 function FilterBar({ activeDisease, onDiseaseChange, activeMortality, onMortalityChange }) {
   return (
-    <div style={S.filterBox}>
+    <div data-testid="filter-bar" style={S.filterBox}>
 
-      {/* Row 1 ── Disease filter (unchanged) */}
-      <div style={S.filterRow}>
+      {/* Row 1 ── Disease filter */}
+      <div data-testid="disease-filter-row" style={S.filterRow}>
         <span style={S.filterLabel}>Filter by Disease:</span>
         {DISEASE_FILTER_OPTIONS.map((opt) => (
           <button
             key={opt}
+            data-testid={`disease-filter-btn-${opt.replace(/[^a-z0-9]/gi, '-').toLowerCase()}`}
+            aria-pressed={activeDisease === opt}
             onClick={() => onDiseaseChange(opt)}
             style={{
               fontSize: 12, padding: '4px 11px', borderRadius: 20, cursor: 'pointer',
@@ -394,8 +358,8 @@ function FilterBar({ activeDisease, onDiseaseChange, activeMortality, onMortalit
         ))}
       </div>
 
-      {/* Row 2 ── Mortality Status filter (new) */}
-      <div style={S.filterRow}>
+      {/* Row 2 ── Mortality Status filter */}
+      <div data-testid="mortality-filter-row" style={S.filterRow}>
         <span style={S.filterLabel}>Mortality Status:</span>
         {MORTALITY_OPTIONS.map((opt) => {
           const isActive = activeMortality === opt;
@@ -403,6 +367,8 @@ function FilterBar({ activeDisease, onDiseaseChange, activeMortality, onMortalit
           return (
             <button
               key={opt}
+              data-testid={`mortality-filter-btn-${opt.toLowerCase()}`}
+              aria-pressed={isActive}
               onClick={() => onMortalityChange(opt)}
               style={{
                 fontSize:     12,
@@ -436,6 +402,7 @@ function NoResultsBanner({ activeDisease, activeMortality }) {
     <div
       role="status"
       aria-live="polite"
+      data-testid="no-results-banner"
       style={{
         background: '#fff8e1', border: '1px solid #f59e0b', borderRadius: 8,
         padding: '16px 20px', marginBottom: 18,
@@ -443,7 +410,7 @@ function NoResultsBanner({ activeDisease, activeMortality }) {
         boxShadow: '0 1px 4px rgba(0,0,0,0.06)',
       }}
     >
-      <span style={{ fontSize: 22, flexShrink: 0 }}></span>
+      <span style={{ fontSize: 22, flexShrink: 0 }}>📭</span>
       <div>
         <div style={{ fontWeight: 700, color: '#92400e', fontSize: 14, marginBottom: 2 }}>
           No outbreak data available for the selected filter
@@ -908,71 +875,45 @@ function InsetMap({ geoJson, stateName, stateMap, maxVal }) {
 
 function ChoroplethFullscreen({ geoJson, stateMap, maxVal, onClose }) {
   const geoJsonLayerRef = useRef(null);
-  const stateMapRef = useRef(stateMap);
-  const maxValRef = useRef(maxVal);
-  const mapRef = useRef(null);
+  const stateMapRef     = useRef(stateMap);
+  const maxValRef       = useRef(maxVal);
+  const mapRef          = useRef(null);
   const tooltipTimerRef = useRef(null);
 
   const [weatherEnabled, setWeatherEnabled] = useState(false);
-  const [windPoints, setWindPoints] = useState([]);
-  const [windLoading, setWindLoading] = useState(false);
-  const [windError, setWindError] = useState('');
+  const [windPoints,     setWindPoints]     = useState([]);
+  const [windLoading,    setWindLoading]    = useState(false);
+  const [windError,      setWindError]      = useState('');
 
-  useEffect(() => {
-    stateMapRef.current = stateMap;
-    maxValRef.current = maxVal;
-  }, [stateMap, maxVal]);
+  useEffect(() => { stateMapRef.current = stateMap; maxValRef.current = maxVal; }, [stateMap, maxVal]);
 
   useEffect(() => {
     const prev = document.body.style.overflow;
     document.body.style.overflow = 'hidden';
-    return () => {
-      document.body.style.overflow = prev;
-    };
+    return () => { document.body.style.overflow = prev; };
   }, []);
 
   useEffect(() => {
-    const handler = (e) => {
-      if (e.key === 'Escape') onClose();
-    };
-
+    const handler = (e) => { if (e.key === 'Escape') onClose(); };
     window.addEventListener('keydown', handler);
     return () => window.removeEventListener('keydown', handler);
   }, [onClose]);
 
   useEffect(() => {
-    if (!weatherEnabled) {
-      setWindPoints([]);
-      setWindLoading(false);
-      setWindError('');
-    }
+    if (!weatherEnabled) { setWindPoints([]); setWindLoading(false); setWindError(''); }
   }, [weatherEnabled]);
 
-  useEffect(() => {
-    if (!weatherEnabled) {
-      setWindPoints([]);
-      setWindLoading(false);
-      setWindError('');
-    }
-  }, [weatherEnabled]);
-
-  const handleReset = () => {
-    if (mapRef.current) mapRef.current.setView([38.5, -96], 5);
-  };
+  const handleReset = () => { if (mapRef.current) mapRef.current.setView([38.5, -96], 5); };
 
   useEffect(() => {
     const layer = geoJsonLayerRef.current;
     if (!layer) return;
-
     layer.eachLayer((l) => {
       const name = l.feature?.properties?.name;
-      const val = stateMap[name] ?? 0;
-
+      const val  = stateMap[name] ?? 0;
       l.setStyle({
-        fillColor: choroplethColor(val, maxVal),
-        weight: val > 0 ? 1.5 : 1,
-        color: '#555e7a',
-        fillOpacity: val > 0 ? 0.88 : 0.15,
+        fillColor: choroplethColor(val, maxVal), weight: val > 0 ? 1.5 : 1,
+        color: '#555e7a', fillOpacity: val > 0 ? 0.88 : 0.15,
       });
     });
   }, [stateMap, maxVal]);
@@ -980,18 +921,11 @@ function ChoroplethFullscreen({ geoJson, stateMap, maxVal, onClose }) {
   const styleFeature = useCallback((feature) => {
     const val = stateMapRef.current[feature.properties.name] ?? 0;
     const max = maxValRef.current;
-
-    return {
-      fillColor: choroplethColor(val, max),
-      weight: val > 0 ? 1.5 : 1,
-      color: '#555e7a',
-      fillOpacity: val > 0 ? 0.88 : 0.15,
-    };
+    return { fillColor: choroplethColor(val, max), weight: val > 0 ? 1.5 : 1, color: '#555e7a', fillOpacity: val > 0 ? 0.88 : 0.15 };
   }, []);
 
   const onEachFeature = useCallback((feature, layer) => {
     const name = feature.properties.name;
-
     const getTooltipHtml = () => {
       const val = stateMapRef.current[name] ?? 0;
       return `<div style="background:#fff;border:1px solid #ddd;border-radius:6px;padding:6px 10px;font-family:sans-serif;font-size:12px;color:#1a1a2e;white-space:nowrap;">
@@ -999,14 +933,7 @@ function ChoroplethFullscreen({ geoJson, stateMap, maxVal, onClose }) {
         ${val > 0 ? `${val} ${val === 1 ? 'outbreak' : 'outbreaks'}` : 'No data'}
       </div>`;
     };
-
-    layer.bindTooltip(getTooltipHtml, {
-      sticky: false,
-      direction: 'top',
-      offset: [0, -4],
-      opacity: 1,
-    });
-
+    layer.bindTooltip(getTooltipHtml, { sticky: false, direction: 'top', offset: [0, -4], opacity: 1 });
     layer.on({
       mouseover: (e) => {
         const val = stateMapRef.current[name] ?? 0;
@@ -1014,20 +941,13 @@ function ChoroplethFullscreen({ geoJson, stateMap, maxVal, onClose }) {
         e.target.setStyle({ weight: 2, color: BLUE, fillOpacity: 1 });
         e.target.openTooltip();
       },
-      mouseout: (e) => {
-        e.target.setStyle(styleFeature(feature));
-        e.target.closeTooltip();
-      },
+      mouseout: (e) => { e.target.setStyle(styleFeature(feature)); e.target.closeTooltip(); },
       click: (e) => {
         const val = stateMapRef.current[name] ?? 0;
         if (!val) return;
         e.target.setStyle({ weight: 2, color: BLUE, fillOpacity: 1 });
         e.target.openTooltip();
-
-        if (tooltipTimerRef.current) {
-          clearTimeout(tooltipTimerRef.current);
-        }
-
+        if (tooltipTimerRef.current) clearTimeout(tooltipTimerRef.current);
         tooltipTimerRef.current = setTimeout(() => {
           e.target.setStyle(styleFeature(feature));
           e.target.closeTooltip();
@@ -1039,238 +959,45 @@ function ChoroplethFullscreen({ geoJson, stateMap, maxVal, onClose }) {
   if (!geoJson) return null;
 
   return (
-      <div
-          style={{
-            position: 'fixed',
-            inset: 0,
-            zIndex: 10000,
-            background: '#e8f0ff',
-            display: 'flex',
-            flexDirection: 'column',
-          }}
-      >
-        <div
-            style={{
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'space-between',
-              padding: '10px 16px',
-              background: '#fff',
-              borderBottom: '1px solid #ccd5df',
-              flexShrink: 0,
-              gap: 8,
-              flexWrap: 'wrap',
-            }}
-        >
-          <h3
-              style={{
-                margin: 0,
-                fontSize: 'clamp(13px, 3vw, 17px)',
-                whiteSpace: 'nowrap',
-                overflow: 'hidden',
-                textOverflow: 'ellipsis',
-                flex: 1,
-              }}
-          >
-            Outbreak Density by State
-          </h3>
-
-          <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexShrink: 0, flexWrap: 'wrap' }}>
-            <label
-                style={{
-                  display: 'inline-flex',
-                  alignItems: 'center',
-                  gap: 6,
-                  fontSize: 12,
-                  fontWeight: 600,
-                  color: '#334155',
-                  background: '#f8fafc',
-                  border: '1px solid #dbe2ea',
-                  borderRadius: 6,
-                  padding: '6px 10px',
-                  cursor: 'pointer',
-                  height: 34,
-                  boxSizing: 'border-box',
-                }}
-            >
-              <input
-                  type="checkbox"
-                  checked={weatherEnabled}
-                  onChange={(e) => setWeatherEnabled(e.target.checked)}
-                  style={{ cursor: 'pointer' }}
-              />
-              Weather Filter
-            </label>
-
-            <button
-                onClick={handleReset}
-                style={{
-                  background: '#f0f4f8',
-                  border: '1px solid #ccc',
-                  borderRadius: 6,
-                  padding: '0 12px',
-                  height: 34,
-                  fontSize: 12,
-                  cursor: 'pointer',
-                }}
-            >
-              Reset
-            </button>
-
-            <button
-                onClick={onClose}
-                title="Close (Esc)"
-                style={{
-                  background: '#fee2e2',
-                  border: '1px solid #fca5a5',
-                  color: '#dc2626',
-                  fontSize: 18,
-                  cursor: 'pointer',
-                  borderRadius: 6,
-                  width: 36,
-                  height: 36,
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  flexShrink: 0,
-                }}
-            >
-              ✕
-            </button>
-          </div>
-        </div>
-
-        <div style={{ flex: 1, position: 'relative' }}>
-          <MapContainer
-              center={[38.5, -96]}
-              zoom={5}
-              scrollWheelZoom={false}
-              style={{ height: '100%', width: '100%', background: '#e8eaf0' }}
-              ref={mapRef}
-          >
-            <TileLayer
-                url="https://{s}.basemaps.cartocdn.com/light_nolabels/{z}/{x}/{y}{r}.png"
-                attribution='&copy; <a href="https://carto.com/">CARTO</a>'
-            />
-
-            <GeoJSON
-                data={geoJson}
-                style={styleFeature}
-                onEachFeature={onEachFeature}
-                ref={geoJsonLayerRef}
-            />
-
-            <MapWindController
-                enabled={weatherEnabled}
-                onWindData={setWindPoints}
-                onWindError={setWindError}
-                onWindLoading={setWindLoading}
-            />
-
-            <WindOverlay
-                enabled={weatherEnabled}
-                windPoints={windPoints}
-            />
-          </MapContainer>
-
-          {weatherEnabled && windLoading && !windError && (
-              <div
-                  style={{
-                    position: 'absolute',
-                    top: 12,
-                    left: '50%',
-                    transform: 'translateX(-50%)',
-                    zIndex: 1000,
-                    background: 'rgba(255,255,255,0.95)',
-                    border: '1px solid #dbe2ea',
-                    borderRadius: 999,
-                    padding: '6px 12px',
-                    fontSize: 12,
-                    fontWeight: 600,
-                    color: '#334155',
-                    pointerEvents: 'none',
-                    boxShadow: '0 2px 8px rgba(0,0,0,0.08)',
-                  }}
-              >
-                Loading wind data...
-              </div>
-          )}
-
-          {weatherEnabled && windError && (
-              <div
-                  style={{
-                    position: 'absolute',
-                    inset: 0,
-                    zIndex: 1000,
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    pointerEvents: 'none',
-                  }}
-              >
-                <div
-                    style={{
-                      background: 'rgba(255,255,255,0.96)',
-                      border: '1px solid #fecaca',
-                      color: '#b91c1c',
-                      borderRadius: 10,
-                      padding: '12px 16px',
-                      fontSize: 13,
-                      fontWeight: 700,
-                      boxShadow: '0 4px 12px rgba(0,0,0,0.12)',
-                      textAlign: 'center',
-                      maxWidth: '80%',
-                    }}
-                >
-                  Wind Data Unavailable, Try Again Later
-                </div>
-              </div>
-          )}
-        </div>
-
-        <div
-            style={{
-              padding: '8px 16px',
-              background: '#fff',
-              borderTop: '1px solid #ccd5df',
-              display: 'flex',
-              alignItems: 'center',
-              gap: 8,
-              flexShrink: 0,
-              flexWrap: 'wrap',
-            }}
-        >
-          <span style={{ fontSize: 11, color: '#555', whiteSpace: 'nowrap' }}>Fewer outbreaks</span>
-          <div style={{ display: 'flex', flex: 1, minWidth: 60, height: 10, borderRadius: 6, overflow: 'hidden' }}>
-            {Array.from({ length: 50 }, (_, i) => (
-                <div
-                    key={i}
-                    style={{ flex: 1, background: choroplethColor((i / 50) * maxVal, maxVal) }}
-                />
-            ))}
-          </div>
-          <span style={{ fontSize: 11, color: '#555', whiteSpace: 'nowrap' }}>More outbreaks</span>
-          <span style={{ fontSize: 10, color: '#555', fontWeight: 500 }}>
-          Tap a state to see data · Esc to close
-        </span>
-        </div>
-      </div>
     <div style={{ position: 'fixed', inset: 0, zIndex: 10000, background: '#e8f0ff', display: 'flex', flexDirection: 'column' }}>
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '10px 16px', background: '#fff', borderBottom: '1px solid #ccd5df', flexShrink: 0, gap: 8 }}>
+      {/* Top bar */}
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '10px 16px', background: '#fff', borderBottom: '1px solid #ccd5df', flexShrink: 0, gap: 8, flexWrap: 'wrap' }}>
         <h3 style={{ margin: 0, fontSize: 'clamp(13px, 3vw, 17px)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', flex: 1 }}>
           Outbreak Density by State
         </h3>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexShrink: 0 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexShrink: 0, flexWrap: 'wrap' }}>
+          <label style={{ display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: 12, fontWeight: 600, color: '#334155', background: '#f8fafc', border: '1px solid #dbe2ea', borderRadius: 6, padding: '6px 10px', cursor: 'pointer', height: 34, boxSizing: 'border-box' }}>
+            <input type="checkbox" checked={weatherEnabled} onChange={(e) => setWeatherEnabled(e.target.checked)} style={{ cursor: 'pointer' }} />
+            Weather Filter
+          </label>
           <button onClick={handleReset} style={{ background: '#f0f4f8', border: '1px solid #ccc', borderRadius: 6, padding: '0 12px', height: 34, fontSize: 12, cursor: 'pointer' }}>Reset</button>
           <button onClick={onClose} title="Close (Esc)" style={{ background: '#fee2e2', border: '1px solid #fca5a5', color: '#dc2626', fontSize: 18, cursor: 'pointer', borderRadius: 6, width: 36, height: 36, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>✕</button>
         </div>
       </div>
+
+      {/* Map */}
       <div style={{ flex: 1, position: 'relative' }}>
         <MapContainer center={[38.5, -96]} zoom={5} scrollWheelZoom={false} style={{ height: '100%', width: '100%', background: '#e8eaf0' }} ref={mapRef}>
           <TileLayer url="https://{s}.basemaps.cartocdn.com/light_nolabels/{z}/{x}/{y}{r}.png" attribution='&copy; <a href="https://carto.com/">CARTO</a>' />
           <GeoJSON data={geoJson} style={styleFeature} onEachFeature={onEachFeature} ref={geoJsonLayerRef} />
+          <MapWindController enabled={weatherEnabled} onWindData={setWindPoints} onWindError={setWindError} onWindLoading={setWindLoading} />
+          <WindOverlay enabled={weatherEnabled} windPoints={windPoints} />
         </MapContainer>
+        {weatherEnabled && windLoading && !windError && (
+          <div style={{ position: 'absolute', top: 12, left: '50%', transform: 'translateX(-50%)', zIndex: 1000, background: 'rgba(255,255,255,0.95)', border: '1px solid #dbe2ea', borderRadius: 999, padding: '6px 12px', fontSize: 12, fontWeight: 600, color: '#334155', pointerEvents: 'none', boxShadow: '0 2px 8px rgba(0,0,0,0.08)' }}>
+            Loading wind data...
+          </div>
+        )}
+        {weatherEnabled && windError && (
+          <div style={{ position: 'absolute', inset: 0, zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center', pointerEvents: 'none' }}>
+            <div style={{ background: 'rgba(255,255,255,0.96)', border: '1px solid #fecaca', color: '#b91c1c', borderRadius: 10, padding: '12px 16px', fontSize: 13, fontWeight: 700, boxShadow: '0 4px 12px rgba(0,0,0,0.12)', textAlign: 'center', maxWidth: '80%' }}>
+              Wind Data Unavailable, Try Again Later
+            </div>
+          </div>
+        )}
       </div>
+
+      {/* Legend */}
       <div style={{ padding: '8px 16px', background: '#fff', borderTop: '1px solid #ccd5df', display: 'flex', alignItems: 'center', gap: 8, flexShrink: 0, flexWrap: 'wrap' }}>
         <span style={{ fontSize: 11, color: '#555', whiteSpace: 'nowrap' }}>Fewer outbreaks</span>
         <div style={{ display: 'flex', flex: 1, minWidth: 60, height: 10, borderRadius: 6, overflow: 'hidden' }}>
@@ -1288,24 +1015,21 @@ function ChoroplethFullscreen({ geoJson, stateMap, maxVal, onClose }) {
 // ─── Choropleth Map (dashboard card) ─────────────────────────────────────────
 
 function ChoroplethMap({ stateData }) {
-  const [geoJson, setGeoJson] = useState(null);
+  const [geoJson,    setGeoJson]    = useState(null);
   const [geoJsonAll, setGeoJsonAll] = useState(null);
-  const [loadError, setLoadError] = useState(false);
+  const [loadError,  setLoadError]  = useState(false);
   const [fullscreen, setFullscreen] = useState(false);
 
   const [weatherEnabled, setWeatherEnabled] = useState(false);
-  const [windPoints, setWindPoints] = useState([]);
-  const [windLoading, setWindLoading] = useState(false);
-  const [windError, setWindError] = useState('');
+  const [windPoints,     setWindPoints]     = useState([]);
+  const [windLoading,    setWindLoading]    = useState(false);
+  const [windError,      setWindError]      = useState('');
 
   const geoJsonLayerRef = useRef(null);
   const tooltipTimerRef = useRef(null);
 
   useEffect(() => {
-    fetch(GEOJSON_URL)
-        .then(r => r.json())
-        .then(setGeoJson)
-        .catch(() => setLoadError(true));
+    fetch(GEOJSON_URL).then(r => r.json()).then(setGeoJson).catch(() => setLoadError(true));
 
     const FIPS_TO_NAME = {
       '02':'Alaska','15':'Hawaii','01':'Alabama','04':'Arizona','05':'Arkansas',
@@ -1320,113 +1044,58 @@ function ChoroplethMap({ stateData }) {
       '51':'Virginia','53':'Washington','54':'West Virginia','55':'Wisconsin','56':'Wyoming',
     };
 
-    fetch(GEOJSON_ALL_URL)
-        .then(r => r.json())
-        .then(topo => {
-          const arcs = topo.arcs;
-          const scale = topo.transform?.scale || [1, 1];
-          const translate = topo.transform?.translate || [0, 0];
-
-          function decodeArc(arc) {
-            let x = 0;
-            let y = 0;
-            return arc.map(([dx, dy]) => {
-              x += dx;
-              y += dy;
-              return [x * scale[0] + translate[0], y * scale[1] + translate[1]];
-            });
-          }
-
-          function arcCoords(idx) {
-            const rev = idx < 0;
-            const coords = decodeArc(arcs[rev ? ~idx : idx]);
-            return rev ? [...coords].reverse() : coords;
-          }
-
-          function ringCoords(ring) {
-            return ring.flatMap(arcCoords);
-          }
-
-          const features = topo.objects.states.geometries.map(geom => {
-            const fips = String(geom.id).padStart(2, '0');
-            const name = FIPS_TO_NAME[fips] || fips;
-
-            const geometry = geom.type === 'Polygon'
-                ? { type: 'Polygon', coordinates: geom.arcs.map(ringCoords) }
-                : { type: 'MultiPolygon', coordinates: geom.arcs.map(poly => poly.map(ringCoords)) };
-
-            return {
-              type: 'Feature',
-              properties: { name },
-              geometry,
-            };
-          });
-
-          setGeoJsonAll({ type: 'FeatureCollection', features });
-        })
-        .catch(() => {});
+    fetch(GEOJSON_ALL_URL).then(r => r.json()).then(topo => {
+      const arcs = topo.arcs, scale = topo.transform?.scale||[1,1], translate = topo.transform?.translate||[0,0];
+      function decodeArc(arc) { let x=0,y=0; return arc.map(([dx,dy])=>{x+=dx;y+=dy;return[x*scale[0]+translate[0],y*scale[1]+translate[1]];}); }
+      function arcCoords(idx) { const rev=idx<0; const c=decodeArc(arcs[rev?~idx:idx]); return rev?[...c].reverse():c; }
+      function ringCoords(ring) { return ring.flatMap(arcCoords); }
+      const features = topo.objects.states.geometries.map(geom => {
+        const fips=String(geom.id).padStart(2,'0'), name=FIPS_TO_NAME[fips]||fips;
+        const geometry = geom.type==='Polygon'
+          ?{type:'Polygon',coordinates:geom.arcs.map(ringCoords)}
+          :{type:'MultiPolygon',coordinates:geom.arcs.map(poly=>poly.map(ringCoords))};
+        return {type:'Feature',properties:{name},geometry};
+      });
+      setGeoJsonAll({type:'FeatureCollection',features});
+    }).catch(()=>{});
   }, []);
 
   useEffect(() => {
-    if (!weatherEnabled) {
-      setWindPoints([]);
-      setWindLoading(false);
-      setWindError('');
-    }
+    if (!weatherEnabled) { setWindPoints([]); setWindLoading(false); setWindError(''); }
   }, [weatherEnabled]);
 
   const stateMap = useMemo(() => {
     const m = {};
-    (stateData || []).forEach(s => {
-      m[s.state] = Number(s.outbreaks);
-    });
+    (stateData || []).forEach(s => { m[s.state] = Number(s.outbreaks); });
     return m;
   }, [stateData]);
 
   const maxVal = useMemo(() =>
-          Object.values(stateMap).length ? Math.max(...Object.values(stateMap)) : 1,
-      [stateMap]);
+    Object.values(stateMap).length ? Math.max(...Object.values(stateMap)) : 1,
+  [stateMap]);
 
   const stateMapRef = useRef(stateMap);
-  const maxValRef = useRef(maxVal);
-
-  useEffect(() => {
-    stateMapRef.current = stateMap;
-    maxValRef.current = maxVal;
-  }, [stateMap, maxVal]);
+  const maxValRef   = useRef(maxVal);
+  useEffect(() => { stateMapRef.current = stateMap; maxValRef.current = maxVal; }, [stateMap, maxVal]);
 
   useEffect(() => {
     const layer = geoJsonLayerRef.current;
     if (!layer) return;
-
     layer.eachLayer((l) => {
       const name = l.feature?.properties?.name;
-      const val = stateMap[name] ?? 0;
-
-      l.setStyle({
-        fillColor: choroplethColor(val, maxVal),
-        weight: val > 0 ? 1.5 : 1,
-        color: '#555e7a',
-        fillOpacity: val > 0 ? 0.88 : 0.15,
-      });
+      const val  = stateMap[name] ?? 0;
+      l.setStyle({ fillColor: choroplethColor(val, maxVal), weight: val > 0 ? 1.5 : 1, color: '#555e7a', fillOpacity: val > 0 ? 0.88 : 0.15 });
     });
   }, [stateMap, maxVal]);
 
   const styleFeature = useCallback((feature) => {
     const val = stateMapRef.current[feature.properties.name] ?? 0;
     const max = maxValRef.current;
-
-    return {
-      fillColor: choroplethColor(val, max),
-      weight: val > 0 ? 1.5 : 1,
-      color: '#555e7a',
-      fillOpacity: val > 0 ? 0.88 : 0.15,
-    };
+    return { fillColor: choroplethColor(val, max), weight: val>0?1.5:1, color: '#555e7a', fillOpacity: val>0?0.88:0.15 };
   }, []);
 
   const onEachFeature = useCallback((feature, layer) => {
     const name = feature.properties.name;
-
     const getTooltipHtml = () => {
       const val = stateMapRef.current[name] ?? 0;
       return `<div style="background:#fff;border:1px solid #ddd;border-radius:6px;padding:6px 10px;font-family:sans-serif;font-size:12px;color:#1a1a2e;white-space:nowrap;">
@@ -1434,14 +1103,7 @@ function ChoroplethMap({ stateData }) {
         ${val > 0 ? `${val} ${val === 1 ? 'outbreak' : 'outbreaks'}` : 'No data'}
       </div>`;
     };
-
-    layer.bindTooltip(getTooltipHtml, {
-      sticky: false,
-      direction: 'top',
-      offset: [0, -4],
-      opacity: 1,
-    });
-
+    layer.bindTooltip(getTooltipHtml, { sticky: false, direction: 'top', offset: [0, -4], opacity: 1 });
     layer.on({
       mouseover: (e) => {
         const val = stateMapRef.current[name] ?? 0;
@@ -1449,20 +1111,13 @@ function ChoroplethMap({ stateData }) {
         e.target.setStyle({ weight: 2, color: BLUE, fillOpacity: 1 });
         e.target.openTooltip();
       },
-      mouseout: (e) => {
-        e.target.setStyle(styleFeature(feature));
-        e.target.closeTooltip();
-      },
+      mouseout: (e) => { e.target.setStyle(styleFeature(feature)); e.target.closeTooltip(); },
       click: (e) => {
         const val = stateMapRef.current[name] ?? 0;
         if (!val) return;
         e.target.setStyle({ weight: 2, color: BLUE, fillOpacity: 1 });
         e.target.openTooltip();
-
-        if (tooltipTimerRef.current) {
-          clearTimeout(tooltipTimerRef.current);
-        }
-
+        if (tooltipTimerRef.current) clearTimeout(tooltipTimerRef.current);
         tooltipTimerRef.current = setTimeout(() => {
           e.target.setStyle(styleFeature(feature));
           e.target.closeTooltip();
@@ -1473,212 +1128,12 @@ function ChoroplethMap({ stateData }) {
 
   useEffect(() => {
     const style = document.createElement('style');
-    style.textContent = `
-      .leaflet-interactive:focus {
-        outline: none !important;
-        box-shadow: none !important;
-      }
-      .leaflet-tooltip {
-        pointer-events: none;
-        white-space: nowrap;
-        z-index: 9999 !important;
-      }
-      .leaflet-pane.leaflet-tooltip-pane {
-        z-index: 9999 !important;
-      }
-    `;
-
+    style.textContent = `.leaflet-interactive:focus{outline:none!important;box-shadow:none!important;}.leaflet-tooltip{pointer-events:none;white-space:nowrap;z-index:9999!important;}.leaflet-pane.leaflet-tooltip-pane{z-index:9999!important;}`;
     document.head.appendChild(style);
     return () => document.head.removeChild(style);
   }, []);
 
   return (
-      <>
-        {fullscreen && (
-            <ChoroplethFullscreen
-                geoJson={geoJson}
-                stateMap={stateMap}
-                maxVal={maxVal}
-                onClose={() => setFullscreen(false)}
-            />
-        )}
-
-        <div style={S.card}>
-          <div style={{ ...S.cardHeader, flexWrap: 'wrap', gap: 8 }}>
-            <h3 style={S.cardTitle}>Outbreak Density by State</h3>
-
-            <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
-              <label
-                  style={{
-                    display: 'inline-flex',
-                    alignItems: 'center',
-                    gap: 6,
-                    fontSize: 12,
-                    fontWeight: 600,
-                    color: '#334155',
-                    background: '#f8fafc',
-                    border: '1px solid #dbe2ea',
-                    borderRadius: 6,
-                    padding: '6px 10px',
-                    cursor: 'pointer',
-                  }}
-              >
-                <input
-                    type="checkbox"
-                    checked={weatherEnabled}
-                    onChange={(e) => setWeatherEnabled(e.target.checked)}
-                    style={{ cursor: 'pointer' }}
-                />
-                Weather Filter
-              </label>
-
-              <span style={S.badge}>Choropleth Map</span>
-
-              <button
-                  onClick={() => setFullscreen(true)}
-                  title="Open full screen map"
-                  style={{
-                    padding: '3px 10px',
-                    background: '#fff',
-                    border: '1px solid #ccc',
-                    borderRadius: 6,
-                    cursor: 'pointer',
-                    fontSize: 12,
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: 4,
-                  }}
-              >
-                <span style={{ fontSize: 13 }}>⤢</span> Full Screen
-              </button>
-            </div>
-          </div>
-
-          {loadError ? (
-              <div style={{ height: 200, display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#999', fontSize: 13 }}>
-                Map unavailable — check network.
-              </div>
-          ) : !geoJson ? (
-              <div style={{ height: 200, display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#aaa', fontSize: 13 }}>
-                Loading map...
-              </div>
-          ) : (
-              <>
-                <div
-                    style={{
-                      height: 380,
-                      borderRadius: 8,
-                      overflow: 'hidden',
-                      border: '1px solid #ddd',
-                      position: 'relative',
-                    }}
-                >
-                  <MapContainer
-                      center={[37.8, -96]}
-                      zoom={4}
-                      scrollWheelZoom={false}
-                      style={{ height: '100%', width: '100%', background: '#e8eaf0' }}
-                  >
-                    <TileLayer
-                        url="https://{s}.basemaps.cartocdn.com/light_nolabels/{z}/{x}/{y}{r}.png"
-                        attribution='&copy; <a href="https://carto.com/">CARTO</a>'
-                    />
-
-                    <GeoJSON
-                        data={geoJson}
-                        style={styleFeature}
-                        onEachFeature={onEachFeature}
-                        ref={geoJsonLayerRef}
-                    />
-
-                    <MapWindController
-                        enabled={weatherEnabled}
-                        onWindData={setWindPoints}
-                        onWindError={setWindError}
-                        onWindLoading={setWindLoading}
-                    />
-
-                    <WindOverlay
-                        enabled={weatherEnabled}
-                        windPoints={windPoints}
-                    />
-                  </MapContainer>
-
-                  {weatherEnabled && windLoading && !windError && (
-                      <div
-                          style={{
-                            position: 'absolute',
-                            top: 12,
-                            left: '50%',
-                            transform: 'translateX(-50%)',
-                            zIndex: 1000,
-                            background: 'rgba(255,255,255,0.95)',
-                            border: '1px solid #dbe2ea',
-                            borderRadius: 999,
-                            padding: '6px 12px',
-                            fontSize: 12,
-                            fontWeight: 600,
-                            color: '#334155',
-                            pointerEvents: 'none',
-                            boxShadow: '0 2px 8px rgba(0,0,0,0.08)',
-                          }}
-                      >
-                        Loading wind data...
-                      </div>
-                  )}
-
-                  {weatherEnabled && windError && (
-                      <div
-                          style={{
-                            position: 'absolute',
-                            inset: 0,
-                            zIndex: 1000,
-                            display: 'flex',
-                            alignItems: 'center',
-                            justifyContent: 'center',
-                            pointerEvents: 'none',
-                          }}
-                      >
-                        <div
-                            style={{
-                              background: 'rgba(255,255,255,0.96)',
-                              border: '1px solid #fecaca',
-                              color: '#b91c1c',
-                              borderRadius: 10,
-                              padding: '12px 16px',
-                              fontSize: 13,
-                              fontWeight: 700,
-                              boxShadow: '0 4px 12px rgba(0,0,0,0.12)',
-                              textAlign: 'center',
-                              maxWidth: '80%',
-                            }}
-                        >
-                          Wind Data Unavailable, Try Again Later
-                        </div>
-                      </div>
-                  )}
-                </div>
-
-                {geoJsonAll && (
-                    <div style={{ display: 'flex', gap: 8, marginTop: 8 }}>
-                      <InsetMap geoJson={geoJsonAll} stateName="Alaska" stateMap={stateMap} maxVal={maxVal} />
-                      <InsetMap geoJson={geoJsonAll} stateName="Hawaii" stateMap={stateMap} maxVal={maxVal} />
-                    </div>
-                )}
-
-                <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginTop: 10 }}>
-                  <span style={{ fontSize: 11, color: '#999' }}>Fewer outbreaks</span>
-                  <div style={{ display: 'flex', flex: 1, height: 10, borderRadius: 6, overflow: 'hidden' }}>
-                    {Array.from({ length: 50 }, (_, i) => (
-                        <div key={i} style={{ flex: 1, background: choroplethColor((i / 50) * maxVal, maxVal) }} />
-                    ))}
-                  </div>
-                  <span style={{ fontSize: 11, color: '#999' }}>More outbreaks</span>
-                </div>
-              </>
-          )}
-        </div>
-      </>
     <>
       {fullscreen && (
         <ChoroplethFullscreen geoJson={geoJson} stateMap={stateMap} maxVal={maxVal} onClose={() => setFullscreen(false)} />
@@ -1686,25 +1141,43 @@ function ChoroplethMap({ stateData }) {
       <div style={S.card}>
         <div style={{ ...S.cardHeader, flexWrap: 'wrap', gap: 8 }}>
           <h3 style={S.cardTitle}>Outbreak Density by State</h3>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+            <label style={{ display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: 12, fontWeight: 600, color: '#334155', background: '#f8fafc', border: '1px solid #dbe2ea', borderRadius: 6, padding: '6px 10px', cursor: 'pointer' }}>
+              <input type="checkbox" checked={weatherEnabled} onChange={(e) => setWeatherEnabled(e.target.checked)} style={{ cursor: 'pointer' }} />
+              Weather Filter
+            </label>
             <span style={S.badge}>Choropleth Map</span>
-            <button onClick={() => setFullscreen(true)} title="Open full screen map"
-              style={{ padding: '3px 10px', background: '#fff', border: '1px solid #ccc', borderRadius: 6, cursor: 'pointer', fontSize: 12, display: 'flex', alignItems: 'center', gap: 4 }}>
+            <button onClick={() => setFullscreen(true)} title="Open full screen map" style={{ padding: '3px 10px', background: '#fff', border: '1px solid #ccc', borderRadius: 6, cursor: 'pointer', fontSize: 12, display: 'flex', alignItems: 'center', gap: 4 }}>
               <span style={{ fontSize: 13 }}>⤢</span> Full Screen
             </button>
           </div>
         </div>
+
         {loadError ? (
           <div style={{height:200,display:'flex',alignItems:'center',justifyContent:'center',color:'#999',fontSize:13}}>Map unavailable — check network.</div>
         ) : !geoJson ? (
           <div style={{height:200,display:'flex',alignItems:'center',justifyContent:'center',color:'#aaa',fontSize:13}}>Loading map...</div>
         ) : (
           <>
-            <div style={{height:380,borderRadius:8,overflow:'hidden',border:'1px solid #ddd'}}>
+            <div style={{height:380,borderRadius:8,overflow:'hidden',border:'1px solid #ddd',position:'relative'}}>
               <MapContainer center={[37.8,-96]} zoom={4} scrollWheelZoom={false} style={{height:'100%',width:'100%',background:'#e8eaf0'}}>
                 <TileLayer url="https://{s}.basemaps.cartocdn.com/light_nolabels/{z}/{x}/{y}{r}.png" attribution='&copy; <a href="https://carto.com/">CARTO</a>' />
                 <GeoJSON data={geoJson} style={styleFeature} onEachFeature={onEachFeature} ref={geoJsonLayerRef} />
+                <MapWindController enabled={weatherEnabled} onWindData={setWindPoints} onWindError={setWindError} onWindLoading={setWindLoading} />
+                <WindOverlay enabled={weatherEnabled} windPoints={windPoints} />
               </MapContainer>
+              {weatherEnabled && windLoading && !windError && (
+                <div style={{ position:'absolute', top:12, left:'50%', transform:'translateX(-50%)', zIndex:1000, background:'rgba(255,255,255,0.95)', border:'1px solid #dbe2ea', borderRadius:999, padding:'6px 12px', fontSize:12, fontWeight:600, color:'#334155', pointerEvents:'none', boxShadow:'0 2px 8px rgba(0,0,0,0.08)' }}>
+                  Loading wind data...
+                </div>
+              )}
+              {weatherEnabled && windError && (
+                <div style={{ position:'absolute', inset:0, zIndex:1000, display:'flex', alignItems:'center', justifyContent:'center', pointerEvents:'none' }}>
+                  <div style={{ background:'rgba(255,255,255,0.96)', border:'1px solid #fecaca', color:'#b91c1c', borderRadius:10, padding:'12px 16px', fontSize:13, fontWeight:700, boxShadow:'0 4px 12px rgba(0,0,0,0.12)', textAlign:'center', maxWidth:'80%' }}>
+                    Wind Data Unavailable, Try Again Later
+                  </div>
+                </div>
+              )}
             </div>
             {geoJsonAll && (
               <div style={{display:'flex',gap:8,marginTop:8}}>
@@ -1740,14 +1213,6 @@ const Data = () => {
     window.open(EXPORT_OUTBREAKS_URL, '_blank', 'noopener,noreferrer');
   };
 
-  // ── Mock data — filtered by current UI selections ────────────────────────
-  //
-  // These values are passed as fallbacks to useAPI().  When the real API
-  // responds successfully they are never used.
-  //
-  // Once BACKEND_SUPPORTS_MORTALITY=true the backend handles all filtering,
-  // so these will only fire if an API call fails (network error / timeout)
-  // — acting as a safe offline fallback rather than the primary data source.
   const filteredMockOutbreaks = useMemo(
     () => filterMockOutbreaks(MOCK_OUTBREAKS_RAW, activeFilter, activeMortality),
     [activeFilter, activeMortality]
@@ -1761,11 +1226,6 @@ const Data = () => {
     return MOCK_TRENDS.filter(r => r.mortality === activeMortality);
   }, [activeMortality]);
 
-  // ── API query params ──────────────────────────────────────────────────────
-  //
-  // `mortality` is always forwarded so the backend can start reading it at
-  // any time without any further frontend changes.  Set
-  // BACKEND_SUPPORTS_MORTALITY=true (top of file) when it does.
   const summaryParams = useMemo(() => {
     const p = {};
     if (activeFilter    !== 'All Diseases') p.disease  = activeFilter;
@@ -1788,10 +1248,6 @@ const Data = () => {
 
   const emptyParams = useMemo(() => ({}), []);
 
-  // ── API calls ─────────────────────────────────────────────────────────────
-  //
-  // Each call passes its filtered mock data as the fallback.  When the real
-  // API is healthy it overrides the mock entirely — no further changes needed.
   const { data: summary   } = useAPI('outbreaks-summary',    mockSummary,        summaryParams);
   const { data: byDisease } = useAPI('outbreaks-by-disease', mockByDisease,      emptyParams);
   const { data: trends    } = useAPI('outbreaks-trends',     mockTrendsFiltered, trendsParams);
@@ -1813,26 +1269,16 @@ const Data = () => {
       .filter(d => d.count > 0),
   [byDisease]);
 
-  // ── No-results detection ──────────────────────────────────────────────────
-  //
-  // While BACKEND_SUPPORTS_MORTALITY=false  → use mock filtered count so the
-  //   banner works correctly even before the API handles mortality.
-  //
-  // Once BACKEND_SUPPORTS_MORTALITY=true    → flip to checking the real API
-  //   response (totalOutbreaks===0 or empty arrays) so the banner reflects
-  //   actual backend data instead of the mock.
   const hasActiveFilter = activeFilter !== 'All Diseases' || activeMortality !== 'All';
 
   const showNoResults = useMemo(() => {
     if (!hasActiveFilter) return false;
     if (BACKEND_SUPPORTS_MORTALITY) {
-      // Real API is filtering — trust its response
-      const summaryEmpty  = Number(summary?.totalOutbreaks ?? -1) === 0;
-      const byStateEmpty  = Array.isArray(byState)   && byState.length   === 0;
+      const summaryEmpty   = Number(summary?.totalOutbreaks ?? -1) === 0;
+      const byStateEmpty   = Array.isArray(byState)   && byState.length   === 0;
       const byDiseaseEmpty = Array.isArray(byDisease) && byDisease.length === 0;
       return summaryEmpty || (byStateEmpty && byDiseaseEmpty);
     }
-    // Still on mock — use the pre-filtered mock record count
     return filteredMockOutbreaks.length === 0;
   }, [hasActiveFilter, filteredMockOutbreaks, summary, byState, byDisease]);
 
@@ -1861,8 +1307,7 @@ const Data = () => {
           <p style={S.sectionSub}>Comprehensive tracking of livestock disease outbreaks across the United States</p>
         </div>
 
-        {/* Stat cards always visible — update per filter via mockSummary */}
-        <div style={S.statsGrid}>
+        <div data-testid="stats-grid" style={S.statsGrid}>
           {STATS.map((s) => <StatCard key={s.label} {...s} />)}
         </div>
 
@@ -1870,7 +1315,6 @@ const Data = () => {
           🕒 Last Updated: <span style={{ fontWeight: 400 }}>{formatLastUpdated(summary.last_updated)}</span>
         </p>
 
-        {/* Combined filter bar — Disease row + Mortality Status row */}
         <FilterBar
           activeDisease={activeFilter}
           onDiseaseChange={setActiveFilter}
@@ -1878,14 +1322,12 @@ const Data = () => {
           onMortalityChange={setActiveMortality}
         />
 
-        {/* No-results banner (Alternate Path 1 / Frontend Test 5) */}
         {showNoResults && (
           <NoResultsBanner activeDisease={activeFilter} activeMortality={activeMortality} />
         )}
 
-        {/* Charts — hidden when the current filter combination has no data */}
         {!showNoResults && (
-          <>
+          <div data-testid="charts-section">
             <TrendChart
               rawTrends={normalizedTrends}
               activeFilter={activeFilter}
@@ -1894,7 +1336,7 @@ const Data = () => {
             />
             <DiseaseBreakdownPie data={byDiseaseProcessed} />
             <ChoroplethMap stateData={byState} />
-          </>
+          </div>
         )}
       </main>
 
