@@ -253,6 +253,10 @@ try {
             return (string)$n;
         };
 
+        $stmt = $pdo->prepare("SELECT MAX(created_at) FROM outbreaks $whereBase");
+        $stmt->execute($params);
+        $lastUpdated = $stmt->fetchColumn() ?: null;
+
         echo json_encode([
             'totalOutbreaks'  => $total,
             'totalDelta'      => '+' . $recentTotal . ' last 30 days',
@@ -265,6 +269,7 @@ try {
             'resolvedCases'   => $resolved,
             'economicImpact'  => $fmt($economicLoss),
             'economicDelta'   => $fmt($recentLoss) . ' last 30 days',
+            'last_updated'    => $lastUpdated,
         ], JSON_UNESCAPED_SLASHES);
         exit;
     }
