@@ -6,9 +6,11 @@ import {
 } from 'recharts';
 import { MapContainer, TileLayer, GeoJSON } from 'react-leaflet';
 import 'leaflet/dist/leaflet.css';
-import logo from './LivestockEpidemicTracker.jpeg';
 import SiteFooter from './components/SiteFooter';
+import SiteHeader from './components/SiteHeader';
 import Navbar from './homepage/Navbar';
+import WindOverlay from './components/WindOverlay';
+import MapWindController from './components/MapWindController';
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
@@ -215,6 +217,16 @@ function buildMockSummary(mortality) {
 function colorForDisease(d) {
   const idx = DISEASE_LIST.indexOf(d);
   return DISEASE_COLORS[idx >= 0 ? idx : DISEASE_COLORS.length - 1];
+}
+
+function formatLastUpdated(raw) {
+  if (!raw) return 'Not available';
+  const d = new Date(raw.replace(' ', 'T'));
+  if (isNaN(d.getTime())) return 'Not available';
+  return d.toLocaleString('en-US', {
+    year: 'numeric', month: 'long', day: 'numeric',
+    hour: 'numeric', minute: '2-digit', hour12: true,
+  });
 }
 
 function choroplethColor(value, max) {
@@ -896,24 +908,53 @@ function InsetMap({ geoJson, stateName, stateMap, maxVal }) {
 
 function ChoroplethFullscreen({ geoJson, stateMap, maxVal, onClose }) {
   const geoJsonLayerRef = useRef(null);
-  const stateMapRef     = useRef(stateMap);
-  const maxValRef       = useRef(maxVal);
-  const mapRef          = useRef(null);
+  const stateMapRef = useRef(stateMap);
+  const maxValRef = useRef(maxVal);
+  const mapRef = useRef(null);
   const tooltipTimerRef = useRef(null);
 
-  useEffect(() => { stateMapRef.current = stateMap; maxValRef.current = maxVal; }, [stateMap, maxVal]);
+  const [weatherEnabled, setWeatherEnabled] = useState(false);
+  const [windPoints, setWindPoints] = useState([]);
+  const [windLoading, setWindLoading] = useState(false);
+  const [windError, setWindError] = useState('');
+
+  useEffect(() => {
+    stateMapRef.current = stateMap;
+    maxValRef.current = maxVal;
+  }, [stateMap, maxVal]);
 
   useEffect(() => {
     const prev = document.body.style.overflow;
     document.body.style.overflow = 'hidden';
-    return () => { document.body.style.overflow = prev; };
+    return () => {
+      document.body.style.overflow = prev;
+    };
   }, []);
 
   useEffect(() => {
-    const handler = (e) => { if (e.key === 'Escape') onClose(); };
+    const handler = (e) => {
+      if (e.key === 'Escape') onClose();
+    };
+
     window.addEventListener('keydown', handler);
     return () => window.removeEventListener('keydown', handler);
   }, [onClose]);
+
+  useEffect(() => {
+    if (!weatherEnabled) {
+      setWindPoints([]);
+      setWindLoading(false);
+      setWindError('');
+    }
+  }, [weatherEnabled]);
+
+  useEffect(() => {
+    if (!weatherEnabled) {
+      setWindPoints([]);
+      setWindLoading(false);
+      setWindError('');
+    }
+  }, [weatherEnabled]);
 
   const handleReset = () => {
     if (mapRef.current) mapRef.current.setView([38.5, -96], 5);
@@ -922,13 +963,15 @@ function ChoroplethFullscreen({ geoJson, stateMap, maxVal, onClose }) {
   useEffect(() => {
     const layer = geoJsonLayerRef.current;
     if (!layer) return;
+
     layer.eachLayer((l) => {
       const name = l.feature?.properties?.name;
-      const val  = stateMap[name] ?? 0;
+      const val = stateMap[name] ?? 0;
+
       l.setStyle({
-        fillColor:   choroplethColor(val, maxVal),
-        weight:      val > 0 ? 1.5 : 1,
-        color:       '#555e7a',
+        fillColor: choroplethColor(val, maxVal),
+        weight: val > 0 ? 1.5 : 1,
+        color: '#555e7a',
         fillOpacity: val > 0 ? 0.88 : 0.15,
       });
     });
@@ -937,11 +980,18 @@ function ChoroplethFullscreen({ geoJson, stateMap, maxVal, onClose }) {
   const styleFeature = useCallback((feature) => {
     const val = stateMapRef.current[feature.properties.name] ?? 0;
     const max = maxValRef.current;
-    return { fillColor: choroplethColor(val, max), weight: val > 0 ? 1.5 : 1, color: '#555e7a', fillOpacity: val > 0 ? 0.88 : 0.15 };
+
+    return {
+      fillColor: choroplethColor(val, max),
+      weight: val > 0 ? 1.5 : 1,
+      color: '#555e7a',
+      fillOpacity: val > 0 ? 0.88 : 0.15,
+    };
   }, []);
 
   const onEachFeature = useCallback((feature, layer) => {
     const name = feature.properties.name;
+
     const getTooltipHtml = () => {
       const val = stateMapRef.current[name] ?? 0;
       return `<div style="background:#fff;border:1px solid #ddd;border-radius:6px;padding:6px 10px;font-family:sans-serif;font-size:12px;color:#1a1a2e;white-space:nowrap;">
@@ -949,7 +999,14 @@ function ChoroplethFullscreen({ geoJson, stateMap, maxVal, onClose }) {
         ${val > 0 ? `${val} ${val === 1 ? 'outbreak' : 'outbreaks'}` : 'No data'}
       </div>`;
     };
-    layer.bindTooltip(getTooltipHtml, { sticky: false, direction: 'top', offset: [0, -4], opacity: 1 });
+
+    layer.bindTooltip(getTooltipHtml, {
+      sticky: false,
+      direction: 'top',
+      offset: [0, -4],
+      opacity: 1,
+    });
+
     layer.on({
       mouseover: (e) => {
         const val = stateMapRef.current[name] ?? 0;
@@ -966,7 +1023,11 @@ function ChoroplethFullscreen({ geoJson, stateMap, maxVal, onClose }) {
         if (!val) return;
         e.target.setStyle({ weight: 2, color: BLUE, fillOpacity: 1 });
         e.target.openTooltip();
-        if (tooltipTimerRef.current) clearTimeout(tooltipTimerRef.current);
+
+        if (tooltipTimerRef.current) {
+          clearTimeout(tooltipTimerRef.current);
+        }
+
         tooltipTimerRef.current = setTimeout(() => {
           e.target.setStyle(styleFeature(feature));
           e.target.closeTooltip();
@@ -978,6 +1039,222 @@ function ChoroplethFullscreen({ geoJson, stateMap, maxVal, onClose }) {
   if (!geoJson) return null;
 
   return (
+      <div
+          style={{
+            position: 'fixed',
+            inset: 0,
+            zIndex: 10000,
+            background: '#e8f0ff',
+            display: 'flex',
+            flexDirection: 'column',
+          }}
+      >
+        <div
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              padding: '10px 16px',
+              background: '#fff',
+              borderBottom: '1px solid #ccd5df',
+              flexShrink: 0,
+              gap: 8,
+              flexWrap: 'wrap',
+            }}
+        >
+          <h3
+              style={{
+                margin: 0,
+                fontSize: 'clamp(13px, 3vw, 17px)',
+                whiteSpace: 'nowrap',
+                overflow: 'hidden',
+                textOverflow: 'ellipsis',
+                flex: 1,
+              }}
+          >
+            Outbreak Density by State
+          </h3>
+
+          <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexShrink: 0, flexWrap: 'wrap' }}>
+            <label
+                style={{
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: 6,
+                  fontSize: 12,
+                  fontWeight: 600,
+                  color: '#334155',
+                  background: '#f8fafc',
+                  border: '1px solid #dbe2ea',
+                  borderRadius: 6,
+                  padding: '6px 10px',
+                  cursor: 'pointer',
+                  height: 34,
+                  boxSizing: 'border-box',
+                }}
+            >
+              <input
+                  type="checkbox"
+                  checked={weatherEnabled}
+                  onChange={(e) => setWeatherEnabled(e.target.checked)}
+                  style={{ cursor: 'pointer' }}
+              />
+              Weather Filter
+            </label>
+
+            <button
+                onClick={handleReset}
+                style={{
+                  background: '#f0f4f8',
+                  border: '1px solid #ccc',
+                  borderRadius: 6,
+                  padding: '0 12px',
+                  height: 34,
+                  fontSize: 12,
+                  cursor: 'pointer',
+                }}
+            >
+              Reset
+            </button>
+
+            <button
+                onClick={onClose}
+                title="Close (Esc)"
+                style={{
+                  background: '#fee2e2',
+                  border: '1px solid #fca5a5',
+                  color: '#dc2626',
+                  fontSize: 18,
+                  cursor: 'pointer',
+                  borderRadius: 6,
+                  width: 36,
+                  height: 36,
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  flexShrink: 0,
+                }}
+            >
+              ✕
+            </button>
+          </div>
+        </div>
+
+        <div style={{ flex: 1, position: 'relative' }}>
+          <MapContainer
+              center={[38.5, -96]}
+              zoom={5}
+              scrollWheelZoom={false}
+              style={{ height: '100%', width: '100%', background: '#e8eaf0' }}
+              ref={mapRef}
+          >
+            <TileLayer
+                url="https://{s}.basemaps.cartocdn.com/light_nolabels/{z}/{x}/{y}{r}.png"
+                attribution='&copy; <a href="https://carto.com/">CARTO</a>'
+            />
+
+            <GeoJSON
+                data={geoJson}
+                style={styleFeature}
+                onEachFeature={onEachFeature}
+                ref={geoJsonLayerRef}
+            />
+
+            <MapWindController
+                enabled={weatherEnabled}
+                onWindData={setWindPoints}
+                onWindError={setWindError}
+                onWindLoading={setWindLoading}
+            />
+
+            <WindOverlay
+                enabled={weatherEnabled}
+                windPoints={windPoints}
+            />
+          </MapContainer>
+
+          {weatherEnabled && windLoading && !windError && (
+              <div
+                  style={{
+                    position: 'absolute',
+                    top: 12,
+                    left: '50%',
+                    transform: 'translateX(-50%)',
+                    zIndex: 1000,
+                    background: 'rgba(255,255,255,0.95)',
+                    border: '1px solid #dbe2ea',
+                    borderRadius: 999,
+                    padding: '6px 12px',
+                    fontSize: 12,
+                    fontWeight: 600,
+                    color: '#334155',
+                    pointerEvents: 'none',
+                    boxShadow: '0 2px 8px rgba(0,0,0,0.08)',
+                  }}
+              >
+                Loading wind data...
+              </div>
+          )}
+
+          {weatherEnabled && windError && (
+              <div
+                  style={{
+                    position: 'absolute',
+                    inset: 0,
+                    zIndex: 1000,
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    pointerEvents: 'none',
+                  }}
+              >
+                <div
+                    style={{
+                      background: 'rgba(255,255,255,0.96)',
+                      border: '1px solid #fecaca',
+                      color: '#b91c1c',
+                      borderRadius: 10,
+                      padding: '12px 16px',
+                      fontSize: 13,
+                      fontWeight: 700,
+                      boxShadow: '0 4px 12px rgba(0,0,0,0.12)',
+                      textAlign: 'center',
+                      maxWidth: '80%',
+                    }}
+                >
+                  Wind Data Unavailable, Try Again Later
+                </div>
+              </div>
+          )}
+        </div>
+
+        <div
+            style={{
+              padding: '8px 16px',
+              background: '#fff',
+              borderTop: '1px solid #ccd5df',
+              display: 'flex',
+              alignItems: 'center',
+              gap: 8,
+              flexShrink: 0,
+              flexWrap: 'wrap',
+            }}
+        >
+          <span style={{ fontSize: 11, color: '#555', whiteSpace: 'nowrap' }}>Fewer outbreaks</span>
+          <div style={{ display: 'flex', flex: 1, minWidth: 60, height: 10, borderRadius: 6, overflow: 'hidden' }}>
+            {Array.from({ length: 50 }, (_, i) => (
+                <div
+                    key={i}
+                    style={{ flex: 1, background: choroplethColor((i / 50) * maxVal, maxVal) }}
+                />
+            ))}
+          </div>
+          <span style={{ fontSize: 11, color: '#555', whiteSpace: 'nowrap' }}>More outbreaks</span>
+          <span style={{ fontSize: 10, color: '#555', fontWeight: 500 }}>
+          Tap a state to see data · Esc to close
+        </span>
+        </div>
+      </div>
     <div style={{ position: 'fixed', inset: 0, zIndex: 10000, background: '#e8f0ff', display: 'flex', flexDirection: 'column' }}>
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '10px 16px', background: '#fff', borderBottom: '1px solid #ccd5df', flexShrink: 0, gap: 8 }}>
         <h3 style={{ margin: 0, fontSize: 'clamp(13px, 3vw, 17px)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', flex: 1 }}>
@@ -1011,15 +1288,25 @@ function ChoroplethFullscreen({ geoJson, stateMap, maxVal, onClose }) {
 // ─── Choropleth Map (dashboard card) ─────────────────────────────────────────
 
 function ChoroplethMap({ stateData }) {
-  const [geoJson,    setGeoJson]    = useState(null);
+  const [geoJson, setGeoJson] = useState(null);
   const [geoJsonAll, setGeoJsonAll] = useState(null);
-  const [loadError,  setLoadError]  = useState(false);
+  const [loadError, setLoadError] = useState(false);
   const [fullscreen, setFullscreen] = useState(false);
+
+  const [weatherEnabled, setWeatherEnabled] = useState(false);
+  const [windPoints, setWindPoints] = useState([]);
+  const [windLoading, setWindLoading] = useState(false);
+  const [windError, setWindError] = useState('');
+
   const geoJsonLayerRef = useRef(null);
   const tooltipTimerRef = useRef(null);
 
   useEffect(() => {
-    fetch(GEOJSON_URL).then(r => r.json()).then(setGeoJson).catch(() => setLoadError(true));
+    fetch(GEOJSON_URL)
+        .then(r => r.json())
+        .then(setGeoJson)
+        .catch(() => setLoadError(true));
+
     const FIPS_TO_NAME = {
       '02':'Alaska','15':'Hawaii','01':'Alabama','04':'Arizona','05':'Arkansas',
       '06':'California','08':'Colorado','09':'Connecticut','10':'Delaware','12':'Florida',
@@ -1032,46 +1319,94 @@ function ChoroplethMap({ stateData }) {
       '46':'South Dakota','47':'Tennessee','48':'Texas','49':'Utah','50':'Vermont',
       '51':'Virginia','53':'Washington','54':'West Virginia','55':'Wisconsin','56':'Wyoming',
     };
-    fetch(GEOJSON_ALL_URL).then(r => r.json()).then(topo => {
-      const arcs = topo.arcs, scale = topo.transform?.scale||[1,1], translate = topo.transform?.translate||[0,0];
-      function decodeArc(arc) { let x=0,y=0; return arc.map(([dx,dy])=>{x+=dx;y+=dy;return[x*scale[0]+translate[0],y*scale[1]+translate[1]];}); }
-      function arcCoords(idx) { const rev=idx<0; const c=decodeArc(arcs[rev?~idx:idx]); return rev?[...c].reverse():c; }
-      function ringCoords(ring) { return ring.flatMap(arcCoords); }
-      const features = topo.objects.states.geometries.map(geom => {
-        const fips=String(geom.id).padStart(2,'0'), name=FIPS_TO_NAME[fips]||fips;
-        const geometry = geom.type==='Polygon'
-          ?{type:'Polygon',coordinates:geom.arcs.map(ringCoords)}
-          :{type:'MultiPolygon',coordinates:geom.arcs.map(poly=>poly.map(ringCoords))};
-        return {type:'Feature',properties:{name},geometry};
-      });
-      setGeoJsonAll({type:'FeatureCollection',features});
-    }).catch(()=>{});
+
+    fetch(GEOJSON_ALL_URL)
+        .then(r => r.json())
+        .then(topo => {
+          const arcs = topo.arcs;
+          const scale = topo.transform?.scale || [1, 1];
+          const translate = topo.transform?.translate || [0, 0];
+
+          function decodeArc(arc) {
+            let x = 0;
+            let y = 0;
+            return arc.map(([dx, dy]) => {
+              x += dx;
+              y += dy;
+              return [x * scale[0] + translate[0], y * scale[1] + translate[1]];
+            });
+          }
+
+          function arcCoords(idx) {
+            const rev = idx < 0;
+            const coords = decodeArc(arcs[rev ? ~idx : idx]);
+            return rev ? [...coords].reverse() : coords;
+          }
+
+          function ringCoords(ring) {
+            return ring.flatMap(arcCoords);
+          }
+
+          const features = topo.objects.states.geometries.map(geom => {
+            const fips = String(geom.id).padStart(2, '0');
+            const name = FIPS_TO_NAME[fips] || fips;
+
+            const geometry = geom.type === 'Polygon'
+                ? { type: 'Polygon', coordinates: geom.arcs.map(ringCoords) }
+                : { type: 'MultiPolygon', coordinates: geom.arcs.map(poly => poly.map(ringCoords)) };
+
+            return {
+              type: 'Feature',
+              properties: { name },
+              geometry,
+            };
+          });
+
+          setGeoJsonAll({ type: 'FeatureCollection', features });
+        })
+        .catch(() => {});
   }, []);
+
+  useEffect(() => {
+    if (!weatherEnabled) {
+      setWindPoints([]);
+      setWindLoading(false);
+      setWindError('');
+    }
+  }, [weatherEnabled]);
 
   const stateMap = useMemo(() => {
     const m = {};
-    (stateData || []).forEach(s => { m[s.state] = Number(s.outbreaks); });
+    (stateData || []).forEach(s => {
+      m[s.state] = Number(s.outbreaks);
+    });
     return m;
   }, [stateData]);
 
   const maxVal = useMemo(() =>
-    Object.values(stateMap).length ? Math.max(...Object.values(stateMap)) : 1,
-  [stateMap]);
+          Object.values(stateMap).length ? Math.max(...Object.values(stateMap)) : 1,
+      [stateMap]);
 
   const stateMapRef = useRef(stateMap);
-  const maxValRef   = useRef(maxVal);
-  useEffect(() => { stateMapRef.current = stateMap; maxValRef.current = maxVal; }, [stateMap, maxVal]);
+  const maxValRef = useRef(maxVal);
+
+  useEffect(() => {
+    stateMapRef.current = stateMap;
+    maxValRef.current = maxVal;
+  }, [stateMap, maxVal]);
 
   useEffect(() => {
     const layer = geoJsonLayerRef.current;
     if (!layer) return;
+
     layer.eachLayer((l) => {
       const name = l.feature?.properties?.name;
-      const val  = stateMap[name] ?? 0;
+      const val = stateMap[name] ?? 0;
+
       l.setStyle({
-        fillColor:   choroplethColor(val, maxVal),
-        weight:      val > 0 ? 1.5 : 1,
-        color:       '#555e7a',
+        fillColor: choroplethColor(val, maxVal),
+        weight: val > 0 ? 1.5 : 1,
+        color: '#555e7a',
         fillOpacity: val > 0 ? 0.88 : 0.15,
       });
     });
@@ -1080,11 +1415,18 @@ function ChoroplethMap({ stateData }) {
   const styleFeature = useCallback((feature) => {
     const val = stateMapRef.current[feature.properties.name] ?? 0;
     const max = maxValRef.current;
-    return { fillColor: choroplethColor(val, max), weight: val>0?1.5:1, color: '#555e7a', fillOpacity: val>0?0.88:0.15 };
+
+    return {
+      fillColor: choroplethColor(val, max),
+      weight: val > 0 ? 1.5 : 1,
+      color: '#555e7a',
+      fillOpacity: val > 0 ? 0.88 : 0.15,
+    };
   }, []);
 
   const onEachFeature = useCallback((feature, layer) => {
     const name = feature.properties.name;
+
     const getTooltipHtml = () => {
       const val = stateMapRef.current[name] ?? 0;
       return `<div style="background:#fff;border:1px solid #ddd;border-radius:6px;padding:6px 10px;font-family:sans-serif;font-size:12px;color:#1a1a2e;white-space:nowrap;">
@@ -1092,7 +1434,14 @@ function ChoroplethMap({ stateData }) {
         ${val > 0 ? `${val} ${val === 1 ? 'outbreak' : 'outbreaks'}` : 'No data'}
       </div>`;
     };
-    layer.bindTooltip(getTooltipHtml, { sticky: false, direction: 'top', offset: [0, -4], opacity: 1 });
+
+    layer.bindTooltip(getTooltipHtml, {
+      sticky: false,
+      direction: 'top',
+      offset: [0, -4],
+      opacity: 1,
+    });
+
     layer.on({
       mouseover: (e) => {
         const val = stateMapRef.current[name] ?? 0;
@@ -1109,7 +1458,11 @@ function ChoroplethMap({ stateData }) {
         if (!val) return;
         e.target.setStyle({ weight: 2, color: BLUE, fillOpacity: 1 });
         e.target.openTooltip();
-        if (tooltipTimerRef.current) clearTimeout(tooltipTimerRef.current);
+
+        if (tooltipTimerRef.current) {
+          clearTimeout(tooltipTimerRef.current);
+        }
+
         tooltipTimerRef.current = setTimeout(() => {
           e.target.setStyle(styleFeature(feature));
           e.target.closeTooltip();
@@ -1120,12 +1473,212 @@ function ChoroplethMap({ stateData }) {
 
   useEffect(() => {
     const style = document.createElement('style');
-    style.textContent = `.leaflet-interactive:focus{outline:none!important;box-shadow:none!important;}.leaflet-tooltip{pointer-events:none;white-space:nowrap;z-index:9999!important;}.leaflet-pane.leaflet-tooltip-pane{z-index:9999!important;}`;
+    style.textContent = `
+      .leaflet-interactive:focus {
+        outline: none !important;
+        box-shadow: none !important;
+      }
+      .leaflet-tooltip {
+        pointer-events: none;
+        white-space: nowrap;
+        z-index: 9999 !important;
+      }
+      .leaflet-pane.leaflet-tooltip-pane {
+        z-index: 9999 !important;
+      }
+    `;
+
     document.head.appendChild(style);
     return () => document.head.removeChild(style);
   }, []);
 
   return (
+      <>
+        {fullscreen && (
+            <ChoroplethFullscreen
+                geoJson={geoJson}
+                stateMap={stateMap}
+                maxVal={maxVal}
+                onClose={() => setFullscreen(false)}
+            />
+        )}
+
+        <div style={S.card}>
+          <div style={{ ...S.cardHeader, flexWrap: 'wrap', gap: 8 }}>
+            <h3 style={S.cardTitle}>Outbreak Density by State</h3>
+
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+              <label
+                  style={{
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: 6,
+                    fontSize: 12,
+                    fontWeight: 600,
+                    color: '#334155',
+                    background: '#f8fafc',
+                    border: '1px solid #dbe2ea',
+                    borderRadius: 6,
+                    padding: '6px 10px',
+                    cursor: 'pointer',
+                  }}
+              >
+                <input
+                    type="checkbox"
+                    checked={weatherEnabled}
+                    onChange={(e) => setWeatherEnabled(e.target.checked)}
+                    style={{ cursor: 'pointer' }}
+                />
+                Weather Filter
+              </label>
+
+              <span style={S.badge}>Choropleth Map</span>
+
+              <button
+                  onClick={() => setFullscreen(true)}
+                  title="Open full screen map"
+                  style={{
+                    padding: '3px 10px',
+                    background: '#fff',
+                    border: '1px solid #ccc',
+                    borderRadius: 6,
+                    cursor: 'pointer',
+                    fontSize: 12,
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: 4,
+                  }}
+              >
+                <span style={{ fontSize: 13 }}>⤢</span> Full Screen
+              </button>
+            </div>
+          </div>
+
+          {loadError ? (
+              <div style={{ height: 200, display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#999', fontSize: 13 }}>
+                Map unavailable — check network.
+              </div>
+          ) : !geoJson ? (
+              <div style={{ height: 200, display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#aaa', fontSize: 13 }}>
+                Loading map...
+              </div>
+          ) : (
+              <>
+                <div
+                    style={{
+                      height: 380,
+                      borderRadius: 8,
+                      overflow: 'hidden',
+                      border: '1px solid #ddd',
+                      position: 'relative',
+                    }}
+                >
+                  <MapContainer
+                      center={[37.8, -96]}
+                      zoom={4}
+                      scrollWheelZoom={false}
+                      style={{ height: '100%', width: '100%', background: '#e8eaf0' }}
+                  >
+                    <TileLayer
+                        url="https://{s}.basemaps.cartocdn.com/light_nolabels/{z}/{x}/{y}{r}.png"
+                        attribution='&copy; <a href="https://carto.com/">CARTO</a>'
+                    />
+
+                    <GeoJSON
+                        data={geoJson}
+                        style={styleFeature}
+                        onEachFeature={onEachFeature}
+                        ref={geoJsonLayerRef}
+                    />
+
+                    <MapWindController
+                        enabled={weatherEnabled}
+                        onWindData={setWindPoints}
+                        onWindError={setWindError}
+                        onWindLoading={setWindLoading}
+                    />
+
+                    <WindOverlay
+                        enabled={weatherEnabled}
+                        windPoints={windPoints}
+                    />
+                  </MapContainer>
+
+                  {weatherEnabled && windLoading && !windError && (
+                      <div
+                          style={{
+                            position: 'absolute',
+                            top: 12,
+                            left: '50%',
+                            transform: 'translateX(-50%)',
+                            zIndex: 1000,
+                            background: 'rgba(255,255,255,0.95)',
+                            border: '1px solid #dbe2ea',
+                            borderRadius: 999,
+                            padding: '6px 12px',
+                            fontSize: 12,
+                            fontWeight: 600,
+                            color: '#334155',
+                            pointerEvents: 'none',
+                            boxShadow: '0 2px 8px rgba(0,0,0,0.08)',
+                          }}
+                      >
+                        Loading wind data...
+                      </div>
+                  )}
+
+                  {weatherEnabled && windError && (
+                      <div
+                          style={{
+                            position: 'absolute',
+                            inset: 0,
+                            zIndex: 1000,
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            pointerEvents: 'none',
+                          }}
+                      >
+                        <div
+                            style={{
+                              background: 'rgba(255,255,255,0.96)',
+                              border: '1px solid #fecaca',
+                              color: '#b91c1c',
+                              borderRadius: 10,
+                              padding: '12px 16px',
+                              fontSize: 13,
+                              fontWeight: 700,
+                              boxShadow: '0 4px 12px rgba(0,0,0,0.12)',
+                              textAlign: 'center',
+                              maxWidth: '80%',
+                            }}
+                        >
+                          Wind Data Unavailable, Try Again Later
+                        </div>
+                      </div>
+                  )}
+                </div>
+
+                {geoJsonAll && (
+                    <div style={{ display: 'flex', gap: 8, marginTop: 8 }}>
+                      <InsetMap geoJson={geoJsonAll} stateName="Alaska" stateMap={stateMap} maxVal={maxVal} />
+                      <InsetMap geoJson={geoJsonAll} stateName="Hawaii" stateMap={stateMap} maxVal={maxVal} />
+                    </div>
+                )}
+
+                <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginTop: 10 }}>
+                  <span style={{ fontSize: 11, color: '#999' }}>Fewer outbreaks</span>
+                  <div style={{ display: 'flex', flex: 1, height: 10, borderRadius: 6, overflow: 'hidden' }}>
+                    {Array.from({ length: 50 }, (_, i) => (
+                        <div key={i} style={{ flex: 1, background: choroplethColor((i / 50) * maxVal, maxVal) }} />
+                    ))}
+                  </div>
+                  <span style={{ fontSize: 11, color: '#999' }}>More outbreaks</span>
+                </div>
+              </>
+          )}
+        </div>
+      </>
     <>
       {fullscreen && (
         <ChoroplethFullscreen geoJson={geoJson} stateMap={stateMap} maxVal={maxVal} onClose={() => setFullscreen(false)} />
@@ -1294,14 +1847,7 @@ const Data = () => {
 
   return (
     <div style={S.page}>
-      <div style={{ background: '#ffffff', color: 'black', padding: '20px 0', fontFamily: 'Arial, Helvetica, sans-serif' }}>
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '12px' }}>
-          <img src={logo} alt="logo" style={{ width: 52, height: 52, objectFit: 'contain', borderRadius: 4 }} />
-          <h1 style={{ margin: 0, fontSize: 'clamp(1.2rem, 4vw, 2.4rem)', letterSpacing: '1.5px', fontWeight: 'bold' }}>
-            LIVESTOCK EPIDEMIC TRACKER
-          </h1>
-        </div>
-      </div>
+      <SiteHeader />
       <Navbar />
 
       <main style={S.main}>
@@ -1319,6 +1865,10 @@ const Data = () => {
         <div style={S.statsGrid}>
           {STATS.map((s) => <StatCard key={s.label} {...s} />)}
         </div>
+
+        <p style={{ fontSize: 13, color: '#5c6bc0', fontWeight: 600, margin: '-6px 0 14px', textAlign: 'right' }}>
+          🕒 Last Updated: <span style={{ fontWeight: 400 }}>{formatLastUpdated(summary.last_updated)}</span>
+        </p>
 
         {/* Combined filter bar — Disease row + Mortality Status row */}
         <FilterBar

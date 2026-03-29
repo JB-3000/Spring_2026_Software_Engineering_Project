@@ -1,33 +1,28 @@
 <?php
 declare(strict_types=1);
 
-// Adjust this path if necessary to point to your actual db.php
 require __DIR__ . '/../../src/db.php';
 
-// Start session (required for $_SESSION['user_id'])
 session_start();
 
-// === CORS headers (restrict origin in production to your frontend domain) ===
+// CORS headers (tighten origin in production)
 header("Access-Control-Allow-Origin: *");
 header("Access-Control-Allow-Methods: POST, OPTIONS");
 header("Access-Control-Allow-Headers: Content-Type, Authorization");
-header("Access-Control-Allow-Credentials: true"); // Important for cookies/sessions
+header("Access-Control-Allow-Credentials: true");
 header('Content-Type: application/json; charset=utf-8');
 
-// Handle preflight OPTIONS request
 if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
     http_response_code(200);
     exit;
 }
 
-// Only allow POST
 if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
     http_response_code(405);
     echo json_encode(['ok' => false, 'error' => 'POST required']);
     exit;
 }
 
-// Require login
 if (!isset($_SESSION['user_id']) || !is_numeric($_SESSION['user_id'])) {
     http_response_code(401);
     echo json_encode(['ok' => false, 'error' => 'You must be logged in to submit a report']);
@@ -43,11 +38,9 @@ if (!is_array($input)) {
     exit;
 }
 
-// Map React field names to variables
 $diseaseType = trim((string)($input['diseaseType'] ?? ''));
 $location    = trim((string)($input['location'] ?? ''));
 
-// Validation
 if ($diseaseType === '' || $location === '') {
     http_response_code(400);
     echo json_encode(['ok' => false, 'error' => 'Disease and Location are required']);
@@ -56,20 +49,21 @@ if ($diseaseType === '' || $location === '') {
 
 try {
     $pdo = db();
-
-    $userId = (int)$_SESSION['user_id']; // safe cast to integer
+    $userId = (int)$_SESSION['user_id'];
 
     $stmt = $pdo->prepare("
         INSERT INTO outbreaks 
-        (disease, state, cases, report_date, created_at, User_ID)
-        VALUES (:disease, :state, :cases, NOW(), NOW(), :user_id)
+        (disease, state, cases, report_date, created_at, disease_type, User_ID, status)
+        VALUES (:disease, :state, :cases, NOW(), NOW(), :disease_type, :user_id, :status)
     ");
 
     $stmt->execute([
-        ':disease'  => $diseaseType,
-        ':state'    => $location,
-        ':cases'    => 1,
-        ':user_id'  => $userId
+        ':disease'      => $diseaseType,
+        ':state'        => $location,
+        ':cases'        => 1,
+        ':disease_type' => 'animal',           // or 'animal' — adjust as needed
+        ':user_id'      => $userId,
+        ':status'       => 'pending'
     ]);
 
     $insertId = $pdo->lastInsertId();

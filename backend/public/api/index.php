@@ -50,7 +50,12 @@ try {
         }
 
         $pdo = db();
-        $stmt = $pdo->prepare("SELECT id, email, password, is_active FROM users WHERE email = ? LIMIT 1");
+        $stmt = $pdo->prepare("
+            SELECT id, email, password, is_active, is_admin 
+            FROM users 
+            WHERE email = ? 
+            LIMIT 1
+        ");
         $stmt->execute([$email]);
         $user = $stmt->fetch();
 
@@ -66,8 +71,16 @@ try {
             exit;
         }
 
-        $_SESSION['user_id'] = (int)$user['id']; // Store user ID in session for subsequent requests
-        echo json_encode(['ok' => true, 'user_id' => (int)$user['id']], JSON_UNESCAPED_SLASHES);
+        // Set session
+        $_SESSION['user_id'] = (int)$user['id'];
+
+        // Return user info including admin status
+        echo json_encode([
+            'ok' => true,
+            'user_id' => (int)$user['id'],
+            'is_admin' => (int)$user['is_admin'] === 1
+        ], JSON_UNESCAPED_SLASHES);
+
         exit;
     }
 
@@ -87,6 +100,13 @@ try {
         require __DIR__ . '/reset_password.php';
         exit;
     }
+
+    // Route for Data page weather filter
+    if ($route === 'weather'){
+        require __DIR__ . '/weather.php';
+        exit;
+    }
+
     // Recent Outbreaks for homepage widget WILL
     if ($route === 'create_outbreak'){
         require __DIR__ . '/create_outbreak.php';
@@ -233,6 +253,10 @@ try {
             return (string)$n;
         };
 
+        $stmt = $pdo->prepare("SELECT MAX(created_at) FROM outbreaks $whereBase");
+        $stmt->execute($params);
+        $lastUpdated = $stmt->fetchColumn() ?: null;
+
         echo json_encode([
             'totalOutbreaks'  => $total,
             'totalDelta'      => '+' . $recentTotal . ' last 30 days',
@@ -245,6 +269,7 @@ try {
             'resolvedCases'   => $resolved,
             'economicImpact'  => $fmt($economicLoss),
             'economicDelta'   => $fmt($recentLoss) . ' last 30 days',
+            'last_updated'    => $lastUpdated,
         ], JSON_UNESCAPED_SLASHES);
         exit;
     }

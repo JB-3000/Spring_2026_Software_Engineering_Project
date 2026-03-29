@@ -1,6 +1,6 @@
 import { useState } from "react";
-import logo from './LivestockEpidemicTracker.jpeg';
 import Navbar from './homepage/Navbar';
+import SiteHeader from './components/SiteHeader';
 import SiteFooter from './components/SiteFooter';
 
 const mockNews = [
@@ -99,7 +99,7 @@ export default function News() {
     <>
       <style>{`
         * { box-sizing: border-box; margin: 0; padding: 0; }
-        .news-page { font-family: 'Georgia', serif; background-color: #f0f0f0; min-height: 100vh; display: flex; flex-direction: column; }
+        .news-page { background-color: #f0f0f0; min-height: 100vh; display: flex; flex-direction: column; }
         .news-header { background-color: #fff; border-bottom: 3px solid #4a4a8a; padding: 16px 24px; }
         .news-header-inner { max-width: 1200px; margin: 0 auto; display: flex; align-items: center; justify-content: center; gap: 12px; }
         .news-header h1 { font-size: 28px; font-weight: 900; letter-spacing: 2px; font-family: 'Arial Black', sans-serif; }
@@ -150,14 +150,7 @@ export default function News() {
 
       <div className="news-page">
         {/* Header */}
-        <div style={{ background: '#ffffff', color: 'black', padding: '20px 0', fontFamily: 'Arial, Helvetica, sans-serif' }}>
-  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '12px' }}>
-    <img src={logo} alt="logo" style={{ width: 52, height: 52, objectFit: 'contain', borderRadius: 4 }} />
-    <h1 style={{ margin: 0, fontSize: '2.4rem', letterSpacing: '1.5px', fontWeight: 'bold' }}>
-      LIVESTOCK EPIDEMIC TRACKER
-    </h1>
-  </div>
-</div>
+        <SiteHeader />
 
         {/* Nav */}
         <Navbar />

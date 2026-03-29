@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import logo from '../LivestockEpidemicTracker.jpeg';
+import SiteHeader from "../components/SiteHeader";
 import SiteFooter from "../components/SiteFooter";
 import Navbar from "../homepage/Navbar";
 import "../pages/LoginPage.css";
@@ -11,7 +11,7 @@ export default function MyReports() {
   const [error, setError] = useState("");
   const navigate = useNavigate();
 
-  // Updated grid: 4 columns for Date, Disease, Location, and Status
+  // Grid layout: Date, Disease, Location, Status
   const gridLayout = "1fr 1.5fr 1.5fr 1fr"; 
 
   useEffect(() => {
@@ -27,7 +27,11 @@ export default function MyReports() {
         );
 
         let data;
-        try { data = await response.json(); } catch { throw new Error("Invalid server response"); }
+        try { 
+          data = await response.json(); 
+        } catch { 
+          throw new Error("Invalid server response"); 
+        }
 
         if (!response.ok || !data.ok) {
           throw new Error(data.error || "Failed to load reports");
@@ -43,15 +47,29 @@ export default function MyReports() {
     fetchMyReports();
   }, []);
 
+  // Helper function to style status
+  const getStatusStyle = (status) => {
+    switch (status?.toLowerCase()) {
+      case "rejected":
+        return { color: "#e74c3c", fontWeight: "600" };
+      case "pending":
+        return { color: "#f39c12", fontWeight: "600" };
+      case "confirmed":
+      case "approved":
+        return { color: "#27ae60", fontWeight: "600" };
+      default:
+        return { color: "#333", fontWeight: "500" };
+    }
+  };
+
+  const getStatusDisplay = (status) => {
+    if (!status) return "Pending";
+    return status.charAt(0).toUpperCase() + status.slice(1).toLowerCase();
+  };
+
   return (
     <div className="login-page" style={{ minHeight: "100vh", display: "flex", flexDirection: "column", background: "#f5f5f5" }}>
-      <div style={{ background: '#ffffff', color: 'black', padding: '20px 0' }}>
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '12px' }}>
-          <img src={logo} alt="logo" style={{ width: 52, height: 52 }} />
-          <h1 style={{ margin: 0, fontSize: '2.4rem', fontWeight: 'bold' }}>LIVESTOCK EPIDEMIC TRACKER</h1>
-        </div>
-      </div>
-
+      <SiteHeader />
       <Navbar />
 
       <main style={{ flex: 1, display: "flex", justifyContent: "center", padding: "2rem 1rem" }}>
@@ -59,15 +77,39 @@ export default function MyReports() {
           
           <button
             onClick={() => navigate("/self-report")}
-            style={{ alignSelf: "flex-start", marginBottom: "1.5rem", backgroundColor: "#3498db", color: "white", border: "none", padding: "0.6rem 1.2rem", borderRadius: "6px", fontWeight: "bold", cursor: "pointer" }}
+            style={{ 
+              alignSelf: "flex-start", 
+              marginBottom: "1.5rem", 
+              backgroundColor: "#3498db", 
+              color: "white", 
+              border: "none", 
+              padding: "0.6rem 1.2rem", 
+              borderRadius: "6px", 
+              fontWeight: "bold", 
+              cursor: "pointer" 
+            }}
           >
             + Create Report
           </button>
 
-          <section style={{ background: "#ffffff", borderRadius: "12px", boxShadow: "0 4px 14px rgba(0,0,0,0.08)", padding: "2rem", minHeight: "60vh" }}>
-            <div style={{ fontSize: "1.8rem", fontWeight: "bold", marginBottom: "2rem", color: "#333" }}>My Submitted Reports</div>
+          <section style={{ 
+            background: "#ffffff", 
+            borderRadius: "12px", 
+            boxShadow: "0 4px 14px rgba(0,0,0,0.08)", 
+            padding: "2rem", 
+            minHeight: "60vh" 
+          }}>
+            
+            <div style={{ 
+              fontSize: "1.8rem", 
+              fontWeight: "bold", 
+              marginBottom: "2rem", 
+              color: "#333" 
+            }}>
+              My Submitted Reports
+            </div>
 
-            {/* --- DARK GRAY HEADER BOX --- */}
+            {/* Header */}
             <div style={{ 
               display: "grid", 
               gridTemplateColumns: gridLayout, 
@@ -85,11 +127,17 @@ export default function MyReports() {
               <div>Status</div>
             </div>
 
-            {/* --- REPORT ROWS --- */}
+            {/* Report Rows */}
             <div style={{ display: "flex", flexDirection: "column", gap: "12px" }}>
-              {loading && <div style={{ textAlign: "center", padding: "20px" }}>Loading...</div>}
-              {error && <div style={{ color: "red", textAlign: "center" }}>{error}</div>}
+              {loading && <div style={{ textAlign: "center", padding: "40px" }}>Loading your reports...</div>}
+              {error && <div style={{ color: "red", textAlign: "center", padding: "20px" }}>{error}</div>}
               
+              {!loading && !error && reports.length === 0 && (
+                <div style={{ textAlign: "center", padding: "40px", color: "#666" }}>
+                  You haven't submitted any reports yet.
+                </div>
+              )}
+
               {!loading && reports.map((report) => (
                 <div 
                   key={report.id}
@@ -105,13 +153,12 @@ export default function MyReports() {
                   }}
                 >
                   <div>{report.report_date || "N/A"}</div>
-                  <div style={{ fontWeight: "500" }}>{report.diseaseType}</div>
-                  <div>{report.location}</div>
-                  <div style={{ 
-                    color: report.status === "Rejected" ? "#e74c3c" : "#333",
-                    fontWeight: "500"
-                  }}>
-                    {report.status || "Confirmed"}
+                  <div style={{ fontWeight: "500" }}>{report.diseaseType || "—"}</div>
+                  <div>{report.location || "—"}</div>
+                  
+                  {/* Improved Status Display */}
+                  <div style={getStatusStyle(report.status)}>
+                    {getStatusDisplay(report.status)}
                   </div>
                 </div>
               ))}
@@ -119,6 +166,7 @@ export default function MyReports() {
           </section>
         </div>
       </main>
+      
       <SiteFooter />
     </div>
   );
