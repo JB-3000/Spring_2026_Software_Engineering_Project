@@ -164,7 +164,7 @@ export default function SelfReport() {
           </Link>
           
           <Link 
-            to="/all-reports"   // ⬅️ change this route if needed
+            to="/allreports"   // ⬅️ change this route if needed
             style={{ textDecoration: 'none' }}
           >
             <button 
