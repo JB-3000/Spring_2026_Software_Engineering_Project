@@ -12,10 +12,10 @@ import ResetPasswordPage from "./pages/ResetPasswordPage";
 import CreateAccount from './pages/CreateAccount';
 import SelfReport from './selfreports/self-report';
 import AdminPage from './pages/AdminPage';
-import MyReports from './selfreports/viewownreports'
+import MyReports from './selfreports/viewownreports';
 import BiosecurityGuide from './pages/BiosecurityGuide';
 import EducationPage from './pages/EducationPage';
-
+import AllReports from './selfreports/allreports';
 
 function App() {
   return (
@@ -35,6 +35,7 @@ function App() {
         <Route path="/admin" element={<AdminPage />} />
         <Route path="/my-reports" element={<MyReports />} />
         <Route path="/biosecurity" element={<BiosecurityGuide />} />
+        <Route path ="/allreports" element = {<AllReports/>} />
       </Routes>
     </div>
   );
