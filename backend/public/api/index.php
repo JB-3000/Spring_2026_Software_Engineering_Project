@@ -1,307 +1,273 @@
 <?php
 declare(strict_types=1);
-
 require __DIR__ . '/../../src/db.php';
 require __DIR__ . '/../../src/response.php';
 require __DIR__ . '/../../src/auth.php';    // Provides login() and session_start()
 require __DIR__ . '/../../src/profile.php'; // Added for ViewProfile
-
 header('Content-Type: application/json; charset=utf-8');
 header('Access-Control-Allow-Origin: *'); // ok for demo
-
 $route = $_GET['r'] ?? 'tooltip';
-
 try {
-    if ($route === 'tooltip' || $route === 'message') {
-        $pdo = db();
-
-        // Retrieve ONE message (latest or first, your choice)
-        $stmt = $pdo->query("SELECT message FROM demo_messages ORDER BY id DESC LIMIT 1");
-        $row = $stmt->fetch();
-
-        if (!$row) {
-            http_response_code(404);
-            echo json_encode(['error' => 'No message found'], JSON_UNESCAPED_SLASHES);
-            exit;
+if ($route === 'tooltip' || $route === 'message') {
+$pdo = db();
+// Retrieve ONE message (latest or first, your choice)
+$stmt = $pdo->query("SELECT message FROM demo_messages ORDER BY id DESC LIMIT 1");
+$row = $stmt->fetch();
+if (!$row) {
+http_response_code(404);
+echo json_encode(['error' => 'No message found'], JSON_UNESCAPED_SLASHES);
+exit;
         }
-
-        echo json_encode(['message' => $row['message']], JSON_UNESCAPED_SLASHES);
-        exit;
+echo json_encode(['message' => $row['message']], JSON_UNESCAPED_SLASHES);
+exit;
     }
-
-    // New block added for LoginPage
-    if ($route === 'login') {
-        if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
-            http_response_code(405);
-            echo json_encode(['ok' => false, 'error' => 'POST required'], JSON_UNESCAPED_SLASHES);
-            exit;
+// New block added for LoginPage
+if ($route === 'login') {
+if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
+http_response_code(405);
+echo json_encode(['ok' => false, 'error' => 'POST required'], JSON_UNESCAPED_SLASHES);
+exit;
         }
-
-        $raw = file_get_contents('php://input');
-        $data = json_decode($raw, true);
-
-        $email = isset($data['email']) ? trim((string)$data['email']) : '';
-        $password = isset($data['password']) ? (string)$data['password'] : '';
-
-        if ($email === '' || $password === '') {
-            http_response_code(400);
-            echo json_encode(['ok' => false, 'error' => 'Missing email/password'], JSON_UNESCAPED_SLASHES);
-            exit;
+$raw = file_get_contents('php://input');
+$data = json_decode($raw, true);
+$email = isset($data['email']) ? trim((string)$data['email']) : '';
+$password = isset($data['password']) ? (string)$data['password'] : '';
+if ($email === '' || $password === '') {
+http_response_code(400);
+echo json_encode(['ok' => false, 'error' => 'Missing email/password'], JSON_UNESCAPED_SLASHES);
+exit;
         }
-
-        $pdo = db();
-        $stmt = $pdo->prepare("
+$pdo = db();
+$stmt = $pdo->prepare("
             SELECT id, email, password, is_active, is_admin 
             FROM users 
             WHERE email = ? 
             LIMIT 1
-        ");
-        $stmt->execute([$email]);
-        $user = $stmt->fetch();
-
-        if (!$user || (int)$user['is_active'] !== 1) {
-            http_response_code(401);
-            echo json_encode(['ok' => false, 'error' => 'Invalid credentials'], JSON_UNESCAPED_SLASHES);
-            exit;
+");
+$stmt->execute([$email]);
+$user = $stmt->fetch();
+if (!$user || (int)$user['is_active'] !== 1) {
+http_response_code(401);
+echo json_encode(['ok' => false, 'error' => 'Invalid credentials'], JSON_UNESCAPED_SLASHES);
+exit;
         }
-
-        if (!password_verify($password, (string)$user['password'])) {
-            http_response_code(401);
-            echo json_encode(['ok' => false, 'error' => 'Invalid credentials'], JSON_UNESCAPED_SLASHES);
-            exit;
+if (!password_verify($password, (string)$user['password'])) {
+http_response_code(401);
+echo json_encode(['ok' => false, 'error' => 'Invalid credentials'], JSON_UNESCAPED_SLASHES);
+exit;
         }
-
-        // Set session
-        $_SESSION['user_id'] = (int)$user['id'];
-
-        // Return user info including admin status
-        echo json_encode([
-            'ok' => true,
-            'user_id' => (int)$user['id'],
-            'is_admin' => (int)$user['is_admin'] === 1
+// Set session
+$_SESSION['user_id'] = (int)$user['id'];
+// Return user info including admin status
+echo json_encode([
+'ok' => true,
+'user_id' => (int)$user['id'],
+'is_admin' => (int)$user['is_admin'] === 1
         ], JSON_UNESCAPED_SLASHES);
-
-        exit;
+exit;
     }
-
-    if ($route === 'createAccount') {
-        require __DIR__ . '/../../src/create-account.php';
-        exit;
+if ($route === 'createAccount') {
+require __DIR__ . '/../../src/create-account.php';
+exit;
     }
-
-    // Forgot Password: request one-time confirmation code
-    if ($route === 'forgot_password_request') {
-        require __DIR__ . '/forgot_password_request.php';
-        exit;
+// Forgot Password: request one-time confirmation code
+if ($route === 'forgot_password_request') {
+require __DIR__ . '/forgot_password_request.php';
+exit;
     }
-
-    // Forgot Password: reset password using confirmation code
-    if ($route === 'reset_password') {
-        require __DIR__ . '/reset_password.php';
-        exit;
+// Forgot Password: reset password using confirmation code
+if ($route === 'reset_password') {
+require __DIR__ . '/reset_password.php';
+exit;
     }
-
-    // Route for Data page weather filter
-    if ($route === 'weather'){
-        require __DIR__ . '/weather.php';
-        exit;
+// Route for Data page weather filter
+if ($route === 'weather'){
+require __DIR__ . '/weather.php';
+exit;
     }
-
-    // Recent Outbreaks for homepage widget WILL
-    if ($route === 'create_outbreak'){
-        require __DIR__ . '/create_outbreak.php';
-        exit;
+// Recent Outbreaks for homepage widget WILL
+if ($route === 'create_outbreak'){
+require __DIR__ . '/create_outbreak.php';
+exit;
     }
-
-    if ($route === 'health') {
-        echo json_encode(['ok' => true, 'time' => date('c')], JSON_UNESCAPED_SLASHES);
-        exit;
+if ($route === 'health') {
+echo json_encode(['ok' => true, 'time' => date('c')], JSON_UNESCAPED_SLASHES);
+exit;
     }
-
-     /* -------------------------------------------------------
+/* -------------------------------------------------------
      * ViewProfile routes (added by soojung)
      * ------------------------------------------------------- */
-
-    // Get profile of the logged-in user
-    // GET ?r=getProfile
-    if ($route === 'getProfile') {
-        if ($_SERVER['REQUEST_METHOD'] !== 'GET') {
-            http_response_code(405);
-            echo json_encode(['ok' => false, 'error' => 'GET required'], JSON_UNESCAPED_SLASHES);
-            exit;
+// Get profile of the logged-in user
+// GET ?r=getProfile
+if ($route === 'getProfile') {
+if ($_SERVER['REQUEST_METHOD'] !== 'GET') {
+http_response_code(405);
+echo json_encode(['ok' => false, 'error' => 'GET required'], JSON_UNESCAPED_SLASHES);
+exit;
         }
-        get_profile();
+get_profile();
     }
-
-    // Update profile fields of the logged-in user
-    // POST ?r=updateProfile
-    if ($route === 'updateProfile') {
-        if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
-            http_response_code(405);
-            echo json_encode(['ok' => false, 'error' => 'POST required'], JSON_UNESCAPED_SLASHES);
-            exit;
+// Update profile fields of the logged-in user
+// POST ?r=updateProfile
+if ($route === 'updateProfile') {
+if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
+http_response_code(405);
+echo json_encode(['ok' => false, 'error' => 'POST required'], JSON_UNESCAPED_SLASHES);
+exit;
         }
-        $body = json_decode(file_get_contents('php://input'), true) ?? [];
-        update_profile($body);
+$body = json_decode(file_get_contents('php://input'), true) ?? [];
+update_profile($body);
     }
-
-    // Delete account of the logged-in user
-    // POST ?r=deleteAccount
-    if ($route === 'deleteAccount') {
-        if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
-            http_response_code(405);
-            echo json_encode(['ok' => false, 'error' => 'POST required'], JSON_UNESCAPED_SLASHES);
-            exit;
+// Delete account of the logged-in user
+// POST ?r=deleteAccount
+if ($route === 'deleteAccount') {
+if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
+http_response_code(405);
+echo json_encode(['ok' => false, 'error' => 'POST required'], JSON_UNESCAPED_SLASHES);
+exit;
         }
-        delete_account();
+delete_account();
     }
-
-    // Upload profile image for the logged-in user
-    // POST ?r=uploadImage (multipart/form-data)
-    if ($route === 'uploadImage') {
-        if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
-            http_response_code(405);
-            echo json_encode(['ok' => false, 'error' => 'POST required'], JSON_UNESCAPED_SLASHES);
-            exit;
+// Upload profile image for the logged-in user
+// POST ?r=uploadImage (multipart/form-data)
+if ($route === 'uploadImage') {
+if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
+http_response_code(405);
+echo json_encode(['ok' => false, 'error' => 'POST required'], JSON_UNESCAPED_SLASHES);
+exit;
         }
-        upload_profile_image();
+upload_profile_image();
     }
-    /* ------------------------------------------------------- */
+/* ------------------------------------------------------- */
+// data page (lexi)
+//  outbreaks: summary stats 
+if ($route === 'outbreaks-summary') {
+$pdo = db();
+$disease   = isset($_GET['disease']) ? trim((string)$_GET['disease']) : '';
+$mortality = isset($_GET['mortality_status']) ? trim((string)$_GET['mortality_status']) : '';
+$validMortality = ['High', 'Moderate', 'Low'];
 
-    // data page (lexi)
-    //  outbreaks: summary stats 
-    if ($route === 'outbreaks-summary') {
-        $pdo = db();
-        $disease    = isset($_GET['disease']) ? trim((string)$_GET['disease']) : '';
-        $whereBase  = $disease !== '' ? 'WHERE disease = ?' : '';
-        $params     = $disease !== '' ? [$disease] : [];
-        $whereRecent = $disease !== ''
-            ? 'WHERE disease = ? AND report_date >= DATE_SUB(NOW(), INTERVAL 30 DAY)'
-            : 'WHERE report_date >= DATE_SUB(NOW(), INTERVAL 30 DAY)';
+// Test 6: invalid mortality_status value → safe empty response
+if ($mortality !== '' && !in_array($mortality, $validMortality, true)) {
+    echo json_encode(['totalOutbreaks' => 0], JSON_UNESCAPED_SLASHES);
+    exit;
+}
 
-        $stmt = $pdo->prepare("SELECT COUNT(*) FROM outbreaks $whereBase");
-        $stmt->execute($params); $total = (int)$stmt->fetchColumn();
+// Build WHERE conditions dynamically
+$conditions = [];
+$params = [];
+if ($disease !== '')   { $conditions[] = 'disease = ?';           $params[] = $disease; }
+if ($mortality !== '') { $conditions[] = 'mortality_status = ?';  $params[] = $mortality; }
 
-        $stmt = $pdo->prepare("SELECT COUNT(*) FROM outbreaks $whereRecent");
-        $stmt->execute($params); $recentTotal = (int)$stmt->fetchColumn();
+$whereBase     = $conditions ? 'WHERE ' . implode(' AND ', $conditions) : '';
+$whereRecent   = 'WHERE ' . implode(' AND ', array_merge($conditions, ['report_date >= DATE_SUB(NOW(), INTERVAL 30 DAY)']));
+$whereResolved = 'WHERE ' . implode(' AND ', array_merge($conditions, ['report_date <= DATE_SUB(NOW(), INTERVAL 90 DAY)']));
 
-        $stmt = $pdo->prepare("SELECT COALESCE(SUM(cases),0) FROM outbreaks $whereBase");
-        $stmt->execute($params); $totalCases = (int)$stmt->fetchColumn();
+$stmt = $pdo->prepare("SELECT COUNT(*) FROM outbreaks $whereBase");
+$stmt->execute($params); $total = (int)$stmt->fetchColumn();
+$stmt = $pdo->prepare("SELECT COUNT(*) FROM outbreaks $whereRecent");
+$stmt->execute($params); $recentTotal = (int)$stmt->fetchColumn();
+$stmt = $pdo->prepare("SELECT COALESCE(SUM(cases),0) FROM outbreaks $whereBase");
+$stmt->execute($params); $totalCases = (int)$stmt->fetchColumn();
+$stmt = $pdo->prepare("SELECT COALESCE(SUM(cases),0) FROM outbreaks $whereRecent");
+$stmt->execute($params); $recentCases = (int)$stmt->fetchColumn();
+$stmt = $pdo->prepare("SELECT COUNT(DISTINCT state) FROM outbreaks $whereBase");
+$stmt->execute($params); $states = (int)$stmt->fetchColumn();
+$quarantineZones = (int)round($total * 0.42);
+$recentZones     = (int)round($recentTotal * 0.42);
 
-        $stmt = $pdo->prepare("SELECT COALESCE(SUM(cases),0) FROM outbreaks $whereRecent");
-        $stmt->execute($params); $recentCases = (int)$stmt->fetchColumn();
+// outbreaks older than 90 days are considered "resolved"
+$stmt = $pdo->prepare("SELECT COUNT(*) FROM outbreaks $whereResolved");
+$stmt->execute($params);
+$resolved = (int)$stmt->fetchColumn();
 
-        $stmt = $pdo->prepare("SELECT COUNT(DISTINCT state) FROM outbreaks $whereBase");
-        $stmt->execute($params); $states = (int)$stmt->fetchColumn();
-
-        $quarantineZones = (int)round($total * 0.42);
-        $recentZones     = (int)round($recentTotal * 0.42);
-
-        // outbreaks older than 90 days are considered "resolved" 
-        $resolvedWhere = $disease !== ''
-            ? 'WHERE disease = ? AND report_date <= DATE_SUB(NOW(), INTERVAL 90 DAY)'
-            : 'WHERE report_date <= DATE_SUB(NOW(), INTERVAL 90 DAY)';
-        $stmt = $pdo->prepare("SELECT COUNT(*) FROM outbreaks $resolvedWhere");
-        $stmt->execute($params);
-        $resolved = (int)$stmt->fetchColumn();
-
-        $animalValues = [
-            'H5N1 (Avian Flu)'             => 6,
-            'Swine Flu'                     => 180,
-            'Bovine Tuberculosis'           => 1400,
-            'Mad Cow Disease (BSE)'         => 1400,
-            'Bluetongue'                    => 175,
-            'Other'                         => 6,
+$animalValues = [
+'H5N1 (Avian Flu)'             => 6,
+'Swine Flu'                     => 180,
+'Bovine Tuberculosis'           => 1400,
+'Mad Cow Disease (BSE)'         => 1400,
+'Bluetongue'                    => 175,
+'Other'                         => 6,
         ];
-
-        $economicLoss = 0;
-        $recentLoss   = 0;
-
-        // economic impact
-        if ($disease !== '') {
-            $stmt = $pdo->prepare("
+$economicLoss = 0;
+$recentLoss   = 0;
+// economic impact
+if ($disease !== '') {
+$stmt = $pdo->prepare("
                 SELECT disease, SUM(cases) AS total,
                        SUM(CASE WHEN report_date >= DATE_SUB(NOW(), INTERVAL 30 DAY) THEN cases ELSE 0 END) AS recent
                 FROM outbreaks WHERE disease = ?
                 GROUP BY disease
-            ");
-            $stmt->execute([$disease]);
+");
+$stmt->execute([$disease]);
         } else {
-            $stmt = $pdo->query("
+$stmt = $pdo->query("
                 SELECT disease, SUM(cases) AS total,
                        SUM(CASE WHEN report_date >= DATE_SUB(NOW(), INTERVAL 30 DAY) THEN cases ELSE 0 END) AS recent
                 FROM outbreaks GROUP BY disease
-            ");
+");
         }
-        $diseaseRows = $stmt->fetchAll();
-
-        foreach ($diseaseRows as $dr) {
-            $val           = $animalValues[$dr['disease']] ?? 6;
-            $economicLoss += (int)$dr['total']  * $val;
-            $recentLoss   += (int)$dr['recent'] * $val;
+$diseaseRows = $stmt->fetchAll();
+foreach ($diseaseRows as $dr) {
+$val           = $animalValues[$dr['disease']] ?? 6;
+$economicLoss += (int)$dr['total']  * $val;
+$recentLoss   += (int)$dr['recent'] * $val;
         }
-
-        $fmt = function(int $n): string {
-            if ($n >= 1000000000) return '$' . round($n / 1000000000, 1) . 'B';
-            if ($n >= 1000000)    return '$' . round($n / 1000000, 1) . 'M';
-            if ($n >= 1000)       return '$' . round($n / 1000, 1) . 'K';
-            return '$' . $n;
+$fmt = function(int $n): string {
+if ($n >= 1000000000) return '$' . round($n / 1000000000, 1) . 'B';
+if ($n >= 1000000)    return '$' . round($n / 1000000, 1) . 'M';
+if ($n >= 1000)       return '$' . round($n / 1000, 1) . 'K';
+return '$' . $n;
         };
-        $fmtNum = function(int $n): string {
-            if ($n >= 1000000) return round($n / 1000000, 1) . 'M';
-            if ($n >= 1000)    return round($n / 1000, 1) . 'K';
-            return (string)$n;
+$fmtNum = function(int $n): string {
+if ($n >= 1000000) return round($n / 1000000, 1) . 'M';
+if ($n >= 1000)    return round($n / 1000, 1) . 'K';
+return (string)$n;
         };
-
-        $stmt = $pdo->prepare("SELECT MAX(created_at) FROM outbreaks $whereBase");
-        $stmt->execute($params);
-        $lastUpdated = $stmt->fetchColumn() ?: null;
-
-        echo json_encode([
-            'totalOutbreaks'  => $total,
-            'totalDelta'      => '+' . $recentTotal . ' last 30 days',
-            'affectedFarms'   => $states,
-            'farmsDelta'      => $states . ' states affected',
-            'livestockCases'  => $fmtNum($totalCases),
-            'casesDelta'      => '+' . $fmtNum($recentCases) . ' last 30 days',
-            'quarantineZones' => $quarantineZones,
-            'zonesDelta'      => '+' . $recentZones . ' last 30 days',
-            'resolvedCases'   => $resolved,
-            'economicImpact'  => $fmt($economicLoss),
-            'economicDelta'   => $fmt($recentLoss) . ' last 30 days',
-            'last_updated'    => $lastUpdated,
+$stmt = $pdo->prepare("SELECT MAX(created_at) FROM outbreaks $whereBase");
+$stmt->execute($params);
+$lastUpdated = $stmt->fetchColumn() ?: null;
+echo json_encode([
+'totalOutbreaks'  => $total,
+'totalDelta'      => '+' . $recentTotal . ' last 30 days',
+'affectedFarms'   => $states,
+'farmsDelta'      => $states . ' states affected',
+'livestockCases'  => $fmtNum($totalCases),
+'casesDelta'      => '+' . $fmtNum($recentCases) . ' last 30 days',
+'quarantineZones' => $quarantineZones,
+'zonesDelta'      => '+' . $recentZones . ' last 30 days',
+'resolvedCases'   => $resolved,
+'economicImpact'  => $fmt($economicLoss),
+'economicDelta'   => $fmt($recentLoss) . ' last 30 days',
+'last_updated'    => $lastUpdated,
         ], JSON_UNESCAPED_SLASHES);
-        exit;
+exit;
     }
-
-    // outbreaks: by disease (pie chart)
-    if ($route === 'outbreaks-by-disease') {
-        $pdo  = db();
-        $stmt = $pdo->query("
+// outbreaks: by disease (pie chart)
+if ($route === 'outbreaks-by-disease') {
+$pdo  = db();
+$stmt = $pdo->query("
             SELECT disease, SUM(cases) AS count
             FROM outbreaks
             GROUP BY disease
             ORDER BY count DESC
-        ");
-        echo json_encode($stmt->fetchAll(), JSON_UNESCAPED_SLASHES);
-        exit;
+");
+echo json_encode($stmt->fetchAll(), JSON_UNESCAPED_SLASHES);
+exit;
     }
-
-    // outbreaks: trends over time
-    // BUG THAT CAUSED BLANK CHARTS:
-    // old query was:SELECT YEAR(...), MONTH(...), SUM(cases) FROM outbreaks GROUP BY YEAR(...), MONTH(...)
-    // fixed query is: add `disease` to SELECT and GROUP BY so each disease gets its own row series, matching what the frontend expects.
-    if ($route === 'outbreaks-trends') {
-        $pdo = db();
-
-        $months = [
-            1=>'Jan', 2=>'Feb', 3=>'Mar', 4=>'Apr', 5=>'May',  6=>'Jun',
-            7=>'Jul', 8=>'Aug', 9=>'Sep', 10=>'Oct', 11=>'Nov', 12=>'Dec',
+// outbreaks: trends over time
+// BUG THAT CAUSED BLANK CHARTS:
+// old query was:SELECT YEAR(...), MONTH(...), SUM(cases) FROM outbreaks GROUP BY YEAR(...), MONTH(...)
+// fixed query is: add `disease` to SELECT and GROUP BY so each disease gets its own row series, matching what the frontend expects.
+if ($route === 'outbreaks-trends') {
+$pdo = db();
+$months = [
+1=>'Jan', 2=>'Feb', 3=>'Mar', 4=>'Apr', 5=>'May',  6=>'Jun',
+7=>'Jul', 8=>'Aug', 9=>'Sep', 10=>'Oct', 11=>'Nov', 12=>'Dec',
         ];
-
-        // group by disease + year + month so each disease gets its own line.
-        // always return all years: frontend filters by year range client-side.
-        $stmt = $pdo->query("
+// group by disease + year + month so each disease gets its own line.
+// always return all years: frontend filters by year range client-side.
+$stmt = $pdo->query("
             SELECT
                 disease,
                 YEAR(report_date)  AS year,
@@ -310,68 +276,59 @@ try {
             FROM outbreaks
             GROUP BY disease, YEAR(report_date), MONTH(report_date)
             ORDER BY disease, YEAR(report_date), MONTH(report_date)
-        ");
-
-        $rows = $stmt->fetchAll(PDO::FETCH_ASSOC);
-
-        $chartData = [];
-        foreach ($rows as $row) {
-            $chartData[] = [
-                'disease'   => $row['disease'],
-                'year'      => (int)$row['year'],
-                'month'     => $months[(int)$row['month_num']],
-                'month_num' => (int)$row['month_num'],
-                'cases'     => (int)$row['cases'],
+");
+$rows = $stmt->fetchAll(PDO::FETCH_ASSOC);
+$chartData = [];
+foreach ($rows as $row) {
+$chartData[] = [
+'disease'   => $row['disease'],
+'year'      => (int)$row['year'],
+'month'     => $months[(int)$row['month_num']],
+'month_num' => (int)$row['month_num'],
+'cases'     => (int)$row['cases'],
             ];
         }
-
-        echo json_encode($chartData, JSON_UNESCAPED_SLASHES);
-        exit;
+echo json_encode($chartData, JSON_UNESCAPED_SLASHES);
+exit;
     }
-
-    // outbreaks: by state (choropleth map) 
-    if ($route === 'outbreaks-by-state') {
-        $pdo     = db();
-        $disease = isset($_GET['disease']) ? trim((string)$_GET['disease']) : '';
-        if ($disease !== '') {
-            $stmt = $pdo->prepare("
+// outbreaks: by state (choropleth map) 
+if ($route === 'outbreaks-by-state') {
+$pdo     = db();
+$disease = isset($_GET['disease']) ? trim((string)$_GET['disease']) : '';
+if ($disease !== '') {
+$stmt = $pdo->prepare("
                 SELECT state, COUNT(*) AS outbreaks, SUM(cases) AS total_cases
                 FROM outbreaks WHERE disease = ?
                 GROUP BY state ORDER BY outbreaks DESC
-            ");
-            $stmt->execute([$disease]);
+");
+$stmt->execute([$disease]);
         } else {
-            $stmt = $pdo->query("
+$stmt = $pdo->query("
                 SELECT state, COUNT(*) AS outbreaks, SUM(cases) AS total_cases
                 FROM outbreaks GROUP BY state ORDER BY outbreaks DESC
-            ");
+");
         }
-        echo json_encode($stmt->fetchAll(), JSON_UNESCAPED_SLASHES);
-        exit;
+echo json_encode($stmt->fetchAll(), JSON_UNESCAPED_SLASHES);
+exit;
     }
-
-    http_response_code(404);
-    echo json_encode(['error' => 'Unknown route'], JSON_UNESCAPED_SLASHES);
+http_response_code(404);
+echo json_encode(['error' => 'Unknown route'], JSON_UNESCAPED_SLASHES);
 }
-
 catch (Throwable $e) {
-    http_response_code(500);
-
-    // TEMP: show the real error locally so we can debug
-    $is_local = in_array($_SERVER['REMOTE_ADDR'] ?? '', ['127.0.0.1', '::1'], true);
-
-    if ($is_local) {
-        echo json_encode([
-            'error' => 'Server error',
-            'detail' => $e->getMessage(),
-            'file' => $e->getFile(),
-            'line' => $e->getLine(),
+http_response_code(500);
+// TEMP: show the real error locally so we can debug
+$is_local = in_array($_SERVER['REMOTE_ADDR'] ?? '', ['127.0.0.1', '::1'], true);
+if ($is_local) {
+echo json_encode([
+'error' => 'Server error',
+'detail' => $e->getMessage(),
+'file' => $e->getFile(),
+'line' => $e->getLine(),
         ], JSON_UNESCAPED_SLASHES);
     } else {
-        echo json_encode(['error' => 'Server error'], JSON_UNESCAPED_SLASHES);
+echo json_encode(['error' => 'Server error'], JSON_UNESCAPED_SLASHES);
     }
 }
-
 //catch (Throwable $e) {
 //    http_response_code(500);
 //    echo json_encode(['error' => 'Server error'], JSON_UNESCAPED_SLASHES);
