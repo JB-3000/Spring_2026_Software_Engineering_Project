@@ -31,17 +31,17 @@ const DEBUG_API     = false;
 // ║  HOW TO WIRE UP THE REAL BACKEND FOR MORTALITY FILTERING                ║
 // ║                                                                          ║
 // ║  Step 1 — Flip this flag to true once the backend accepts               ║
-// ║           the `mortality` query param on all four routes below.          ║
+// ║           the `mortality_status` query param on all four routes below.   ║
 // ║           The frontend will immediately stop using mock-filtered data    ║
 // ║           and defer entirely to real API responses.                      ║
 // ╚══════════════════════════════════════════════════════════════════════════╝
-const BACKEND_SUPPORTS_MORTALITY = false; // ← flip to true when backend is ready
+const BACKEND_SUPPORTS_MORTALITY = true; // ← flipped to true
 
 //
 // ── Query parameter the frontend sends ───────────────────────────────────────
 //
-//   ?mortality=High | Moderate | Low      (omitted entirely when "All")
-//   ?disease=H5N1%20(Avian%20Flu)         (omitted entirely when "All Diseases")
+//   ?mortality_status=High | Moderate | Low   (omitted entirely when "All")
+//   ?disease=H5N1%20(Avian%20Flu)             (omitted entirely when "All Diseases")
 //
 // ── Route reference ───────────────────────────────────────────────────────────
 //
@@ -960,7 +960,6 @@ function ChoroplethFullscreen({ geoJson, stateMap, maxVal, onClose }) {
 
   return (
     <div style={{ position: 'fixed', inset: 0, zIndex: 10000, background: '#e8f0ff', display: 'flex', flexDirection: 'column' }}>
-      {/* Top bar */}
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '10px 16px', background: '#fff', borderBottom: '1px solid #ccd5df', flexShrink: 0, gap: 8, flexWrap: 'wrap' }}>
         <h3 style={{ margin: 0, fontSize: 'clamp(13px, 3vw, 17px)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', flex: 1 }}>
           Outbreak Density by State
@@ -974,8 +973,6 @@ function ChoroplethFullscreen({ geoJson, stateMap, maxVal, onClose }) {
           <button onClick={onClose} title="Close (Esc)" style={{ background: '#fee2e2', border: '1px solid #fca5a5', color: '#dc2626', fontSize: 18, cursor: 'pointer', borderRadius: 6, width: 36, height: 36, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>✕</button>
         </div>
       </div>
-
-      {/* Map */}
       <div style={{ flex: 1, position: 'relative' }}>
         <MapContainer center={[38.5, -96]} zoom={5} scrollWheelZoom={false} style={{ height: '100%', width: '100%', background: '#e8eaf0' }} ref={mapRef}>
           <TileLayer url="https://{s}.basemaps.cartocdn.com/light_nolabels/{z}/{x}/{y}{r}.png" attribution='&copy; <a href="https://carto.com/">CARTO</a>' />
@@ -996,8 +993,6 @@ function ChoroplethFullscreen({ geoJson, stateMap, maxVal, onClose }) {
           </div>
         )}
       </div>
-
-      {/* Legend */}
       <div style={{ padding: '8px 16px', background: '#fff', borderTop: '1px solid #ccd5df', display: 'flex', alignItems: 'center', gap: 8, flexShrink: 0, flexWrap: 'wrap' }}>
         <span style={{ fontSize: 11, color: '#555', whiteSpace: 'nowrap' }}>Fewer outbreaks</span>
         <div style={{ display: 'flex', flex: 1, minWidth: 60, height: 10, borderRadius: 6, overflow: 'hidden' }}>
@@ -1226,23 +1221,24 @@ const Data = () => {
     return MOCK_TRENDS.filter(r => r.mortality === activeMortality);
   }, [activeMortality]);
 
+  // ── API params — use mortality_status to match backend ──────────────────────
   const summaryParams = useMemo(() => {
     const p = {};
-    if (activeFilter    !== 'All Diseases') p.disease  = activeFilter;
-    if (activeMortality !== 'All')          p.mortality = activeMortality;
+    if (activeFilter    !== 'All Diseases') p.disease          = activeFilter;
+    if (activeMortality !== 'All')          p.mortality_status = activeMortality;
     return p;
   }, [activeFilter, activeMortality]);
 
   const byStateParams = useMemo(() => {
     const p = {};
-    if (activeFilter    !== 'All Diseases') p.disease  = activeFilter;
-    if (activeMortality !== 'All')          p.mortality = activeMortality;
+    if (activeFilter    !== 'All Diseases') p.disease          = activeFilter;
+    if (activeMortality !== 'All')          p.mortality_status = activeMortality;
     return p;
   }, [activeFilter, activeMortality]);
 
   const trendsParams = useMemo(() => {
     const p = { year: 'all' };
-    if (activeMortality !== 'All') p.mortality = activeMortality;
+    if (activeMortality !== 'All') p.mortality_status = activeMortality;
     return p;
   }, [activeMortality]);
 
