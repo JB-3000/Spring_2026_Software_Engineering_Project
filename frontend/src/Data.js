@@ -6,9 +6,11 @@ import {
 } from 'recharts';
 import { MapContainer, TileLayer, GeoJSON } from 'react-leaflet';
 import 'leaflet/dist/leaflet.css';
-import logo from './LivestockEpidemicTracker.jpeg';
 import SiteFooter from './components/SiteFooter';
+import SiteHeader from './components/SiteHeader';
 import Navbar from './homepage/Navbar';
+import WindOverlay from './components/WindOverlay';
+import MapWindController from './components/MapWindController';
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
@@ -22,6 +24,39 @@ const API_ROOT = IS_LOCAL
 const API_BASE             = `${API_ROOT}/index.php`;
 const EXPORT_OUTBREAKS_URL = `${API_ROOT}/exportOutbreaks.php`;
 const DEBUG_API     = false;
+
+// ─── Backend Integration ──────────────────────────────────────────────────────
+//
+// ╔══════════════════════════════════════════════════════════════════════════╗
+// ║  HOW TO WIRE UP THE REAL BACKEND FOR MORTALITY FILTERING                ║
+// ║                                                                          ║
+// ║  Step 1 — Flip this flag to true once the backend accepts               ║
+// ║           the `mortality_status` query param on all four routes below.   ║
+// ║           The frontend will immediately stop using mock-filtered data    ║
+// ║           and defer entirely to real API responses.                      ║
+// ╚══════════════════════════════════════════════════════════════════════════╝
+const BACKEND_SUPPORTS_MORTALITY = true; // ← flipped to true
+
+//
+// ── Query parameter the frontend sends ───────────────────────────────────────
+//
+//   ?mortality_status=High | Moderate | Low   (omitted entirely when "All")
+//   ?disease=H5N1%20(Avian%20Flu)             (omitted entirely when "All Diseases")
+//
+// ── Route reference ───────────────────────────────────────────────────────────
+//
+//   r=outbreaks-summary      → { totalOutbreaks, affectedFarms, farmsDelta,
+//                               livestockCases, quarantineZones, resolvedCases,
+//                               economicImpact }
+//   r=outbreaks-by-disease   → [ { disease, count }, … ]
+//   r=outbreaks-trends       → [ { month, year, disease, cases }, … ]
+//   r=outbreaks-by-state     → [ { state, outbreaks }, … ]
+//
+// ── No-results handling ───────────────────────────────────────────────────────
+//
+//   Return [] (or { totalOutbreaks: 0 } for summary) — NOT an error object.
+//
+
 const MAX_DISEASES  = 5;
 const CURRENT_YEAR  = new Date().getFullYear();
 const CURRENT_MONTH = new Date().getMonth();
@@ -40,8 +75,18 @@ const MONTHS = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov
 const GEOJSON_URL     = 'https://raw.githubusercontent.com/PublicaMundi/MappingAPI/master/data/geojson/us-states.json';
 const GEOJSON_ALL_URL = 'https://cdn.jsdelivr.net/npm/us-atlas@3/states-10m.json';
 
-// ─── NEW: Mortality filter options ───────────────────────────────────────────
+// ─── Mortality Constants ──────────────────────────────────────────────────────
+
 const MORTALITY_OPTIONS = ['All', 'High', 'Moderate', 'Low'];
+
+const MORTALITY_COLORS = {
+  All:      '#3d5af1',
+  High:     '#e63946',
+  Moderate: '#f59e0b',
+  Low:      '#10b981',
+};
+
+const MORTALITY_CYCLE = ['High', 'High', 'Moderate', 'Moderate', 'Low'];
 
 function safeKey(disease) {
   return disease.replace(/[^a-zA-Z0-9_]/g, '_');
@@ -52,90 +97,48 @@ for (let y = 2005; y <= CURRENT_YEAR; y++) YEAR_OPTIONS.push(String(y));
 
 // ─── Mock Fallback Data ───────────────────────────────────────────────────────
 
-// ─── Disease → mortality mapping (applied client-side to real DB data too) ───
-// Since the DB has no mortality field, we classify by disease.
-// H5N1 and Mad Cow are inherently high-fatality; Swine Flu moderate; rest low.
-const DISEASE_MORTALITY = {
-  'H5N1 (Avian Flu)':      'High',
-  'Mad Cow Disease (BSE)': 'High',
-  'Swine Flu':             'Moderate',
-  'Bovine Tuberculosis':   'Moderate',
-  'Bluetongue':            'Low',
-  'Other':                 'Low',
-};
-
-function mortalityForDisease(disease) {
-  return DISEASE_MORTALITY[String(disease).trim()] ?? 'Low';
-}
-
-// ─── Raw mock outbreak records (used to derive all mock aggregates) ──────────
-const MOCK_RECORDS = [
-  { disease: 'H5N1 (Avian Flu)',      state: 'California',   mortality: 'High',     cases: 3200000 },
-  { disease: 'H5N1 (Avian Flu)',      state: 'Texas',        mortality: 'High',     cases: 2800000 },
-  { disease: 'H5N1 (Avian Flu)',      state: 'Pennsylvania', mortality: 'Moderate', cases: 1900000 },
-  { disease: 'H5N1 (Avian Flu)',      state: 'Indiana',      mortality: 'Moderate', cases: 1200000 },
-  { disease: 'H5N1 (Avian Flu)',      state: 'Minnesota',    mortality: 'Low',      cases: 700000  },
-  { disease: 'Swine Flu',             state: 'Iowa',         mortality: 'Moderate', cases: 2100    },
-  { disease: 'Swine Flu',             state: 'Missouri',     mortality: 'Moderate', cases: 1800    },
-  { disease: 'Swine Flu',             state: 'Indiana',      mortality: 'Low',      cases: 1400    },
-  { disease: 'Swine Flu',             state: 'Texas',        mortality: 'High',     cases: 940     },
-  { disease: 'Mad Cow Disease (BSE)', state: 'California',   mortality: 'High',     cases: 3       },
-  { disease: 'Mad Cow Disease (BSE)', state: 'Washington',   mortality: 'High',     cases: 2       },
-  { disease: 'Bluetongue',            state: 'Texas',        mortality: 'Low',      cases: 120     },
-  { disease: 'Bluetongue',            state: 'New Mexico',   mortality: 'Low',      cases: 90      },
-  { disease: 'Bluetongue',            state: 'Arizona',      mortality: 'Moderate', cases: 70      },
-  { disease: 'Other',                 state: 'California',   mortality: 'Low',      cases: 40000   },
-  { disease: 'Other',                 state: 'Florida',      mortality: 'Low',      cases: 28000   },
-  { disease: 'Other',                 state: 'Ohio',         mortality: 'Moderate', cases: 14500   },
-  { disease: 'Other',                 state: 'Alaska',       mortality: 'High',     cases: 0       },
-  { disease: 'Other',                 state: 'Hawaii',       mortality: 'Low',      cases: 0       },
+// Test note: disease="Bovine Tuberculosis" + mortality="High" or "Moderate"
+// has zero records → triggers the no-results banner (Frontend Test 5).
+const MOCK_OUTBREAKS_RAW = [
+  { disease: 'H5N1 (Avian Flu)',      state: 'California',     count: 9800000, mortality: 'High'     },
+  { disease: 'H5N1 (Avian Flu)',      state: 'Texas',          count: 3200000, mortality: 'High'     },
+  { disease: 'H5N1 (Avian Flu)',      state: 'Indiana',        count: 1100000, mortality: 'Moderate' },
+  { disease: 'H5N1 (Avian Flu)',      state: 'Minnesota',      count:  450000, mortality: 'Low'      },
+  { disease: 'Swine Flu',             state: 'Missouri',       count:    6240, mortality: 'Moderate' },
+  { disease: 'Swine Flu',             state: 'Minnesota',      count:    2800, mortality: 'Low'      },
+  { disease: 'Swine Flu',             state: 'North Carolina', count:    1200, mortality: 'High'     },
+  { disease: 'Bluetongue',            state: 'Pennsylvania',   count:     280, mortality: 'Low'      },
+  { disease: 'Bluetongue',            state: 'Texas',          count:     140, mortality: 'Moderate' },
+  { disease: 'Bluetongue',            state: 'Virginia',       count:      60, mortality: 'Low'      },
+  { disease: 'Bovine Tuberculosis',   state: 'Michigan',       count:      95, mortality: 'Low'      },
+  { disease: 'Mad Cow Disease (BSE)', state: 'California',     count:       5, mortality: 'High'     },
+  { disease: 'Other',                 state: 'Ohio',           count:   82500, mortality: 'Moderate' },
+  { disease: 'Other',                 state: 'Iowa',           count:   34000, mortality: 'Low'      },
+  { disease: 'Other',                 state: 'Kansas',         count:   11000, mortality: 'Moderate' },
 ];
 
-function filterMockRecords(disease, mortality) {
-  return MOCK_RECORDS.filter(r =>
-    (disease  === 'All Diseases' || r.disease  === disease) &&
-    (mortality === 'All'         || mortalityForDisease(r.disease) === mortality)
-  );
-}
-
-function deriveMockSummary(records) {
-  const total = records.length;
-  const states = new Set(records.map(r => r.state)).size;
-  const cases  = records.reduce((s, r) => s + r.cases, 0);
-  const casesStr = cases >= 1_000_000 ? `${(cases/1_000_000).toFixed(1)}M`
-                 : cases >= 1_000     ? `${(cases/1_000).toFixed(0)}k`
-                 : String(cases);
-  return {
-    totalOutbreaks:  total,
-    affectedFarms:   states,
-    farmsDelta:      `${states} states affected`,
-    livestockCases:  casesStr,
-    casesDelta:      'total animals affected (all time)',
-    quarantineZones: Math.round(total * 0.42),
-    zonesDelta:      'est. per USDA HPAI protocol',
-    resolvedCases:   Math.round(total * 0.81),
-    resolvedNote:    '90-day USDA resolution protocol',
-    economicImpact:  `$${(cases * 0.006 / 1_000_000).toFixed(1)}M`,
-    economicDelta:   'est. total livestock loss (USDA)',
-  };
-}
-
-function deriveMockByDisease(records) {
-  const map = {};
-  records.forEach(r => { map[r.disease] = (map[r.disease] ?? 0) + r.cases; });
-  return Object.entries(map).map(([disease, count]) => ({ disease, count }));
-}
-
-function deriveMockByState(records) {
-  const map = {};
-  records.forEach(r => { map[r.state] = (map[r.state] ?? 0) + 1; });
-  return Object.entries(map).map(([state, outbreaks]) => ({ state, outbreaks }));
-}
-
-// Static fallbacks (unfiltered) — used only as useAPI initial fallback shape
-const MOCK_SUMMARY    = deriveMockSummary(MOCK_RECORDS);
-const MOCK_BY_DISEASE = deriveMockByDisease(MOCK_RECORDS);
-const MOCK_BY_STATE   = deriveMockByState(MOCK_RECORDS);
+const MOCK_SUMMARY_BY_MORTALITY = {
+  All: {
+    totalOutbreaks: 119, affectedFarms: 41, livestockCases: '13M',
+    quarantineZones: 50, resolvedCases: 96, economicImpact: '$79.3M',
+    farmsDelta: '41 states affected', last_updated: '2026-03-29 12:00:00',
+  },
+  High: {
+    totalOutbreaks: 48, affectedFarms: 22, livestockCases: '9.8M',
+    quarantineZones: 20, resolvedCases: 38, economicImpact: '$52.1M',
+    farmsDelta: '22 states affected', last_updated: '2026-03-29 12:00:00',
+  },
+  Moderate: {
+    totalOutbreaks: 43, affectedFarms: 18, livestockCases: '2.8M',
+    quarantineZones: 18, resolvedCases: 35, economicImpact: '$19.6M',
+    farmsDelta: '18 states affected', last_updated: '2026-03-29 12:00:00',
+  },
+  Low: {
+    totalOutbreaks: 28, affectedFarms: 12, livestockCases: '410K',
+    quarantineZones: 12, resolvedCases: 23, economicImpact: '$7.6M',
+    farmsDelta: '12 states affected', last_updated: '2026-03-29 12:00:00',
+  },
+};
 
 const MOCK_TRENDS = DISEASE_LIST.flatMap((disease, di) =>
   YEAR_OPTIONS.flatMap((year) => {
@@ -143,6 +146,7 @@ const MOCK_TRENDS = DISEASE_LIST.flatMap((disease, di) =>
     const monthsToShow = y === CURRENT_YEAR ? MONTHS.slice(0, CURRENT_MONTH + 1) : MONTHS;
     return monthsToShow.map((month, mi) => ({
       month, year: y, disease,
+      mortality: MORTALITY_CYCLE[(di * 12 + mi) % MORTALITY_CYCLE.length],
       cases: Math.floor(
         Math.abs(Math.sin((disease.charCodeAt(0) * 13 + di * 47) * (mi + 1) * 0.5 + di)) * 9000
         + (di + 1) * 800
@@ -152,11 +156,47 @@ const MOCK_TRENDS = DISEASE_LIST.flatMap((disease, di) =>
   })
 );
 
+// ─── Mock Filtering Helpers ───────────────────────────────────────────────────
+
+function filterMockOutbreaks(records, disease, mortality) {
+  return records.filter(r => {
+    const diseaseMatch   = disease   === 'All Diseases' || r.disease   === disease;
+    const mortalityMatch = mortality === 'All'          || r.mortality === mortality;
+    return diseaseMatch && mortalityMatch;
+  });
+}
+
+function buildMockByDisease(filtered) {
+  const map = {};
+  filtered.forEach(r => { map[r.disease] = (map[r.disease] || 0) + r.count; });
+  return Object.entries(map).map(([disease, count]) => ({ disease, count }));
+}
+
+function buildMockByState(filtered) {
+  const map = {};
+  filtered.forEach(r => { map[r.state] = (map[r.state] || 0) + 1; });
+  return Object.entries(map).map(([state, outbreaks]) => ({ state, outbreaks }));
+}
+
+function buildMockSummary(mortality) {
+  return MOCK_SUMMARY_BY_MORTALITY[mortality] || MOCK_SUMMARY_BY_MORTALITY.All;
+}
+
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
 function colorForDisease(d) {
   const idx = DISEASE_LIST.indexOf(d);
   return DISEASE_COLORS[idx >= 0 ? idx : DISEASE_COLORS.length - 1];
+}
+
+function formatLastUpdated(raw) {
+  if (!raw) return 'Not available';
+  const d = new Date(raw.replace(' ', 'T'));
+  if (isNaN(d.getTime())) return 'Not available';
+  return d.toLocaleString('en-US', {
+    year: 'numeric', month: 'long', day: 'numeric',
+    hour: 'numeric', minute: '2-digit', hour12: true,
+  });
 }
 
 function choroplethColor(value, max) {
@@ -220,21 +260,20 @@ const RED    = '#e63946';
 
 const S = {
   page:        { minHeight: '100vh', background: '#f0f4f8', fontFamily: "'Segoe UI','Helvetica Neue',Arial,sans-serif", color: '#1a1a2e' },
-  header:      { background: 'linear-gradient(90deg,#b8bfcc 0%,#9aa0b0 100%)', borderBottom: `3px solid ${PURPLE}` },
-  headerRow:   { display: 'flex', alignItems: 'center', gap: 14, padding: '10px 28px' },
-  logo:        { width: 52, height: 52, objectFit: 'contain', borderRadius: 4 },
-  headerTitle: { fontSize: 26, fontWeight: 900, letterSpacing: '0.1em', color: '#1a1a2e', margin: 0 },
-  nav:         { display: 'flex', justifyContent: 'center', gap: 4, padding: '6px 28px', background: '#c4c9d8', borderTop: `1px solid ${PURPLE}` },
-  navLink:     { color: '#1a1a2e', textDecoration: 'none', padding: '5px 16px', borderRadius: 3, border: '1px solid #9aa0b0', fontSize: 13, cursor: 'pointer', background: '#dde0ea' },
   main:        { maxWidth: 1050, margin: '0 auto', padding: 'clamp(12px, 3vw, 22px) clamp(10px, 3vw, 20px)' },
   toolbar:     { display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14 },
   breadcrumb:  { fontSize: 12, color: '#666' },
-  btnOutline:  { background: '#fff', border: '1px solid #bbb', color: '#333', padding: '5px 14px', borderRadius: 4, cursor: 'pointer', fontSize: 12 },
   btnBlue:     { background: BLUE, border: 'none', color: '#fff', fontWeight: 700, padding: '5px 14px', borderRadius: 4, cursor: 'pointer', fontSize: 12 },
   sectionTitle:{ fontSize: 19, fontWeight: 700, color: '#1a1a2e', margin: '0 0 3px' },
   sectionSub:  { fontSize: 12, color: '#777', margin: 0 },
-  filterBox:   { display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 7, background: '#fff', border: '1px solid #ddd', borderRadius: 8, padding: '10px 14px', margin: '14px 0', boxShadow: '0 1px 3px rgba(0,0,0,0.06)' },
-  filterLabel: { fontSize: 12, color: '#555', fontWeight: 600, marginRight: 4 },
+  filterBox:   {
+    display: 'flex', flexDirection: 'column', gap: 10,
+    background: '#fff', border: '1px solid #ddd', borderRadius: 8,
+    padding: '12px 14px', margin: '14px 0',
+    boxShadow: '0 1px 3px rgba(0,0,0,0.06)',
+  },
+  filterRow:   { display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 7 },
+  filterLabel: { fontSize: 12, color: '#555', fontWeight: 600, whiteSpace: 'nowrap', marginRight: 2 },
   statsGrid:   { display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))', gap: 12, marginBottom: 18 },
   statCard:    (color) => ({ background: '#fff', border: '1px solid #e0e3ec', borderLeft: `4px solid ${color}`, borderRadius: 8, padding: '14px 18px', display: 'flex', flexDirection: 'column', gap: 3, boxShadow: '0 1px 4px rgba(0,0,0,0.06)', position: 'relative' }),
   statLabel:   { fontSize: 10, color: '#888', textTransform: 'uppercase', letterSpacing: '0.1em' },
@@ -253,16 +292,6 @@ const S = {
   errorBox:    { background: '#fff5f5', border: '1px solid #e63946', color: '#c0000a', borderRadius: 5, padding: '7px 13px', fontSize: 13, fontWeight: 600, marginBottom: 10 },
   infoBox:     { background: '#f0f4ff', border: '1px solid #c0cbf7', color: '#3d5af1', borderRadius: 5, padding: '6px 12px', fontSize: 11, marginBottom: 10 },
   warnBox:     { background: '#fff8e1', border: '1px solid #f59e0b', color: '#b45309', borderRadius: 5, padding: '6px 12px', fontSize: 11, marginBottom: 10 },
-  footer:      { textAlign: 'center', fontSize: 12, color: '#666', padding: '12px', borderTop: `3px solid ${PURPLE}`, background: '#c4c9d8' },
-};
-
-// ─── Mortality color helper ───────────────────────────────────────────────────
-
-const MORTALITY_COLORS = {
-  High:     '#e63946',
-  Moderate: '#f59e0b',
-  Low:      '#10b981',
-  All:      BLUE,
 };
 
 // ─── Debug Source Badge ───────────────────────────────────────────────────────
@@ -292,66 +321,106 @@ function StatCard({ label, value, delta, neg = true, accent = PURPLE, source }) 
         </span>
       )}
       <span style={S.statLabel}>{label}</span>
-      <span style={S.statValue}>{value ?? '—'}</span>
+      <span
+        data-testid={`stat-value-${label.toLowerCase().replace(/[^a-z0-9]/g, '-')}`}
+        style={S.statValue}
+      >{value ?? '—'}</span>
       <span style={{ fontSize: 13, fontWeight: 600, color: neg ? RED : BLUE }}>{delta}</span>
     </div>
   );
 }
 
-// ─── Disease Filter Bar ───────────────────────────────────────────────────────
+// ─── Filter Bar ───────────────────────────────────────────────────────────────
 
-const FILTER_OPTIONS = ['All Diseases', ...DISEASE_LIST];
+const DISEASE_FILTER_OPTIONS = ['All Diseases', ...DISEASE_LIST];
 
-function FilterBar({ active, onChange }) {
+function FilterBar({ activeDisease, onDiseaseChange, activeMortality, onMortalityChange }) {
   return (
-    <div style={S.filterBox}>
-      <span style={S.filterLabel}>Filter by Disease:</span>
-      {FILTER_OPTIONS.map((opt) => (
-        <button
-          key={opt}
-          onClick={() => onChange(opt)}
-          style={{
-            fontSize: 12, padding: '4px 11px', borderRadius: 20, cursor: 'pointer',
-            background: active === opt ? BLUE : '#fff',
-            border:     `1px solid ${active === opt ? BLUE : '#ccc'}`,
-            color:      active === opt ? '#fff' : '#555',
-            fontWeight: active === opt ? 700 : 400,
-          }}
-        >{opt}</button>
-      ))}
+    <div data-testid="filter-bar" style={S.filterBox}>
+
+      {/* Row 1 ── Disease filter */}
+      <div data-testid="disease-filter-row" style={S.filterRow}>
+        <span style={S.filterLabel}>Filter by Disease:</span>
+        {DISEASE_FILTER_OPTIONS.map((opt) => (
+          <button
+            key={opt}
+            data-testid={`disease-filter-btn-${opt.replace(/[^a-z0-9]/gi, '-').toLowerCase()}`}
+            aria-pressed={activeDisease === opt}
+            onClick={() => onDiseaseChange(opt)}
+            style={{
+              fontSize: 12, padding: '4px 11px', borderRadius: 20, cursor: 'pointer',
+              background: activeDisease === opt ? BLUE : '#fff',
+              border:     `1px solid ${activeDisease === opt ? BLUE : '#ccc'}`,
+              color:      activeDisease === opt ? '#fff' : '#555',
+              fontWeight: activeDisease === opt ? 700 : 400,
+            }}
+          >{opt}</button>
+        ))}
+      </div>
+
+      {/* Row 2 ── Mortality Status filter */}
+      <div data-testid="mortality-filter-row" style={S.filterRow}>
+        <span style={S.filterLabel}>Mortality Status:</span>
+        {MORTALITY_OPTIONS.map((opt) => {
+          const isActive = activeMortality === opt;
+          const color    = MORTALITY_COLORS[opt];
+          return (
+            <button
+              key={opt}
+              data-testid={`mortality-filter-btn-${opt.toLowerCase()}`}
+              aria-pressed={isActive}
+              onClick={() => onMortalityChange(opt)}
+              style={{
+                fontSize:     12,
+                padding:      '4px 11px',
+                borderRadius: 20,
+                cursor:       'pointer',
+                background:   isActive ? color : '#fff',
+                border:       `1px solid ${isActive ? color : '#ccc'}`,
+                color:        isActive ? '#fff' : '#555',
+                fontWeight:   isActive ? 700 : 400,
+                transition:   'background 0.15s, border-color 0.15s, color 0.15s',
+              }}
+            >{opt}</button>
+          );
+        })}
+      </div>
+
     </div>
   );
 }
 
-// ─── NEW: Mortality Status Filter Bar ────────────────────────────────────────
+// ─── No-Results Banner ────────────────────────────────────────────────────────
 
-function MortalityFilterBar({ active, onChange }) {
+function NoResultsBanner({ activeDisease, activeMortality }) {
+  const parts = [
+    activeMortality !== 'All'          && `mortality "${activeMortality}"`,
+    activeDisease   !== 'All Diseases' && `disease "${activeDisease}"`,
+  ].filter(Boolean);
+
   return (
-    <div style={{ ...S.filterBox, marginTop: 0 }}>
-      <span style={S.filterLabel}>Mortality Status:</span>
-      {MORTALITY_OPTIONS.map((opt) => {
-        const isActive = active === opt;
-        const color = MORTALITY_COLORS[opt] ?? BLUE;
-        return (
-          <button
-            key={opt}
-            onClick={() => onChange(opt)}
-            style={{
-              fontSize: 12,
-              padding: '4px 11px',
-              borderRadius: 20,
-              cursor: 'pointer',
-              background: isActive ? color : '#fff',
-              border:     `1px solid ${isActive ? color : '#ccc'}`,
-              color:      isActive ? '#fff' : '#555',
-              fontWeight: isActive ? 700 : 400,
-              transition: 'all 0.15s',
-            }}
-          >
-            {opt}
-          </button>
-        );
-      })}
+    <div
+      role="status"
+      aria-live="polite"
+      data-testid="no-results-banner"
+      style={{
+        background: '#fff8e1', border: '1px solid #f59e0b', borderRadius: 8,
+        padding: '16px 20px', marginBottom: 18,
+        display: 'flex', alignItems: 'center', gap: 12,
+        boxShadow: '0 1px 4px rgba(0,0,0,0.06)',
+      }}
+    >
+      <span style={{ fontSize: 22, flexShrink: 0 }}>📭</span>
+      <div>
+        <div style={{ fontWeight: 700, color: '#92400e', fontSize: 14, marginBottom: 2 }}>
+          No outbreak data available for the selected filter
+        </div>
+        <div style={{ fontSize: 12, color: '#b45309' }}>
+          {parts.length
+            ? `No records match ${parts.join(' and ')}. Try a different selection.`
+            : 'No records match the selected filter. Try a different selection.'}
+        </div>
+      </div>
     </div>
   );
 }
@@ -505,7 +574,7 @@ function SparseLineChart({ data, diseases, logScale, height = 300 }) {
 
 // ─── Chart 1: Trend Lines ─────────────────────────────────────────────────────
 
-function TrendChart({ rawTrends, activeFilter, mortalityFilter, yearFrom, yearTo, setYearFrom, setYearTo }) {
+function TrendChart({ rawTrends, activeFilter, yearFrom, yearTo, setYearFrom, setYearTo }) {
   const [selected, setSelected] = useState(['H5N1 (Avian Flu)']);
   const [dropOpen, setDropOpen] = useState(false);
   const [error,    setError]    = useState('');
@@ -513,22 +582,14 @@ function TrendChart({ rawTrends, activeFilter, mortalityFilter, yearFrom, yearTo
   const dropRef = useRef(null);
 
   useEffect(() => {
-    // Build the list of diseases allowed by both filters
-    let allowed = DISEASE_LIST;
-    if (activeFilter && activeFilter !== 'All Diseases') {
-      allowed = allowed.filter(d => d === activeFilter);
-    }
-    if (mortalityFilter && mortalityFilter !== 'All') {
-      allowed = allowed.filter(d => mortalityForDisease(d) === mortalityFilter);
-    }
     if (!activeFilter || activeFilter === 'All Diseases') {
-      setSelected(allowed.length ? allowed : DISEASE_LIST);
+      setSelected([...DISEASE_LIST]);
     } else {
-      setSelected(allowed.length ? allowed : [activeFilter]);
+      setSelected([activeFilter]);
     }
     setError('');
     setLogScaleManual(null);
-  }, [activeFilter, mortalityFilter]);
+  }, [activeFilter]);
 
   const availableDiseases = useMemo(() => {
     if (!rawTrends || !rawTrends.length) return DISEASE_LIST;
@@ -819,6 +880,11 @@ function ChoroplethFullscreen({ geoJson, stateMap, maxVal, onClose }) {
   const mapRef          = useRef(null);
   const tooltipTimerRef = useRef(null);
 
+  const [weatherEnabled, setWeatherEnabled] = useState(false);
+  const [windPoints,     setWindPoints]     = useState([]);
+  const [windLoading,    setWindLoading]    = useState(false);
+  const [windError,      setWindError]      = useState('');
+
   useEffect(() => { stateMapRef.current = stateMap; maxValRef.current = maxVal; }, [stateMap, maxVal]);
 
   useEffect(() => {
@@ -833,11 +899,11 @@ function ChoroplethFullscreen({ geoJson, stateMap, maxVal, onClose }) {
     return () => window.removeEventListener('keydown', handler);
   }, [onClose]);
 
-  const handleReset = () => {
-    if (mapRef.current) {
-      mapRef.current.setView([38.5, -96], 5);
-    }
-  };
+  useEffect(() => {
+    if (!weatherEnabled) { setWindPoints([]); setWindLoading(false); setWindError(''); }
+  }, [weatherEnabled]);
+
+  const handleReset = () => { if (mapRef.current) mapRef.current.setView([38.5, -96], 5); };
 
   useEffect(() => {
     const layer = geoJsonLayerRef.current;
@@ -846,10 +912,8 @@ function ChoroplethFullscreen({ geoJson, stateMap, maxVal, onClose }) {
       const name = l.feature?.properties?.name;
       const val  = stateMap[name] ?? 0;
       l.setStyle({
-        fillColor:   choroplethColor(val, maxVal),
-        weight:      val > 0 ? 1.5 : 1,
-        color:       '#555e7a',
-        fillOpacity: val > 0 ? 0.88 : 0.15,
+        fillColor: choroplethColor(val, maxVal), weight: val > 0 ? 1.5 : 1,
+        color: '#555e7a', fillOpacity: val > 0 ? 0.88 : 0.15,
       });
     });
   }, [stateMap, maxVal]);
@@ -877,10 +941,7 @@ function ChoroplethFullscreen({ geoJson, stateMap, maxVal, onClose }) {
         e.target.setStyle({ weight: 2, color: BLUE, fillOpacity: 1 });
         e.target.openTooltip();
       },
-      mouseout: (e) => {
-        e.target.setStyle(styleFeature(feature));
-        e.target.closeTooltip();
-      },
+      mouseout: (e) => { e.target.setStyle(styleFeature(feature)); e.target.closeTooltip(); },
       click: (e) => {
         const val = stateMapRef.current[name] ?? 0;
         if (!val) return;
@@ -899,11 +960,15 @@ function ChoroplethFullscreen({ geoJson, stateMap, maxVal, onClose }) {
 
   return (
     <div style={{ position: 'fixed', inset: 0, zIndex: 10000, background: '#e8f0ff', display: 'flex', flexDirection: 'column' }}>
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '10px 16px', background: '#fff', borderBottom: '1px solid #ccd5df', flexShrink: 0, gap: 8 }}>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '10px 16px', background: '#fff', borderBottom: '1px solid #ccd5df', flexShrink: 0, gap: 8, flexWrap: 'wrap' }}>
         <h3 style={{ margin: 0, fontSize: 'clamp(13px, 3vw, 17px)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', flex: 1 }}>
           Outbreak Density by State
         </h3>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexShrink: 0 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexShrink: 0, flexWrap: 'wrap' }}>
+          <label style={{ display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: 12, fontWeight: 600, color: '#334155', background: '#f8fafc', border: '1px solid #dbe2ea', borderRadius: 6, padding: '6px 10px', cursor: 'pointer', height: 34, boxSizing: 'border-box' }}>
+            <input type="checkbox" checked={weatherEnabled} onChange={(e) => setWeatherEnabled(e.target.checked)} style={{ cursor: 'pointer' }} />
+            Weather Filter
+          </label>
           <button onClick={handleReset} style={{ background: '#f0f4f8', border: '1px solid #ccc', borderRadius: 6, padding: '0 12px', height: 34, fontSize: 12, cursor: 'pointer' }}>Reset</button>
           <button onClick={onClose} title="Close (Esc)" style={{ background: '#fee2e2', border: '1px solid #fca5a5', color: '#dc2626', fontSize: 18, cursor: 'pointer', borderRadius: 6, width: 36, height: 36, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>✕</button>
         </div>
@@ -912,7 +977,21 @@ function ChoroplethFullscreen({ geoJson, stateMap, maxVal, onClose }) {
         <MapContainer center={[38.5, -96]} zoom={5} scrollWheelZoom={false} style={{ height: '100%', width: '100%', background: '#e8eaf0' }} ref={mapRef}>
           <TileLayer url="https://{s}.basemaps.cartocdn.com/light_nolabels/{z}/{x}/{y}{r}.png" attribution='&copy; <a href="https://carto.com/">CARTO</a>' />
           <GeoJSON data={geoJson} style={styleFeature} onEachFeature={onEachFeature} ref={geoJsonLayerRef} />
+          <MapWindController enabled={weatherEnabled} onWindData={setWindPoints} onWindError={setWindError} onWindLoading={setWindLoading} />
+          <WindOverlay enabled={weatherEnabled} windPoints={windPoints} />
         </MapContainer>
+        {weatherEnabled && windLoading && !windError && (
+          <div style={{ position: 'absolute', top: 12, left: '50%', transform: 'translateX(-50%)', zIndex: 1000, background: 'rgba(255,255,255,0.95)', border: '1px solid #dbe2ea', borderRadius: 999, padding: '6px 12px', fontSize: 12, fontWeight: 600, color: '#334155', pointerEvents: 'none', boxShadow: '0 2px 8px rgba(0,0,0,0.08)' }}>
+            Loading wind data...
+          </div>
+        )}
+        {weatherEnabled && windError && (
+          <div style={{ position: 'absolute', inset: 0, zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center', pointerEvents: 'none' }}>
+            <div style={{ background: 'rgba(255,255,255,0.96)', border: '1px solid #fecaca', color: '#b91c1c', borderRadius: 10, padding: '12px 16px', fontSize: 13, fontWeight: 700, boxShadow: '0 4px 12px rgba(0,0,0,0.12)', textAlign: 'center', maxWidth: '80%' }}>
+              Wind Data Unavailable, Try Again Later
+            </div>
+          </div>
+        )}
       </div>
       <div style={{ padding: '8px 16px', background: '#fff', borderTop: '1px solid #ccd5df', display: 'flex', alignItems: 'center', gap: 8, flexShrink: 0, flexWrap: 'wrap' }}>
         <span style={{ fontSize: 11, color: '#555', whiteSpace: 'nowrap' }}>Fewer outbreaks</span>
@@ -935,11 +1014,18 @@ function ChoroplethMap({ stateData }) {
   const [geoJsonAll, setGeoJsonAll] = useState(null);
   const [loadError,  setLoadError]  = useState(false);
   const [fullscreen, setFullscreen] = useState(false);
+
+  const [weatherEnabled, setWeatherEnabled] = useState(false);
+  const [windPoints,     setWindPoints]     = useState([]);
+  const [windLoading,    setWindLoading]    = useState(false);
+  const [windError,      setWindError]      = useState('');
+
   const geoJsonLayerRef = useRef(null);
   const tooltipTimerRef = useRef(null);
 
   useEffect(() => {
     fetch(GEOJSON_URL).then(r => r.json()).then(setGeoJson).catch(() => setLoadError(true));
+
     const FIPS_TO_NAME = {
       '02':'Alaska','15':'Hawaii','01':'Alabama','04':'Arizona','05':'Arkansas',
       '06':'California','08':'Colorado','09':'Connecticut','10':'Delaware','12':'Florida',
@@ -952,6 +1038,7 @@ function ChoroplethMap({ stateData }) {
       '46':'South Dakota','47':'Tennessee','48':'Texas','49':'Utah','50':'Vermont',
       '51':'Virginia','53':'Washington','54':'West Virginia','55':'Wisconsin','56':'Wyoming',
     };
+
     fetch(GEOJSON_ALL_URL).then(r => r.json()).then(topo => {
       const arcs = topo.arcs, scale = topo.transform?.scale||[1,1], translate = topo.transform?.translate||[0,0];
       function decodeArc(arc) { let x=0,y=0; return arc.map(([dx,dy])=>{x+=dx;y+=dy;return[x*scale[0]+translate[0],y*scale[1]+translate[1]];}); }
@@ -967,6 +1054,10 @@ function ChoroplethMap({ stateData }) {
       setGeoJsonAll({type:'FeatureCollection',features});
     }).catch(()=>{});
   }, []);
+
+  useEffect(() => {
+    if (!weatherEnabled) { setWindPoints([]); setWindLoading(false); setWindError(''); }
+  }, [weatherEnabled]);
 
   const stateMap = useMemo(() => {
     const m = {};
@@ -988,12 +1079,7 @@ function ChoroplethMap({ stateData }) {
     layer.eachLayer((l) => {
       const name = l.feature?.properties?.name;
       const val  = stateMap[name] ?? 0;
-      l.setStyle({
-        fillColor:   choroplethColor(val, maxVal),
-        weight:      val > 0 ? 1.5 : 1,
-        color:       '#555e7a',
-        fillOpacity: val > 0 ? 0.88 : 0.15,
-      });
+      l.setStyle({ fillColor: choroplethColor(val, maxVal), weight: val > 0 ? 1.5 : 1, color: '#555e7a', fillOpacity: val > 0 ? 0.88 : 0.15 });
     });
   }, [stateMap, maxVal]);
 
@@ -1020,10 +1106,7 @@ function ChoroplethMap({ stateData }) {
         e.target.setStyle({ weight: 2, color: BLUE, fillOpacity: 1 });
         e.target.openTooltip();
       },
-      mouseout: (e) => {
-        e.target.setStyle(styleFeature(feature));
-        e.target.closeTooltip();
-      },
+      mouseout: (e) => { e.target.setStyle(styleFeature(feature)); e.target.closeTooltip(); },
       click: (e) => {
         const val = stateMapRef.current[name] ?? 0;
         if (!val) return;
@@ -1053,25 +1136,43 @@ function ChoroplethMap({ stateData }) {
       <div style={S.card}>
         <div style={{ ...S.cardHeader, flexWrap: 'wrap', gap: 8 }}>
           <h3 style={S.cardTitle}>Outbreak Density by State</h3>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+            <label style={{ display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: 12, fontWeight: 600, color: '#334155', background: '#f8fafc', border: '1px solid #dbe2ea', borderRadius: 6, padding: '6px 10px', cursor: 'pointer' }}>
+              <input type="checkbox" checked={weatherEnabled} onChange={(e) => setWeatherEnabled(e.target.checked)} style={{ cursor: 'pointer' }} />
+              Weather Filter
+            </label>
             <span style={S.badge}>Choropleth Map</span>
-            <button onClick={() => setFullscreen(true)} title="Open full screen map"
-              style={{ padding: '3px 10px', background: '#fff', border: '1px solid #ccc', borderRadius: 6, cursor: 'pointer', fontSize: 12, display: 'flex', alignItems: 'center', gap: 4 }}>
+            <button onClick={() => setFullscreen(true)} title="Open full screen map" style={{ padding: '3px 10px', background: '#fff', border: '1px solid #ccc', borderRadius: 6, cursor: 'pointer', fontSize: 12, display: 'flex', alignItems: 'center', gap: 4 }}>
               <span style={{ fontSize: 13 }}>⤢</span> Full Screen
             </button>
           </div>
         </div>
+
         {loadError ? (
           <div style={{height:200,display:'flex',alignItems:'center',justifyContent:'center',color:'#999',fontSize:13}}>Map unavailable — check network.</div>
         ) : !geoJson ? (
           <div style={{height:200,display:'flex',alignItems:'center',justifyContent:'center',color:'#aaa',fontSize:13}}>Loading map...</div>
         ) : (
           <>
-            <div style={{height:380,borderRadius:8,overflow:'hidden',border:'1px solid #ddd'}}>
+            <div style={{height:380,borderRadius:8,overflow:'hidden',border:'1px solid #ddd',position:'relative'}}>
               <MapContainer center={[37.8,-96]} zoom={4} scrollWheelZoom={false} style={{height:'100%',width:'100%',background:'#e8eaf0'}}>
                 <TileLayer url="https://{s}.basemaps.cartocdn.com/light_nolabels/{z}/{x}/{y}{r}.png" attribution='&copy; <a href="https://carto.com/">CARTO</a>' />
                 <GeoJSON data={geoJson} style={styleFeature} onEachFeature={onEachFeature} ref={geoJsonLayerRef} />
+                <MapWindController enabled={weatherEnabled} onWindData={setWindPoints} onWindError={setWindError} onWindLoading={setWindLoading} />
+                <WindOverlay enabled={weatherEnabled} windPoints={windPoints} />
               </MapContainer>
+              {weatherEnabled && windLoading && !windError && (
+                <div style={{ position:'absolute', top:12, left:'50%', transform:'translateX(-50%)', zIndex:1000, background:'rgba(255,255,255,0.95)', border:'1px solid #dbe2ea', borderRadius:999, padding:'6px 12px', fontSize:12, fontWeight:600, color:'#334155', pointerEvents:'none', boxShadow:'0 2px 8px rgba(0,0,0,0.08)' }}>
+                  Loading wind data...
+                </div>
+              )}
+              {weatherEnabled && windError && (
+                <div style={{ position:'absolute', inset:0, zIndex:1000, display:'flex', alignItems:'center', justifyContent:'center', pointerEvents:'none' }}>
+                  <div style={{ background:'rgba(255,255,255,0.96)', border:'1px solid #fecaca', color:'#b91c1c', borderRadius:10, padding:'12px 16px', fontSize:13, fontWeight:700, boxShadow:'0 4px 12px rgba(0,0,0,0.12)', textAlign:'center', maxWidth:'80%' }}>
+                    Wind Data Unavailable, Try Again Later
+                  </div>
+                </div>
+              )}
             </div>
             {geoJsonAll && (
               <div style={{display:'flex',gap:8,marginTop:8}}>
@@ -1099,7 +1200,7 @@ function ChoroplethMap({ stateData }) {
 
 const Data = () => {
   const [activeFilter,    setActiveFilter]    = useState('All Diseases');
-  const [mortalityFilter, setMortalityFilter] = useState('All');
+  const [activeMortality, setActiveMortality] = useState('All');
   const [yearFrom,        setYearFrom]        = useState(String(CURRENT_YEAR));
   const [yearTo,          setYearTo]          = useState(String(CURRENT_YEAR));
 
@@ -1107,67 +1208,46 @@ const Data = () => {
     window.open(EXPORT_OUTBREAKS_URL, '_blank', 'noopener,noreferrer');
   };
 
-  // ─── API params: send both disease and mortality_status to all routes ────
+  const filteredMockOutbreaks = useMemo(
+    () => filterMockOutbreaks(MOCK_OUTBREAKS_RAW, activeFilter, activeMortality),
+    [activeFilter, activeMortality]
+  );
+
+  const mockByDisease      = useMemo(() => buildMockByDisease(filteredMockOutbreaks), [filteredMockOutbreaks]);
+  const mockByState        = useMemo(() => buildMockByState(filteredMockOutbreaks),   [filteredMockOutbreaks]);
+  const mockSummary        = useMemo(() => buildMockSummary(activeMortality),         [activeMortality]);
+  const mockTrendsFiltered = useMemo(() => {
+    if (activeMortality === 'All') return MOCK_TRENDS;
+    return MOCK_TRENDS.filter(r => r.mortality === activeMortality);
+  }, [activeMortality]);
+
+  // ── API params — use mortality_status to match backend ──────────────────────
   const summaryParams = useMemo(() => {
     const p = {};
     if (activeFilter    !== 'All Diseases') p.disease          = activeFilter;
-    if (mortalityFilter !== 'All')          p.mortality_status = mortalityFilter;
+    if (activeMortality !== 'All')          p.mortality_status = activeMortality;
     return p;
-  }, [activeFilter, mortalityFilter]);
+  }, [activeFilter, activeMortality]);
 
   const byStateParams = useMemo(() => {
     const p = {};
     if (activeFilter    !== 'All Diseases') p.disease          = activeFilter;
-    if (mortalityFilter !== 'All')          p.mortality_status = mortalityFilter;
+    if (activeMortality !== 'All')          p.mortality_status = activeMortality;
     return p;
-  }, [activeFilter, mortalityFilter]);
-
-  const byDiseaseParams = useMemo(() => {
-    const p = {};
-    if (mortalityFilter !== 'All') p.mortality_status = mortalityFilter;
-    return p;
-  }, [mortalityFilter]);
+  }, [activeFilter, activeMortality]);
 
   const trendsParams = useMemo(() => {
     const p = { year: 'all' };
-    if (mortalityFilter !== 'All') p.mortality_status = mortalityFilter;
+    if (activeMortality !== 'All') p.mortality_status = activeMortality;
     return p;
-  }, [mortalityFilter]);
+  }, [activeMortality]);
 
-  const { data: summaryRaw,   source: summarySource   } = useAPI('outbreaks-summary',    MOCK_SUMMARY,    summaryParams);
-  const { data: byDiseaseRaw, source: byDiseaseSource } = useAPI('outbreaks-by-disease', MOCK_BY_DISEASE, byDiseaseParams);
-  const { data: trends                                } = useAPI('outbreaks-trends',     MOCK_TRENDS,     trendsParams);
-  const { data: byStateRaw,   source: byStateSource   } = useAPI('outbreaks-by-state',   MOCK_BY_STATE,   byStateParams);
+  const emptyParams = useMemo(() => ({}), []);
 
-  // ─── Client-side mortality filtering (mock fallback only) ────────────────
-  // When the real DB responds, all filtering is done server-side.
-  // The client-side logic below only runs when source === 'mock'.
-
-  const byDiseaseFiltered = useMemo(() => {
-    if (byDiseaseSource === 'db') {
-      return (byDiseaseRaw || [])
-        .map(d => ({ disease: d.disease, count: Number(d.count) }))
-        .filter(d => d.count > 0);
-    }
-    // mock fallback: filter by mortality via disease mapping
-    return MOCK_BY_DISEASE
-      .filter(d => mortalityFilter === 'All' || mortalityForDisease(d.disease) === mortalityFilter)
-      .map(d => ({ disease: d.disease, count: Number(d.count) }))
-      .filter(d => d.count > 0);
-  }, [byDiseaseRaw, byDiseaseSource, mortalityFilter]);
-
-  // summary: use DB response as-is (backend already filtered it)
-  const summary = summarySource === 'db'
-    ? summaryRaw
-    : deriveMockSummary(filterMockRecords(activeFilter, mortalityFilter));
-
-  // byState: use DB response as-is (backend already filtered it)
-  const byState = byStateSource === 'db'
-    ? byStateRaw
-    : deriveMockByState(filterMockRecords(activeFilter, mortalityFilter));
-
-  // byDisease for pie chart
-  const byDisease = byDiseaseFiltered;
+  const { data: summary   } = useAPI('outbreaks-summary',    mockSummary,        summaryParams);
+  const { data: byDisease } = useAPI('outbreaks-by-disease', mockByDisease,      emptyParams);
+  const { data: trends    } = useAPI('outbreaks-trends',     mockTrendsFiltered, trendsParams);
+  const { data: byState   } = useAPI('outbreaks-by-state',   mockByState,        byStateParams);
 
   const normalizedTrends = useMemo(() => {
     if (!trends || !Array.isArray(trends)) return [];
@@ -1185,28 +1265,31 @@ const Data = () => {
       .filter(d => d.count > 0),
   [byDisease]);
 
-  const STATS = [
-    { label: 'Total Outbreaks',  value: summary.totalOutbreaks,                                              delta: 'confirmed outbreak events',         neg: false, accent: '#e63946' },
-    { label: 'Affected States',  value: summary.affectedFarms?.toLocaleString?.() ?? summary.affectedFarms,  delta: summary.farmsDelta,                  neg: false, accent: '#f97316' },
-    { label: 'Livestock Cases',  value: summary.livestockCases,                                              delta: 'total animals affected (all time)', neg: false, accent: '#f59e0b' },
-    { label: 'Quarantine Zones', value: summary.quarantineZones,                                             delta: 'est. per USDA HPAI protocol',       neg: false, accent: '#8b5cf6' },
-    { label: 'Resolved Cases',   value: summary.resolvedCases?.toLocaleString?.() ?? summary.resolvedCases,  delta: 'outbreaks closed (all time)',       neg: false, accent: '#10b981' },
-    { label: 'Economic Impact',  value: summary.economicImpact,                                              delta: 'est. total livestock loss (USDA)',  neg: false, accent: '#3d5af1' },
-  ];
+  const hasActiveFilter = activeFilter !== 'All Diseases' || activeMortality !== 'All';
 
-  // ─── Empty state ──────────────────────────────────────────────────────────
-  const showEmptyState = byDiseaseFiltered.length === 0 && (mortalityFilter !== 'All' || activeFilter !== 'All Diseases');
+  const showNoResults = useMemo(() => {
+    if (!hasActiveFilter) return false;
+    if (BACKEND_SUPPORTS_MORTALITY) {
+      const summaryEmpty   = Number(summary?.totalOutbreaks ?? -1) === 0;
+      const byStateEmpty   = Array.isArray(byState)   && byState.length   === 0;
+      const byDiseaseEmpty = Array.isArray(byDisease) && byDisease.length === 0;
+      return summaryEmpty || (byStateEmpty && byDiseaseEmpty);
+    }
+    return filteredMockOutbreaks.length === 0;
+  }, [hasActiveFilter, filteredMockOutbreaks, summary, byState, byDisease]);
+
+  const STATS = [
+    { label: 'Total Outbreaks',  value: summary.totalOutbreaks,                                             delta: 'confirmed outbreak events',         neg: false, accent: '#e63946' },
+    { label: 'Affected States',  value: summary.affectedFarms?.toLocaleString?.() ?? summary.affectedFarms, delta: summary.farmsDelta,                  neg: false, accent: '#f97316' },
+    { label: 'Livestock Cases',  value: summary.livestockCases,                                             delta: 'total animals affected (all time)', neg: false, accent: '#f59e0b' },
+    { label: 'Quarantine Zones', value: summary.quarantineZones,                                            delta: 'est. per USDA HPAI protocol',       neg: false, accent: '#8b5cf6' },
+    { label: 'Resolved Cases',   value: summary.resolvedCases?.toLocaleString?.() ?? summary.resolvedCases, delta: 'outbreaks closed (all time)',       neg: false, accent: '#10b981' },
+    { label: 'Economic Impact',  value: summary.economicImpact,                                             delta: 'est. total livestock loss (USDA)',  neg: false, accent: '#3d5af1' },
+  ];
 
   return (
     <div style={S.page}>
-      <div style={{ background: '#ffffff', color: 'black', padding: '20px 0', fontFamily: 'Arial, Helvetica, sans-serif' }}>
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '12px' }}>
-          <img src={logo} alt="logo" style={{ width: 52, height: 52, objectFit: 'contain', borderRadius: 4 }} />
-          <h1 style={{ margin: 0, fontSize: 'clamp(1.2rem, 4vw, 2.4rem)', letterSpacing: '1.5px', fontWeight: 'bold' }}>
-            LIVESTOCK EPIDEMIC TRACKER
-          </h1>
-        </div>
-      </div>
+      <SiteHeader />
       <Navbar />
 
       <main style={S.main}>
@@ -1220,42 +1303,36 @@ const Data = () => {
           <p style={S.sectionSub}>Comprehensive tracking of livestock disease outbreaks across the United States</p>
         </div>
 
-        <div style={S.statsGrid}>
+        <div data-testid="stats-grid" style={S.statsGrid}>
           {STATS.map((s) => <StatCard key={s.label} {...s} />)}
         </div>
 
-        {/* Disease filter */}
-        <FilterBar active={activeFilter} onChange={setActiveFilter} />
+        <p style={{ fontSize: 13, color: '#5c6bc0', fontWeight: 600, margin: '-6px 0 14px', textAlign: 'right' }}>
+          🕒 Last Updated: <span style={{ fontWeight: 400 }}>{formatLastUpdated(summary.last_updated)}</span>
+        </p>
 
-        {/* NEW: Mortality Status filter — directly below disease filter */}
-        <MortalityFilterBar active={mortalityFilter} onChange={setMortalityFilter} />
+        <FilterBar
+          activeDisease={activeFilter}
+          onDiseaseChange={setActiveFilter}
+          activeMortality={activeMortality}
+          onMortalityChange={setActiveMortality}
+        />
 
-        {showEmptyState && (
-          <div style={{ ...S.card, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '48px 24px', gap: 8 }}>
-            <span style={{ fontSize: 32 }}>🔍</span>
-            <p style={{ margin: 0, fontWeight: 700, fontSize: 15, color: '#1a1a2e' }}>
-              No outbreak data available for the selected filter
-            </p>
-            <p style={{ margin: 0, fontSize: 12, color: '#888' }}>
-              Try selecting a different disease or mortality level.
-            </p>
-          </div>
+        {showNoResults && (
+          <NoResultsBanner activeDisease={activeFilter} activeMortality={activeMortality} />
         )}
 
-        {!showEmptyState && (
-          <>
+        {!showNoResults && (
+          <div data-testid="charts-section">
             <TrendChart
               rawTrends={normalizedTrends}
               activeFilter={activeFilter}
-              mortalityFilter={mortalityFilter}
               yearFrom={yearFrom} yearTo={yearTo}
               setYearFrom={setYearFrom} setYearTo={setYearTo}
             />
-
             <DiseaseBreakdownPie data={byDiseaseProcessed} />
-
             <ChoroplethMap stateData={byState} />
-          </>
+          </div>
         )}
       </main>
 
