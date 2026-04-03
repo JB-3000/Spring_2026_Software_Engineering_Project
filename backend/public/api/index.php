@@ -120,6 +120,11 @@ try {
         exit;
     }
 
+    if ($route === 'publications-list' || $route === 'publications-submit') {
+            require __DIR__ . '/publications.php';
+            exit;
+    }
+
     /* -------------------------------------------------------
      * ViewProfile routes (added by soojung)
      * ------------------------------------------------------- */
