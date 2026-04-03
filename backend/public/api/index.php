@@ -7,7 +7,26 @@ require __DIR__ . '/../../src/auth.php';    // Provides login() and session_star
 require __DIR__ . '/../../src/profile.php'; // Added for ViewProfile
 
 header('Content-Type: application/json; charset=utf-8');
-header('Access-Control-Allow-Origin: *'); // ok for demo
+
+$allowedOrigins = [
+    'http://localhost:3000',
+    'http://127.0.0.1:3000',
+    'https://aptitude.cse.buffalo.edu',
+];
+
+$origin = $_SERVER['HTTP_ORIGIN'] ?? '';
+if (in_array($origin, $allowedOrigins, true)) {
+    header("Access-Control-Allow-Origin: {$origin}");
+    header('Access-Control-Allow-Credentials: true');
+}
+
+header('Access-Control-Allow-Headers: Content-Type');
+header('Access-Control-Allow-Methods: GET, POST, OPTIONS');
+
+if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
+    http_response_code(204);
+    exit;
+}
 
 $route = $_GET['r'] ?? 'tooltip';
 
@@ -115,6 +134,11 @@ try {
 
     if ($route === 'health') {
         echo json_encode(['ok' => true, 'time' => date('c')], JSON_UNESCAPED_SLASHES);
+        exit;
+    }
+
+    if ($route === 'publications-list' || $route === 'publications-submit') {
+        require __DIR__ . '/publications.php';
         exit;
     }
 
