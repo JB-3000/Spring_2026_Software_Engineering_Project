@@ -5,12 +5,26 @@ require __DIR__ . '/../../src/response.php';
 require __DIR__ . '/../../src/auth.php';    // Provides login() and session_start()
 require __DIR__ . '/../../src/profile.php'; // Added for ViewProfile
 header('Content-Type: application/json; charset=utf-8');
-header('Access-Control-Allow-Origin: *'); // ok for demo
+$allowedOrigins = [
+    'http://localhost:3000',
+    'http://127.0.0.1:3000',
+    'https://aptitude.cse.buffalo.edu',
+];
+$origin = $_SERVER['HTTP_ORIGIN'] ?? '';
+if (in_array($origin, $allowedOrigins, true)) {
+    header("Access-Control-Allow-Origin: {$origin}");
+    header('Access-Control-Allow-Credentials: true');
+}
+header('Access-Control-Allow-Headers: Content-Type');
+header('Access-Control-Allow-Methods: GET, POST, OPTIONS');
+if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
+    http_response_code(204);
+    exit;
+}
 $route = $_GET['r'] ?? 'tooltip';
 try {
     if ($route === 'tooltip' || $route === 'message') {
         $pdo = db();
-        // Retrieve ONE message (latest or first, your choice)
         $stmt = $pdo->query("SELECT message FROM demo_messages ORDER BY id DESC LIMIT 1");
         $row = $stmt->fetch();
         if (!$row) {
@@ -21,6 +35,7 @@ try {
         echo json_encode(['message' => $row['message']], JSON_UNESCAPED_SLASHES);
         exit;
     }
+
     // New block added for LoginPage
     if ($route === 'login') {
         if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
@@ -60,43 +75,56 @@ try {
         $_SESSION['user_id'] = (int)$user['id'];
         // Return user info including admin status
         echo json_encode([
-            'ok'       => true,
-            'user_id'  => (int)$user['id'],
+            'ok' => true,
+            'user_id' => (int)$user['id'],
             'is_admin' => (int)$user['is_admin'] === 1
         ], JSON_UNESCAPED_SLASHES);
         exit;
     }
+
     if ($route === 'createAccount') {
         require __DIR__ . '/../../src/create-account.php';
         exit;
     }
+
     // Forgot Password: request one-time confirmation code
     if ($route === 'forgot_password_request') {
         require __DIR__ . '/forgot_password_request.php';
         exit;
     }
+
     // Forgot Password: reset password using confirmation code
     if ($route === 'reset_password') {
         require __DIR__ . '/reset_password.php';
         exit;
     }
+
     // Route for Data page weather filter
-    if ($route === 'weather') {
+    if ($route === 'weather'){
         require __DIR__ . '/weather.php';
         exit;
     }
+
     // Recent Outbreaks for homepage widget WILL
-    if ($route === 'create_outbreak') {
+    if ($route === 'create_outbreak'){
         require __DIR__ . '/create_outbreak.php';
         exit;
     }
+
     if ($route === 'health') {
         echo json_encode(['ok' => true, 'time' => date('c')], JSON_UNESCAPED_SLASHES);
         exit;
     }
-    /* -------------------------------------------------------
+
+    if ($route === 'publications-list' || $route === 'publications-submit') {
+        require __DIR__ . '/publications.php';
+        exit;
+    }
+
+     /* -------------------------------------------
      * ViewProfile routes (added by soojung)
-     * ------------------------------------------------------- */
+     * ------------------------------------------- */
+
     // Get profile of the logged-in user
     // GET ?r=getProfile
     if ($route === 'getProfile') {
@@ -107,6 +135,7 @@ try {
         }
         get_profile();
     }
+
     // Update profile fields of the logged-in user
     // POST ?r=updateProfile
     if ($route === 'updateProfile') {
@@ -118,6 +147,7 @@ try {
         $body = json_decode(file_get_contents('php://input'), true) ?? [];
         update_profile($body);
     }
+
     // Delete account of the logged-in user
     // POST ?r=deleteAccount
     if ($route === 'deleteAccount') {
@@ -128,6 +158,7 @@ try {
         }
         delete_account();
     }
+
     // Upload profile image for the logged-in user
     // POST ?r=uploadImage (multipart/form-data)
     if ($route === 'uploadImage') {
@@ -138,7 +169,8 @@ try {
         }
         upload_profile_image();
     }
-    /* ------------------------------------------------------- */
+    /* ------------------------------------------- */
+
     // data page (lexi)
     //  outbreaks: summary stats
     if ($route === 'outbreaks-summary') {
@@ -147,7 +179,7 @@ try {
         $mortality = isset($_GET['mortality_status']) ? trim((string)$_GET['mortality_status']) : '';
         $validMortality = ['High', 'Moderate', 'Low'];
 
-        // Test 6: invalid mortality_status value → safe empty response
+        // invalid mortality_status value → safe empty response
         if ($mortality !== '' && !in_array($mortality, $validMortality, true)) {
             echo json_encode(['totalOutbreaks' => 0], JSON_UNESCAPED_SLASHES);
             exit;
@@ -197,8 +229,7 @@ try {
         $economicLoss = 0;
         $recentLoss   = 0;
 
-        // economic impact (FIXED: now respects filters — uses $whereBase + $params,
-        // no dangling else block)
+        // economic impact (respects all filters)
         $stmt = $pdo->prepare("
             SELECT disease,
                    SUM(cases) AS total,
@@ -253,7 +284,7 @@ try {
     }
 
     // outbreaks: by disease (pie chart)
-    // FIXED: now accepts mortality_status filter so the pie chart updates
+    // accepts mortality_status filter so the pie chart updates
     if ($route === 'outbreaks-by-disease') {
         $pdo       = db();
         $mortality = isset($_GET['mortality_status']) ? trim((string)$_GET['mortality_status']) : '';
@@ -284,11 +315,12 @@ try {
     // BUG THAT CAUSED BLANK CHARTS:
     // old query was: SELECT YEAR(...), MONTH(...), SUM(cases) FROM outbreaks GROUP BY YEAR(...), MONTH(...)
     // fixed query is: add `disease` to SELECT and GROUP BY so each disease gets its own row series, matching what the frontend expects.
-    // FIXED: now accepts mortality_status filter so the trend lines update
+    // accepts mortality_status filter so the trend lines update
     if ($route === 'outbreaks-trends') {
         $pdo       = db();
         $mortality = isset($_GET['mortality_status']) ? trim((string)$_GET['mortality_status']) : '';
         $validMortality = ['High', 'Moderate', 'Low'];
+
         $months = [
             1=>'Jan', 2=>'Feb', 3=>'Mar', 4=>'Apr', 5=>'May',  6=>'Jun',
             7=>'Jul', 8=>'Aug', 9=>'Sep', 10=>'Oct', 11=>'Nov', 12=>'Dec',
@@ -338,7 +370,7 @@ try {
     }
 
     // outbreaks: by state (choropleth map)
-    // FIXED: now accepts mortality_status filter so the map updates
+    // accepts mortality_status filter so the map updates
     if ($route === 'outbreaks-by-state') {
         $pdo       = db();
         $disease   = isset($_GET['disease'])          ? trim((string)$_GET['disease'])          : '';
