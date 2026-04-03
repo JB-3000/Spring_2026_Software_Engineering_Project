@@ -410,7 +410,7 @@ function NoResultsBanner({ activeDisease, activeMortality }) {
         boxShadow: '0 1px 4px rgba(0,0,0,0.06)',
       }}
     >
-      <span style={{ fontSize: 22, flexShrink: 0 }}>📭</span>
+      <span style={{ fontSize: 22, flexShrink: 0 }}></span>
       <div>
         <div style={{ fontWeight: 700, color: '#92400e', fontSize: 14, marginBottom: 2 }}>
           No outbreak data available for the selected filter
