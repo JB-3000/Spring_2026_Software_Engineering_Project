@@ -28,6 +28,7 @@ const Navbar = () => {
         <button className="navbar__btn" onClick={() => handleNav('/faq')}>FAQ</button>
         <button className="navbar__btn" onClick={() => handleNav('/biosecurity')}>Biosecurity Guide</button>
         <button className="navbar__btn" onClick={() => handleNav('/education')}>Education</button>
+        <button className="navbar__btn" onClick={() => handleNav('/publications')}>Publications</button>
         <button className="navbar__btn" onClick={() => handleNav('/profile')}>Profile</button>
         <button className="navbar__btn" onClick={() => handleNav('/')}>Log Out</button>
       </div>
