@@ -19,6 +19,7 @@ export default function AllReports() {
         const response = await fetch(
           `${window.location.origin}/CSE442/2026-Spring/cse-442c/backend/public/api/get_all_outbreaks.php` ,
           {
+            
             method: "GET",
             credentials: "include",
             headers: { "Accept": "application/json" },
