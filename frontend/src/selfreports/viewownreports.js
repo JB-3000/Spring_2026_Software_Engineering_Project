@@ -20,7 +20,6 @@ export default function MyReports() {
         const response = await fetch(
           `${window.location.origin}/CSE442/2026-Spring/cse-442c/backend/public/api/get_all_outbreaks.php` ,
           {
-            // Note: This endpoint currently returns all reports. In a real application, we would want an endpoint that returns only the reports submitted by the logged-in user.
             method: "GET",
             credentials: "include",
             headers: { "Accept": "application/json" },
