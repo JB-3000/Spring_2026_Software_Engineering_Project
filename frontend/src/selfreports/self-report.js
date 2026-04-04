@@ -1,8 +1,9 @@
 import React, { useState } from "react";
-import logo from '../LivestockEpidemicTracker.jpeg';
+import SiteHeader from "../components/SiteHeader";
 import SiteFooter from "../components/SiteFooter";
 import Navbar from "../homepage/Navbar";
 import "../pages/LoginPage.css";
+import { Link } from "react-router-dom"; // ← Add this import (if using React Router)
 
 const US_STATES = [
   "Alabama","Alaska","Arizona","Arkansas","California","Colorado","Connecticut",
@@ -24,8 +25,6 @@ const DISEASE_OPTIONS = [
 ];
 
 export default function SelfReport() {
-  console.log("SelfReport component is being rendered / mounted!");
-
   const [formData, setFormData] = useState({
     diseaseType: "",
     location: "",
@@ -34,6 +33,7 @@ export default function SelfReport() {
 
   const [success, setSuccess] = useState("");
   const [error, setError] = useState("");
+  const [loading, setLoading] = useState(false);
 
   const handleChange = (e) => {
     setFormData({
@@ -44,7 +44,6 @@ export default function SelfReport() {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    console.log("handleSubmit was triggered!");
 
     setError("");
     setSuccess("");
@@ -55,37 +54,37 @@ export default function SelfReport() {
     }
 
     if (!US_STATES.includes(formData.location)) {
-      setError("Please select a valid U.S. state from the list.");
+      setError("Please select a valid U.S. state.");
       return;
     }
 
-    // Optional: you can keep affectedAnimal in the form but we won't send it
-    console.log("Submitting:", { diseaseType: formData.diseaseType, location: formData.location });
+    setLoading(true);
 
     try {
       const response = await fetch(
         "https://aptitude.cse.buffalo.edu/CSE442/2026-Spring/cse-442c/backend/public/api/create_outbreak.php",
         {
           method: "POST",
+          credentials: "include",
           headers: {
             "Content-Type": "application/json",
           },
           body: JSON.stringify({
             diseaseType: formData.diseaseType,
             location: formData.location,
-            // affectedAnimal is NOT sent to backend
           }),
         }
       );
 
-      console.log("Response status:", response.status);
-
-      const data = await response.json();
-      console.log("Response data:", data);
+      let data;
+      try {
+        data = await response.json();
+      } catch {
+        throw new Error("Invalid server response");
+      }
 
       if (!response.ok || !data.ok) {
-        setError(data.error || "Failed to submit report.");
-        return;
+        throw new Error(data.error || "Failed to submit report.");
       }
 
       setSuccess("Report submitted successfully!");
@@ -97,32 +96,105 @@ export default function SelfReport() {
       });
 
     } catch (err) {
-      console.error("Fetch error:", err);
-      setError("Server connection failed. Check console for details.");
+      console.error("Submit error:", err);
+      setError(err.message || "Server connection failed.");
+    } finally {
+      setLoading(false);
     }
   };
 
   return (
     <div className="login-page">
-      <div className="login-page">
-  <div style={{ background: '#ffffff', color: 'black', padding: '20px 0', fontFamily: 'Arial, Helvetica, sans-serif' }}>
-    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '12px' }}>
-      <img src={logo} alt="logo" style={{ width: 52, height: 52, objectFit: 'contain', borderRadius: 4 }} />
-      <h1 style={{ margin: 0, fontSize: '2.4rem', letterSpacing: '1.5px', fontWeight: 'bold' }}>
-        LIVESTOCK EPIDEMIC TRACKER
-      </h1>
-    </div>
-  </div>
+      {/* Header */}
+      <SiteHeader />
+
       <Navbar />
 
-      <main className="login-main">
-        <div className="form-center-wrapper">
+      <main className="login-main" style={{ 
+        display: 'flex', 
+        justifyContent: 'center', 
+        gap: '40px', 
+        padding: '40px 20px',
+        maxWidth: '1200px',
+        margin: '0 auto',
+        flexWrap: 'wrap'
+      }}>
+        
+        {/* Left sidebar with button */}
+        <aside style={{
+          flex: 1,                // ⬅️ lets it grow like the form
+          minWidth: '320px',
+          maxWidth: '500px',      // ⬅️ same as form box
+          display: 'flex',
+          flexDirection: 'column',
+          gap: '16px',
+          padding: '20px',
+          background: '#f8f9fa',
+          borderRadius: '8px',
+          boxShadow: '0 2px 8px rgba(0,0,0,0.1)',
+          height: 'fit-content'
+        }}>
+        <h3 style={{ 
+          margin: '0 0 12px 0', 
+          fontSize: '1.3rem',
+          textAlign: 'center'   // ⬅️ centers the text
+        }}>
+          Your Reports
+        </h3>          
+          <Link 
+            to="/my-reports" // ← Change this to your actual route/path
+            style={{ textDecoration: 'none' }}
+          >
+          <button 
+            className="login-btn" 
+            style={{ 
+              width: '100%',
+              padding: '14px 18px',   // ⬅️ more vertical + horizontal space
+              fontSize: '1.05rem',
+              background: '#4a90e2',
+              color: 'white',
+              border: 'none',
+              borderRadius: '6px',
+              cursor: 'pointer',
+              whiteSpace: 'nowrap'    // ⬅️ prevents text wrapping/cramping
+            }}
+          >
+            View My Reports
+          </button>
+          </Link>
+          
+          <Link 
+            to="/allreports"   // ⬅️ change this route if needed
+            style={{ textDecoration: 'none' }}
+          >
+            <button 
+              className="login-btn" 
+              style={{ 
+                width: '100%',
+                padding: '14px 18px',
+                fontSize: '1.05rem',
+                background: '#2ecc71',   // ⬅️ green to differentiate
+                color: 'white',
+                border: 'none',
+                borderRadius: '6px',
+                cursor: 'pointer',
+                whiteSpace: 'nowrap'
+              }}
+            >
+              View self reports by everyone
+            </button>
+          </Link>
+          {/* You can add more sidebar links/buttons later */}
+        </aside>
+
+        {/* Main form section */}
+        <div className="form-center-wrapper" style={{ flex: 1, minWidth: '320px', maxWidth: '500px' }}>
           <section className="card card--fixed">
             <div className="card__title">New Disease Entry</div>
 
             <form className="login-form" onSubmit={handleSubmit}>
 
-              {/* Disease Dropdown */}
+              {/* Disease */}
               <label className="field">
                 <span className="field__label">Disease Type</span>
                 <select
@@ -141,7 +213,7 @@ export default function SelfReport() {
                 </select>
               </label>
 
-              {/* State with Datalist */}
+              {/* State */}
               <label className="field">
                 <span className="field__label">State</span>
                 <input
@@ -161,19 +233,20 @@ export default function SelfReport() {
                 </datalist>
               </label>
 
-              {/* Affected Animal – kept in form but not sent to backend */}
+              {/* Optional field */}
               <label className="field">
-                <span className="field__label">Affected Animal (optional note)</span>
+                <span className="field__label">Affected Animal (optional)</span>
                 <input
                   className="field__input"
                   type="text"
                   name="affectedAnimal"
                   value={formData.affectedAnimal}
                   onChange={handleChange}
-                  placeholder="e.g. cattle, birds, pigs..."
+                  placeholder="e.g. cattle, birds..."
                 />
               </label>
 
+              {/* Messages */}
               {error && (
                 <div style={{ color: "red", fontWeight: 700, textAlign: "center" }}>
                   {error}
@@ -186,8 +259,9 @@ export default function SelfReport() {
                 </div>
               )}
 
-              <button className="login-btn" type="submit">
-                Upload Report
+              {/* Submit Button */}
+              <button className="login-btn" type="submit" disabled={loading}>
+                {loading ? "Submitting..." : "Upload Report"}
               </button>
             </form>
           </section>
@@ -195,7 +269,6 @@ export default function SelfReport() {
       </main>
 
       <SiteFooter />
-    </div>
     </div>
   );
 }
