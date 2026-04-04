@@ -17,7 +17,7 @@ export default function AllReports() {
     const fetchAllReports = async () => {
       try {
         const response = await fetch(
-          "https://aptitude.cse.buffalo.edu/CSE442/2026-Spring/cse-442c/backend/public/api/get_all_outbreaks.php",
+          `${window.location.origin}/CSE442/2026-Spring/cse-442c/backend/public/api/get_all_outbreaks.php` ,
           {
             method: "GET",
             credentials: "include",
