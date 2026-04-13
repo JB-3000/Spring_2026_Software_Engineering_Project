@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import logo from '../LivestockEpidemicTracker.jpeg';
 import Navbar from '../homepage/Navbar';
+import SiteHeader from '../components/SiteHeader';
 import SiteFooter from '../components/SiteFooter';
 import "./AdminPage.css";
 
@@ -91,21 +91,11 @@ export default function AdminPage() {
     }
   };
 
-  const Header = () => (
-    <div style={{ background: '#ffffff', color: 'black', padding: '20px 0', fontFamily: 'Arial, Helvetica, sans-serif' }}>
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '12px' }}>
-        <img src={logo} alt="logo" style={{ width: 52, height: 52, objectFit: 'contain', borderRadius: 4 }} />
-        <h1 style={{ margin: 0, fontSize: '2.4rem', letterSpacing: '1.5px', fontWeight: 'bold' }}>
-          LIVESTOCK EPIDEMIC TRACKER
-        </h1>
-      </div>
-    </div>
-  );
 
   if (isAdmin === null) {
     return (
       <div className="ap-page">
-        <Header />
+        <SiteHeader />
         <div className="ap-loading">Checking permissions...</div>
         <SiteFooter />
       </div>
@@ -115,7 +105,7 @@ export default function AdminPage() {
   if (!isAdmin) {
     return (
       <div className="ap-page">
-        <Header />
+        <SiteHeader />
         <div className="ap-access-denied">
           <div className="ap-denied-box">
             <div className="ap-denied-icon">🚫</div>
@@ -133,7 +123,7 @@ export default function AdminPage() {
 
   return (
     <div className="ap-page">
-      <Header />
+      <SiteHeader />
       <Navbar />
 
       {notification && <div className="ap-notification">{notification}</div>}
