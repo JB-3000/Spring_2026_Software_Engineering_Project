@@ -396,7 +396,6 @@ function CartogramWindLayer({ windEnabled }) {
             }}
           >
             <div
-              className={`cgram-wind-arrow cgram-delay-${index % 7}`}
               style={{
                 opacity,
                 transform: `rotate(${(direction + 180) % 360}deg) scale(${scale})`,
@@ -404,10 +403,12 @@ function CartogramWindLayer({ windEnabled }) {
                 filter: 'drop-shadow(0 1px 2px rgba(0,0,0,0.2))',
               }}
             >
-              <svg viewBox="0 0 32 32" width="20" height="20" aria-hidden="true">
-                <line x1="16" y1="25" x2="16" y2="10" stroke="#1f3c88" strokeWidth="3" strokeLinecap="round" />
-                <polygon points="16,4 9,13 13,13 13,18 19,18 19,13 23,13" fill="#1f3c88" />
-              </svg>
+              <div className={`cgram-wind-arrow cgram-delay-${index % 7}`}>
+                <svg viewBox="0 0 32 32" width="20" height="20" aria-hidden="true">
+                  <line x1="16" y1="25" x2="16" y2="10" stroke="#1f3c88" strokeWidth="3" strokeLinecap="round" />
+                  <polygon points="16,4 9,13 13,13 13,18 19,18 19,13 23,13" fill="#1f3c88" />
+                </svg>
+              </div>
             </div>
           </div>
         );
