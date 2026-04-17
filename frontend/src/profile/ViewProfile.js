@@ -30,12 +30,21 @@ export default function ViewProfile() {
   const [locationStatus, setLocationStatus]   = useState("");
   const [locationLoading, setLocationLoading] = useState(false);
 
+  // Keep a ref to the latest userData so applyLocation can always read current values
+  // without stale closure issues.
+  const userDataRef = useRef({});
+
   const [userData, setUserData] = useState({
     username: "", firstName: "", lastName: "",
     state: "", city: "", address: "", zip: "", email: "", phone: "",
   });
   const [editData, setEditData] = useState({ ...userData });
   const navigate = useNavigate();
+
+  // Keep the ref in sync whenever userData changes
+  useEffect(() => {
+    userDataRef.current = userData;
+  }, [userData]);
 
   // ── On mount: fetch profile, overlay saved location ──────────────────────
   useEffect(() => {
@@ -48,6 +57,8 @@ export default function ViewProfile() {
             username:  DOMPurify.sanitize(data.username  || ""),
             firstName: DOMPurify.sanitize(data.firstName || ""),
             lastName:  DOMPurify.sanitize(data.lastName  || ""),
+            // DB is now the source of truth for city/state; localStorage is
+            // only a secondary cache used when the DB fields are empty.
             state:     DOMPurify.sanitize(data.state     || ""),
             city:      DOMPurify.sanitize(data.city      || ""),
             address:   DOMPurify.sanitize(data.address   || ""),
@@ -56,17 +67,20 @@ export default function ViewProfile() {
             phone:     DOMPurify.sanitize(data.phone     || ""),
           };
 
-          // Overlay localStorage on top of DB (Test 4: persists on refresh)
+          // Only fall back to localStorage when the DB has no city/state.
+          // This keeps localStorage as a fast-load cache, not the primary store.
           let city  = sanitized.city;
           let state = sanitized.state;
-          try {
-            const raw = localStorage.getItem(STORAGE_KEY);
-            if (raw) {
-              const saved = JSON.parse(raw);
-              if (saved.city)                  city  = saved.city;
-              if (saved.region || saved.state) state = saved.region || saved.state;
-            }
-          } catch (_) {}
+          if (!city || !state) {
+            try {
+              const raw = localStorage.getItem(STORAGE_KEY);
+              if (raw) {
+                const saved = JSON.parse(raw);
+                if (!city  && saved.city)                  city  = saved.city;
+                if (!state && (saved.region || saved.state)) state = saved.region || saved.state;
+              }
+            } catch (_) {}
+          }
 
           const merged = { ...sanitized, city, state };
           setUserData(merged);
@@ -153,8 +167,12 @@ export default function ViewProfile() {
       });
       const data = await res.json();
       if (data.ok) {
+        // Keep localStorage in sync with manual edits too
         try {
-          localStorage.setItem(STORAGE_KEY, JSON.stringify({ city: editData.city, region: editData.state }));
+          localStorage.setItem(STORAGE_KEY, JSON.stringify({
+            city: editData.city,
+            region: editData.state,
+          }));
         } catch (_) {}
         setUserData({ ...editData });
         setIsEditing(false);
@@ -167,14 +185,45 @@ export default function ViewProfile() {
   };
 
   // ── Shared helper: apply detected city/state everywhere ──────────────────
-  const applyLocation = (city, state) => {
+  // Now also writes to the DB so location survives logout/session expiry.
+  const applyLocation = async (city, state) => {
+    // 1. Update UI immediately
     setUserData((prev) => ({ ...prev, city, state }));
     setEditData((prev) => ({ ...prev, city, state }));
+
+    // 2. Persist to localStorage (fast cache for next load)
     try {
       localStorage.setItem(STORAGE_KEY, JSON.stringify({
         city, region: state, detectedAt: new Date().toISOString(),
       }));
     } catch (_) {}
+
+    // 3. Persist to DB — this is the key fix for cross-session persistence.
+    //    Use the ref so we always have the latest profile values even though
+    //    this function can be called from inside async callbacks.
+    const current = userDataRef.current;
+    try {
+      await fetch(`${API_BASE}?r=updateProfile`, {
+        method: "POST",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          username:   current.username,
+          first_name: current.firstName,
+          last_name:  current.lastName,
+          state:      state,
+          city:       city,
+          address:    current.address,
+          zip:        current.zip,
+          email:      current.email,
+          phone:      current.phone,
+        }),
+      });
+    } catch (err) {
+      console.error("Failed to persist detected location to DB:", err);
+      // Not fatal — localStorage cache will still help on same-browser refresh
+    }
+
     setLocationStatus(
       city || state
         ? `Location detected: ${[city, state].filter(Boolean).join(", ")}`
@@ -184,9 +233,9 @@ export default function ViewProfile() {
   };
 
   // ── Detect My Location ────────────────────────────────────────────────────
-  // Primary path: browser GPS → bigdatacloud reverse geocode (works behind UB NAT).
-  // Fallback: backend IP lookup (for users who deny GPS).
-  // Permission prompt fires ONLY on button click (Tests 2 & 3).
+  // Primary: browser GPS → bigdatacloud reverse geocode.
+  // Fallback: backend IP lookup (when GPS is denied).
+  // Permission prompt fires ONLY on button click.
   const handleDetectLocation = () => {
     setLocationStatus("Detecting location…");
     setLocationLoading(true);
@@ -198,14 +247,13 @@ export default function ViewProfile() {
     }
 
     navigator.geolocation.getCurrentPosition(
-      // ── Allowed: use GPS coords + reverse geocode ─────────────────────────
+      // ── GPS allowed ───────────────────────────────────────────────────────
       ({ coords: { latitude, longitude } }) => {
         fetch(
           `https://api.bigdatacloud.net/data/reverse-geocode-client?latitude=${latitude}&longitude=${longitude}&localityLanguage=en`
         )
           .then((r) => r.json())
           .then((geo) => {
-            // principalSubdivisionCode comes back as "US-NY" — strip the prefix
             const rawCode   = geo.principalSubdivisionCode || "";
             const stateCode = rawCode.includes("-") ? rawCode.split("-")[1] : rawCode;
             const city      = geo.city || geo.locality || "";
@@ -217,7 +265,7 @@ export default function ViewProfile() {
             setLocationLoading(false);
           });
       },
-      // ── Denied: fall back to backend IP lookup ────────────────────────────
+      // ── GPS denied — fall back to IP lookup ───────────────────────────────
       (err) => {
         console.info("[Location] Geolocation denied, falling back to IP lookup.", err.message);
         fetch(`${API_BASE}?r=detectLocation`, { method: "GET", credentials: "include" })
@@ -336,7 +384,7 @@ export default function ViewProfile() {
             ))}
           </div>
 
-          {/* ── Location detection (Tests 1–5) ── */}
+          {/* ── Location detection ── */}
           <div className="vp-location-section">
             <button
               className="vp-edit-btn"
