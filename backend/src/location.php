@@ -10,6 +10,7 @@ function detect_location(): void {
 
     $pdo = db();
 
+    // 1. Check if user already has location saved
     $stmt = $pdo->prepare("SELECT city, state FROM users WHERE id = ?");
     $stmt->execute([$_SESSION['user_id']]);
     $user = $stmt->fetch(PDO::FETCH_ASSOC);
@@ -25,24 +26,25 @@ function detect_location(): void {
         ], 200);
     }
 
+    // 2. Get IP (supports proxies/load balancers)
     $ip = $_SERVER['HTTP_X_FORWARDED_FOR'] ?? $_SERVER['REMOTE_ADDR'] ?? null;
 
-    if (!$ip || !filter_var(
-        explode(',', $ip)[0],
-        FILTER_VALIDATE_IP,
-        FILTER_FLAG_NO_PRIV_RANGE | FILTER_FLAG_NO_RES_RANGE
-    )) {
+    // Clean IP (handle multiple forwarded IPs)
+    $clean_ip = $ip ? trim(explode(',', $ip)[0]) : null;
+
+    // allow private IPs (removed NO_PRIV_RANGE restriction)
+    if (!$clean_ip || !filter_var($clean_ip, FILTER_VALIDATE_IP)) {
         json_response([
             'ok'         => true,
             'source'     => 'default',
-            'ip_address' => $ip,
+            'ip_address' => $clean_ip,
             'country'    => 'US',
             'region'     => 'Unknown',
             'city'       => 'Unknown',
         ], 200);
     }
 
-    $clean_ip = trim(explode(',', $ip)[0]);
+    // 3. Call IP geolocation API
     $api_url  = "http://ip-api.com/json/" . urlencode($clean_ip) . "?fields=status,country,regionName,city,query";
     $response = @file_get_contents($api_url);
 
@@ -70,6 +72,7 @@ function detect_location(): void {
         ], 200);
     }
 
+    // 4. Success response
     json_response([
         'ok'         => true,
         'source'     => 'ip',
