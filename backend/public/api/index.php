@@ -6,6 +6,9 @@ require __DIR__ . '/../../src/response.php';
 require __DIR__ . '/../../src/auth.php';    // Provides login() and session_start()
 require __DIR__ . '/../../src/profile.php'; // Added for ViewProfile
 
+//start session and handle CORS
+session_start();
+
 header('Content-Type: application/json; charset=utf-8');
 
 $allowedOrigins = [
