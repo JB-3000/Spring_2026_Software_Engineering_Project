@@ -174,6 +174,12 @@ try {
 
     // data page (lexi)
     //  outbreaks: summary stats
+    if ($route === 'detectLocation') {
+    require __DIR__ . '/../../src/location.php';
+    detect_location();
+    exit;
+}
+
     if ($route === 'outbreaks-summary') {
         $pdo       = db();
         $disease   = isset($_GET['disease'])          ? trim((string)$_GET['disease'])          : '';
