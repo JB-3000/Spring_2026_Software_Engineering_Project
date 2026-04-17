@@ -6,38 +6,43 @@ import Navbar from '../homepage/Navbar';
 import SiteFooter from '../components/SiteFooter';
 import "./ViewProfile.css";
 
+const STORAGE_KEY = "user_location";
+
 export default function ViewProfile() {
   const HARDCODED_PROFILE_IMG = "https://www.gravatar.com/avatar/?d=mp&s=200";
   const API_BASE =
-    process.env.NODE_ENV === "production"
-      ? "/CSE442/2026-Spring/cse-442c/backend/public/api/index.php"
-      : "http://localhost:8000/api/index.php";
+  process.env.NODE_ENV === "production"
+    ? "/CSE442/2026-Spring/cse-442c/backend/public/api/index.php"
+    : "/s26-jnswl-corp/backend/public/api/index.php";
 
-  const [profileImg, setProfileImg] = useState(HARDCODED_PROFILE_IMG);
-  const fileInputRef = useRef(null);
-  const [isEditing, setIsEditing] = useState(false);
+  const [profileImg, setProfileImg]       = useState(HARDCODED_PROFILE_IMG);
+  const fileInputRef                       = useRef(null);
+  const [isEditing, setIsEditing]         = useState(false);
   const [showCancelModal, setShowCancelModal] = useState(false);
+
+  // Location state
+  const [locationStatus, setLocationStatus]   = useState("");
+  const [locationLoading, setLocationLoading] = useState(false);
+
   const [userData, setUserData] = useState({
-    username: "",
+    username:  "",
     firstName: "",
-    lastName: "",
-    state: "",
-    city: "",
-    address: "",
-    zip: "",
-    email: "",
-    phone: "",
+    lastName:  "",
+    state:     "",
+    city:      "",
+    address:   "",
+    zip:       "",
+    email:     "",
+    phone:     "",
   });
   const [editData, setEditData] = useState({ ...userData });
   const navigate = useNavigate();
 
+  // ── On mount: fetch profile, then overlay any saved location ────────────
   useEffect(() => {
     const fetchUserData = async () => {
       try {
-        const res = await fetch(
-          `${API_BASE}?r=getProfile`,
-          { method: "GET", credentials: "include" }
-        );
+        const res  = await fetch(`${API_BASE}?r=getProfile`, { method: "GET", credentials: "include" });
         const data = await res.json();
         if (data.ok) {
           const sanitized = {
@@ -51,19 +56,35 @@ export default function ViewProfile() {
             email:     DOMPurify.sanitize(data.email     || ""),
             phone:     DOMPurify.sanitize(data.phone     || ""),
           };
-          setUserData(sanitized);
-          setEditData(sanitized);
-          if (data.profileImg) {
-            setProfileImg(data.profileImg);
-          }
+
+          // Overlay saved location on top of DB values (Test 4: persists on refresh)
+          let city  = sanitized.city;
+          let state = sanitized.state;
+          try {
+            const raw = localStorage.getItem(STORAGE_KEY);
+            if (raw) {
+              const saved = JSON.parse(raw);
+              // saved.region comes from backend response; saved.state is legacy fallback
+              if (saved.city)            city  = saved.city;
+              if (saved.region || saved.state) state = saved.region || saved.state;
+            }
+          } catch (_) {}
+
+          const merged = { ...sanitized, city, state };
+          setUserData(merged);
+          setEditData(merged);
+
+          if (data.profileImg) setProfileImg(data.profileImg);
         }
       } catch (err) {
         console.error("Failed to fetch user data:", err);
       }
     };
+
     fetchUserData();
   }, []);
 
+  // ── Photo upload ─────────────────────────────────────────────────────────
   const handlePhotoChange = (e) => {
     const file = e.target.files[0];
     if (!file) return;
@@ -72,16 +93,14 @@ export default function ViewProfile() {
       const base64 = event.target.result;
       setProfileImg(base64);
       try {
-        const res = await fetch(`${API_BASE}?r=uploadImage`, {
+        const res  = await fetch(`${API_BASE}?r=uploadImage`, {
           method: "POST",
           credentials: "include",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ image: base64 }),
         });
         const data = await res.json();
-        if (!data.ok) {
-          console.error("Image upload failed:", data.error);
-        }
+        if (!data.ok) console.error("Image upload failed:", data.error);
       } catch (err) {
         console.error("Image upload error:", err);
       }
@@ -89,19 +108,10 @@ export default function ViewProfile() {
     reader.readAsDataURL(file);
   };
 
-  const handleEditClick = () => {
-    setEditData({ ...userData });
-    setIsEditing(true);
-  };
-
-  const handleCancelClick = () => {
-    setEditData({ ...userData });
-    setIsEditing(false);
-  };
-
-  const handleChange = (field, value) => {
-    setEditData((prev) => ({ ...prev, [field]: value }));
-  };
+  // ── Edit / Save / Cancel ─────────────────────────────────────────────────
+  const handleEditClick   = () => { setEditData({ ...userData }); setIsEditing(true); };
+  const handleCancelClick = () => { setEditData({ ...userData }); setIsEditing(false); };
+  const handleChange      = (field, value) => setEditData((prev) => ({ ...prev, [field]: value }));
 
   const handleSave = async () => {
     if (!editData.email || editData.email.trim() === "") {
@@ -115,27 +125,31 @@ export default function ViewProfile() {
     }
 
     try {
-      const res = await fetch(
-        `${API_BASE}?r=updateProfile`,
-        {
-          method: "POST",
-          credentials: "include",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            username:   editData.username,
-            first_name: editData.firstName,
-            last_name:  editData.lastName,
-            state:      editData.state,
-            city:       editData.city,
-            address:    editData.address,
-            zip:        editData.zip,
-            email:      editData.email,
-            phone:      editData.phone,
-          }),
-        }
-      );
+      const res  = await fetch(`${API_BASE}?r=updateProfile`, {
+        method: "POST",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          username:   editData.username,
+          first_name: editData.firstName,
+          last_name:  editData.lastName,
+          state:      editData.state,
+          city:       editData.city,
+          address:    editData.address,
+          zip:        editData.zip,
+          email:      editData.email,
+          phone:      editData.phone,
+        }),
+      });
       const data = await res.json();
       if (data.ok) {
+        // Keep localStorage in sync with whatever the user manually typed
+        try {
+          localStorage.setItem(STORAGE_KEY, JSON.stringify({
+            city:   editData.city,
+            region: editData.state,
+          }));
+        } catch (_) {}
         setUserData({ ...editData });
         setIsEditing(false);
       } else {
@@ -146,13 +160,73 @@ export default function ViewProfile() {
     }
   };
 
-  // Cancel Subscription: delete account → logout → redirect to login
+  // ── Detect My Location ───────────────────────────────────────────────────
+  // Location permission prompt fires ONLY when this button is clicked (Tests 2 & 3).
+  const handleDetectLocation = () => {
+    setLocationStatus("Detecting location…");
+    setLocationLoading(true);
+
+    const doIpFetch = () => {
+      fetch(`${API_BASE}?r=detectLocation`, { method: "GET", credentials: "include" })
+        .then((res) => res.json())
+        .then((data) => {
+          if (data.ok) {
+            const detectedCity  = data.city   === "Unknown" ? "" : (data.city   || "");
+            const detectedState = data.region === "Unknown" ? "" : (data.region || "");
+
+            // Update display immediately
+            setUserData((prev) => ({ ...prev, city: detectedCity, state: detectedState }));
+            setEditData((prev) => ({ ...prev, city: detectedCity, state: detectedState }));
+
+            // Persist so location survives refresh (Test 4)
+            try {
+              localStorage.setItem(STORAGE_KEY, JSON.stringify({
+                city:        detectedCity,
+                region:      detectedState,
+                detectedAt:  new Date().toISOString(),
+              }));
+            } catch (_) {}
+
+            setLocationStatus(
+              detectedCity || detectedState
+                ? `Location detected: ${[detectedCity, detectedState].filter(Boolean).join(", ")}`
+                : "Location detected (city/state unavailable)."
+            );
+          } else {
+            setLocationStatus("Failed to detect location.");
+          }
+        })
+        .catch(() => setLocationStatus("Error detecting location."))
+        .finally(() => setLocationLoading(false));
+    };
+
+    // Ask browser for GPS — this triggers the permission prompt (Test 2 & 3).
+    // We don't need the coords ourselves; the backend uses IP-geolocation.
+    // But calling getCurrentPosition is what causes the browser to show the prompt.
+    if (navigator.geolocation) {
+      navigator.geolocation.getCurrentPosition(
+        () => doIpFetch(),          // allowed — proceed
+        () => doIpFetch(),          // denied — fall back to IP silently
+        { timeout: 8000, maximumAge: 60000 }
+      );
+    } else {
+      // Browser has no geolocation API at all
+      doIpFetch();
+    }
+  };
+
+  // ── Clear Location ───────────────────────────────────────────────────────
+  const handleClearLocation = () => {
+    try { localStorage.removeItem(STORAGE_KEY); } catch (_) {}
+    setUserData((prev) => ({ ...prev, city: "", state: "" }));
+    setEditData((prev) => ({ ...prev, city: "", state: "" }));
+    setLocationStatus("Location cleared.");
+  };
+
+  // ── Delete account ───────────────────────────────────────────────────────
   const handleConfirmCancel = async () => {
     try {
-      const res = await fetch(
-        `${API_BASE}?r=deleteAccount`,
-        { method: "POST", credentials: "include" }
-      );
+      const res  = await fetch(`${API_BASE}?r=deleteAccount`, { method: "POST", credentials: "include" });
       const data = await res.json();
       if (data.ok) {
         navigate("/");
@@ -180,11 +254,11 @@ export default function ViewProfile() {
     <div className="vp-page">
 
       <SiteHeader />
-
       <Navbar />
 
       <div className="vp-content-box">
 
+        {/* ── Top card: avatar + actions ── */}
         <div className="vp-top-card">
           <div className="vp-top-left">
             <div className="vp-avatar-wrap" onClick={() => fileInputRef.current.click()}>
@@ -204,7 +278,6 @@ export default function ViewProfile() {
               style={{ display: "none" }}
               onChange={handlePhotoChange}
             />
-
             <div className="vp-user-info">
               <p className="vp-username">{userData.firstName} {userData.lastName}</p>
             </div>
@@ -212,27 +285,23 @@ export default function ViewProfile() {
 
           <div className="vp-top-actions">
             {!isEditing ? (
-              <button className="vp-edit-btn" onClick={handleEditClick}>
-                Edit Profile
-              </button>
+              <button className="vp-edit-btn" onClick={handleEditClick}>Edit Profile</button>
             ) : (
               <div className="vp-edit-actions">
-                <button className="vp-save-btn" onClick={handleSave}>Save</button>
+                <button className="vp-save-btn"   onClick={handleSave}>Save</button>
                 <button className="vp-cancel-btn" onClick={handleCancelClick}>Cancel</button>
               </div>
             )}
-              {/* Cancel Subscription button */}
-            <button
-              className="vp-cancel-subscription-btn"
-              onClick={() => setShowCancelModal(true)}
-            >
+            <button className="vp-cancel-subscription-btn" onClick={() => setShowCancelModal(true)}>
               Cancel Subscription
             </button>
           </div>
         </div>
-        
+
+        {/* ── Account info card ── */}
         <div className="vp-info-card">
           <p className="vp-info-card-title">Account Information</p>
+
           <div className="vp-form-grid">
             {fields.map((field) => (
               <div className="vp-field" key={field.key}>
@@ -247,13 +316,41 @@ export default function ViewProfile() {
               </div>
             ))}
           </div>
+
+          {/* ── Location detection section (Tests 1–5) ── */}
+          <div className="vp-location-section">
+            <button
+              className="vp-edit-btn"
+              onClick={handleDetectLocation}
+              disabled={locationLoading}
+              aria-busy={locationLoading}
+              aria-label="Detect my current location"
+            >
+              {locationLoading ? "Detecting…" : "Detect My Location"}
+            </button>
+
+            <button
+              className="vp-cancel-btn"
+              onClick={handleClearLocation}
+              disabled={locationLoading}
+              style={{ marginLeft: "10px" }}
+            >
+              Clear Location
+            </button>
+
+            {locationStatus && (
+              <p className="vp-location-status" role="status" aria-live="polite">
+                {locationStatus}
+              </p>
+            )}
+          </div>
         </div>
+
       </div>
 
       <SiteFooter />
-    
-    
-    {/* Cancel Subscription */}
+
+      {/* ── Cancel Subscription modal ── */}
       {showCancelModal && (
         <div className="vp-modal-overlay" onClick={() => setShowCancelModal(false)}>
           <div className="vp-modal-box" onClick={(e) => e.stopPropagation()}>
@@ -262,15 +359,12 @@ export default function ViewProfile() {
             <p className="vp-modal-desc">
               Are you sure you want to cancel your subscription?
               <br /><br />
-              This will <strong>permanently delete your account</strong> and all associated data. This action cannot be undone.
+              This will <strong>permanently delete your account</strong> and all associated data.
+              This action cannot be undone.
             </p>
             <div className="vp-modal-actions">
-              <button className="vp-modal-keep-btn" onClick={() => setShowCancelModal(false)}>
-                Keep My Account
-              </button>
-              <button className="vp-modal-confirm-btn" onClick={handleConfirmCancel}>
-                Cancel Subscription
-              </button>
+              <button className="vp-modal-keep-btn"    onClick={() => setShowCancelModal(false)}>Keep My Account</button>
+              <button className="vp-modal-confirm-btn" onClick={handleConfirmCancel}>Cancel Subscription</button>
             </div>
           </div>
         </div>
