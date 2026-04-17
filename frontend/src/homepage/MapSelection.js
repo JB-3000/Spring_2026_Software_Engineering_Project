@@ -218,7 +218,7 @@ function MapGrid({ stateMap, maxVal, metricLabel, onTooltip, clearTooltip }) {
   );
 }
 
-function FullscreenMap({ stateMap, maxVal, metricLabel, onClose }) {
+function FullscreenMap({ stateMap, maxVal, metricLabel, windEnabled, onWindToggle, onClose }) {
   const [tooltip, setTooltip] = useState(null);
   const [zoom, setZoom] = useState(1);
   const containerRef = useRef(null);
@@ -289,6 +289,14 @@ function FullscreenMap({ stateMap, maxVal, metricLabel, onClose }) {
             Reset
           </button>
           <button
+            onClick={onWindToggle}
+            style={{ ...filterBtn(windEnabled), display: 'inline-flex', alignItems: 'center', gap: 5 }}
+            title={windEnabled ? 'Turn off wind overlay' : 'Turn on wind overlay'}
+          >
+            <span style={{ fontSize: 14 }}>🌬</span>
+            Weather {windEnabled ? 'ON' : 'OFF'}
+          </button>
+          <button
             onClick={onClose}
             style={{ background: '#fee2e2', border: '1px solid #fca5a5', color: '#dc2626', borderRadius: 8, width: 36, height: 36, fontSize: 18, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
           >
@@ -301,6 +309,7 @@ function FullscreenMap({ stateMap, maxVal, metricLabel, onClose }) {
         <div style={{ position: 'relative', width: Math.max(scaledW, 100), height: scaledH, flexShrink: 0 }}>
           <div style={{ position: 'absolute', top: 0, left: 0, width: NATURAL_W, height: NATURAL_H, transform: `scale(${scale})`, transformOrigin: 'top left' }}>
             <MapGrid stateMap={stateMap} maxVal={maxVal} metricLabel={metricLabel} onTooltip={setTooltip} clearTooltip={() => setTooltip(null)} />
+            <CartogramWindLayer windEnabled={windEnabled} />
           </div>
         </div>
       </div>
@@ -729,7 +738,7 @@ const MapSection = () => {
 
   return (
     <>
-      {fullscreen && viewMode === 'cartogram' && <FullscreenMap stateMap={stateMap} maxVal={maxVal} metricLabel={metricLabel} onClose={() => setFullscreen(false)} />}
+      {fullscreen && viewMode === 'cartogram' && <FullscreenMap stateMap={stateMap} maxVal={maxVal} metricLabel={metricLabel} windEnabled={windEnabled} onWindToggle={() => setWindEnabled((v) => !v)} onClose={() => setFullscreen(false)} />}
       {fullscreen && viewMode === 'map' && <DotPlotFullscreenMap points={mapPoints} windEnabled={windEnabled} onWindToggle={() => setWindEnabled((v) => !v)} onClose={() => setFullscreen(false)} />}
 
       <div style={{ width: '100%', minWidth: 0, background: MAP_BG, border: '1px solid #ccd5df', borderRadius: '8px', padding: '1rem', boxShadow: '0 2px 8px rgba(0,0,0,0.08)' }}>
