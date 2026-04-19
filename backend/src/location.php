@@ -6,10 +6,13 @@ require_once __DIR__ . '/db.php';
 function detect_location(): void {
     if (!isset($_SESSION['user_id'])) {
         json_response(['ok' => false, 'error' => 'Not logged in'], 401);
+        return;
     }
 
     $pdo = db();
 
+    // 1. Check if the user already has a manually saved location in the DB.
+    //    If so, return it immediately with source = "user".
     $stmt = $pdo->prepare("SELECT city, state FROM users WHERE id = ?");
     $stmt->execute([$_SESSION['user_id']]);
     $user = $stmt->fetch(PDO::FETCH_ASSOC);
@@ -20,30 +23,31 @@ function detect_location(): void {
             'source'     => 'user',
             'ip_address' => null,
             'country'    => 'US',
-            'region'     => (string)$user['state'],
-            'city'       => (string)$user['city'],
+            'region'     => (string) $user['state'],
+            'city'       => (string) $user['city'],
         ], 200);
+        return;
     }
 
-    $ip = $_SERVER['HTTP_X_FORWARDED_FOR'] ?? $_SERVER['REMOTE_ADDR'] ?? null;
+    // 2. Get client IP (supports proxies / load balancers).
+    $ip       = $_SERVER['HTTP_X_FORWARDED_FOR'] ?? $_SERVER['REMOTE_ADDR'] ?? null;
+    $clean_ip = $ip ? trim(explode(',', $ip)[0]) : null;
 
-    if (!$ip || !filter_var(
-        explode(',', $ip)[0],
-        FILTER_VALIDATE_IP,
-        FILTER_FLAG_NO_PRIV_RANGE | FILTER_FLAG_NO_RES_RANGE
-    )) {
+    if (!$clean_ip || !filter_var($clean_ip, FILTER_VALIDATE_IP)) {
         json_response([
             'ok'         => true,
             'source'     => 'default',
-            'ip_address' => $ip,
+            'ip_address' => $clean_ip,
             'country'    => 'US',
             'region'     => 'Unknown',
             'city'       => 'Unknown',
         ], 200);
+        return;
     }
 
-    $clean_ip = trim(explode(',', $ip)[0]);
-    $api_url  = "http://ip-api.com/json/" . urlencode($clean_ip) . "?fields=status,country,regionName,city,query";
+    // 3. Call ip-api.com for geolocation.
+    $api_url  = "http://ip-api.com/json/" . urlencode($clean_ip)
+              . "?fields=status,country,regionName,city,query";
     $response = @file_get_contents($api_url);
 
     if (!$response) {
@@ -55,6 +59,7 @@ function detect_location(): void {
             'region'     => 'Unknown',
             'city'       => 'Unknown',
         ], 200);
+        return;
     }
 
     $data = json_decode($response, true);
@@ -68,8 +73,10 @@ function detect_location(): void {
             'region'     => 'Unknown',
             'city'       => 'Unknown',
         ], 200);
+        return;
     }
 
+    // 4. Success — return IP-based location.
     json_response([
         'ok'         => true,
         'source'     => 'ip',
