@@ -388,6 +388,7 @@ function publications_fetch_user_rows(PDO $pdo, string $search, string $sourceMo
             up.origin_url,
             up.abstract_text,
             up.publication_type,
+            up.approval_status,
             up.created_at,
             u.first_name,
             u.last_name
@@ -401,6 +402,8 @@ function publications_fetch_user_rows(PDO $pdo, string $search, string $sourceMo
     if ($mineOnly) {
         $clauses[] = "up.user_id = ?";
         $params[] = (int)$_SESSION['user_id'];
+    } else {
+        $clauses[] = "up.approval_status = 'approved'";
     }
 
     if ($search !== '') {
@@ -432,6 +435,7 @@ function publications_fetch_user_rows(PDO $pdo, string $search, string $sourceMo
         $row['display_source'] = $fullName !== '' ? 'User Submission • ' . $fullName : 'User Submission';
         $row['submitted_by_me'] = isLoggedIn() && ((int)$row['user_id'] === (int)$_SESSION['user_id']);
     }
+
     return $rows;
 }
 
@@ -492,6 +496,33 @@ function publications_handle_list(): void {
     ]);
 }
 
+function publications_clean_input($value, int $maxLength = 0): string {
+    $value = strip_tags((string)$value);
+    $value = html_entity_decode($value, ENT_QUOTES | ENT_HTML5, 'UTF-8');
+    $value = preg_replace('/\s+/u', ' ', $value ?? '');
+    $value = trim((string)$value);
+
+    if ($maxLength > 0) {
+        $value = mb_substr($value, 0, $maxLength);
+    }
+
+    return $value;
+}
+
+function publications_is_repeated_garbage(string $value): bool {
+    $compact = preg_replace('/\s+/u', '', $value);
+    return mb_strlen($compact) >= 3 && preg_match('/^([A-Za-z0-9])\1+$/u', $compact) === 1;
+}
+
+function publications_validate_iso_date(string $date): bool {
+    if (!preg_match('/^\d{4}-\d{2}-\d{2}$/', $date)) {
+        return false;
+    }
+
+    [$year, $month, $day] = array_map('intval', explode('-', $date));
+    return checkdate($month, $day, $year);
+}
+
 function publications_handle_submit(): void {
     if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
         publications_json(['ok' => false, 'error' => 'POST required'], 405);
@@ -503,39 +534,102 @@ function publications_handle_submit(): void {
 
     $payload = json_decode((string)file_get_contents('php://input'), true) ?? [];
 
-    $title = trim((string)($payload['title'] ?? ''));
-    $authors = trim((string)($payload['authors'] ?? ''));
-    $journal = trim((string)($payload['journal'] ?? ''));
-    $publicationYear = trim((string)($payload['publication_year'] ?? ''));
-    $publicationDate = trim((string)($payload['publication_date'] ?? ''));
-    $doi = trim((string)($payload['doi'] ?? ''));
-    $originUrl = trim((string)($payload['origin_url'] ?? ''));
-    $abstractText = trim((string)($payload['abstract_text'] ?? ''));
-    $publicationType = trim((string)($payload['publication_type'] ?? ''));
+    $title = publications_clean_input($payload['title'] ?? '', 300);
+    $authors = publications_clean_input($payload['authors'] ?? '', 300);
+    $journal = publications_clean_input($payload['journal'] ?? '', 200);
+    $publicationYear = publications_clean_input($payload['publication_year'] ?? '', 4);
+    $publicationDate = publications_clean_input($payload['publication_date'] ?? '', 10);
+    $doi = publications_clean_input($payload['doi'] ?? '', 255);
+    $originUrl = publications_clean_input($payload['origin_url'] ?? '', 1000);
+    $abstractText = publications_clean_input($payload['abstract_text'] ?? '', 3000);
+    $publicationType = strtolower(publications_clean_input($payload['publication_type'] ?? '', 100));
+
+    $allowedPublicationTypes = [
+        '',
+        'article',
+        'review',
+        'report',
+        'preprint',
+        'case study',
+        'book chapter',
+        'thesis',
+        'other',
+    ];
 
     if ($title === '' || $authors === '') {
         publications_json(['ok' => false, 'error' => 'Title and authors are required.'], 400);
     }
 
-    if ($publicationYear !== '' && !preg_match('/^\d{4}$/', $publicationYear)) {
-        publications_json(['ok' => false, 'error' => 'Publication year must be a 4-digit year.'], 400);
+    if (publications_is_repeated_garbage($title)) {
+        publications_json(['ok' => false, 'error' => 'Title cannot be a repeated single character.'], 400);
     }
 
-    if ($publicationDate !== '' && !preg_match('/^\d{4}-\d{2}-\d{2}$/', $publicationDate)) {
-        publications_json(['ok' => false, 'error' => 'Publication date must be YYYY-MM-DD.'], 400);
+    if (publications_is_repeated_garbage($authors)) {
+        publications_json(['ok' => false, 'error' => 'Authors cannot be a repeated single character.'], 400);
+    }
+
+    if ($journal !== '' && publications_is_repeated_garbage($journal)) {
+        publications_json(['ok' => false, 'error' => 'Journal / Publisher cannot be a repeated single character.'], 400);
+    }
+
+    if ($abstractText !== '' && publications_is_repeated_garbage($abstractText)) {
+        publications_json(['ok' => false, 'error' => 'Abstract / Summary cannot be a repeated single character.'], 400);
+    }
+
+    if ($publicationYear !== '') {
+        if (!preg_match('/^\d{4}$/', $publicationYear)) {
+            publications_json(['ok' => false, 'error' => 'Publication year must be a 4-digit year.'], 400);
+        }
+
+        $currentYear = (int)date('Y');
+        $yearAsInt = (int)$publicationYear;
+        if ($yearAsInt < 1900 || $yearAsInt > ($currentYear + 1)) {
+            publications_json(['ok' => false, 'error' => 'Publication year is out of allowed range.'], 400);
+        }
+    }
+
+    if ($publicationDate !== '' && !publications_validate_iso_date($publicationDate)) {
+        publications_json(['ok' => false, 'error' => 'Publication date must be a real date in YYYY-MM-DD format.'], 400);
+    }
+
+    if ($publicationYear !== '' && $publicationDate !== '' && substr($publicationDate, 0, 4) !== $publicationYear) {
+        publications_json(['ok' => false, 'error' => 'Publication date year must match publication year.'], 400);
+    }
+
+    if ($doi !== '' && !preg_match('/^10\.\d{4,9}\/[-._;()\/:A-Z0-9]+$/i', $doi)) {
+        publications_json(['ok' => false, 'error' => 'DOI must be in a valid format.'], 400);
     }
 
     if ($originUrl !== '' && !filter_var($originUrl, FILTER_VALIDATE_URL)) {
         publications_json(['ok' => false, 'error' => 'Origin URL must be a valid URL.'], 400);
     }
 
+    if ($originUrl !== '') {
+        $scheme = strtolower((string)parse_url($originUrl, PHP_URL_SCHEME));
+        if (!in_array($scheme, ['http', 'https'], true)) {
+            publications_json(['ok' => false, 'error' => 'Origin URL must start with http:// or https://'], 400);
+        }
+    }
+
+    if (!in_array($publicationType, $allowedPublicationTypes, true)) {
+        publications_json(['ok' => false, 'error' => 'Publication type is invalid.'], 400);
+    }
+
     $pdo = db();
     $stmt = $pdo->prepare("
         INSERT INTO user_publications (
-            user_id, title, authors, journal,
-            publication_year, publication_date, doi, origin_url,
-            abstract_text, publication_type
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            user_id,
+            title,
+            authors,
+            journal,
+            publication_year,
+            publication_date,
+            doi,
+            origin_url,
+            abstract_text,
+            publication_type,
+            approval_status
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'pending')
     ");
 
     $stmt->execute([
@@ -553,7 +647,7 @@ function publications_handle_submit(): void {
 
     publications_json([
         'ok' => true,
-        'message' => 'Publication uploaded successfully.'
+        'message' => 'Publication submitted for admin approval.'
     ]);
 }
 

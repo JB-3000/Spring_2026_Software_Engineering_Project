@@ -34,11 +34,13 @@ CREATE TABLE IF NOT EXISTS user_publications (
     origin_url VARCHAR(1000) DEFAULT '',
     abstract_text MEDIUMTEXT,
     publication_type VARCHAR(100) DEFAULT '',
+    approval_status ENUM('pending', 'approved', 'denied') NOT NULL DEFAULT 'pending',
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
     KEY idx_user_publications_user_id (user_id),
     KEY idx_user_publications_year (publication_year),
     KEY idx_user_publications_date (publication_date),
+    KEY idx_user_publications_status (approval_status),
     CONSTRAINT fk_user_publications_user
     FOREIGN KEY (user_id) REFERENCES users(id)
                                                    ON DELETE CASCADE
