@@ -87,7 +87,12 @@ export default function SelfReport() {
         throw new Error(data.error || "Failed to submit report.");
       }
 
-      setSuccess("Report submitted successfully!");
+      if (data.auto_rejected) {
+        alert("Too many rejected self reports. This report has been automatically rejected.");
+        setError(data.message || "Too many rejected self reports. This report has been automatically rejected.");
+      } else {
+        setSuccess("Report submitted successfully!");
+      }
 
       setFormData({
         diseaseType: "",
