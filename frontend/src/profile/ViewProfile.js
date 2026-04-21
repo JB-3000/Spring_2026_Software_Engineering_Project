@@ -24,27 +24,19 @@ export default function ViewProfile() {
   const [profileImg, setProfileImg] = useState(HARDCODED_PROFILE_IMG);
   const fileInputRef = useRef(null);
   const [isEditing, setIsEditing] = useState(false);
-  const [showCancelModal, setShowCancelModal] = useState(false);
-  const [locationStatus, setLocationStatus] = useState("");
-  const [locationLoading, setLocationLoading] = useState(false);
-
-  const userDataRef = useRef({});
 
   const [userData, setUserData] = useState({
     username: "", firstName: "", lastName: "",
     state: "", city: "", address: "", zip: "", email: "", phone: "",
   });
+
   const [editData, setEditData] = useState({ ...userData });
   const navigate = useNavigate();
 
   useEffect(() => {
-    userDataRef.current = userData;
-  }, [userData]);
-
-  useEffect(() => {
     const fetchUserData = async () => {
       try {
-        const res = await fetch(`${API_BASE}?r=getProfile`, { method: "GET", credentials: "include" });
+        const res = await fetch(`${API_BASE}?r=getProfile`, { credentials: "include" });
         const data = await res.json();
         if (data.ok) {
           const sanitized = {
@@ -59,26 +51,12 @@ export default function ViewProfile() {
             phone: DOMPurify.sanitize(data.phone || ""),
           };
 
-          let city = sanitized.city;
-          let state = sanitized.state;
-          if (!city || !state) {
-            try {
-              const raw = localStorage.getItem(STORAGE_KEY);
-              if (raw) {
-                const saved = JSON.parse(raw);
-                if (!city && saved.city) city = saved.city;
-                if (!state && (saved.region || saved.state)) state = saved.region || saved.state;
-              }
-            } catch (_) {}
-          }
-
-          const merged = { ...sanitized, city, state };
-          setUserData(merged);
-          setEditData(merged);
+          setUserData(sanitized);
+          setEditData(sanitized);
           if (data.profileImg) setProfileImg(data.profileImg);
         }
       } catch (err) {
-        console.error("Failed to fetch user data:", err);
+        console.error(err);
       }
     };
     fetchUserData();
@@ -88,27 +66,23 @@ export default function ViewProfile() {
     const file = e.target.files[0];
     if (!file) return;
     const reader = new FileReader();
-    reader.onload = async (event) => {
-      const base64 = event.target.result;
-      setProfileImg(base64);
-      try {
-        await fetch(`${API_BASE}?r=uploadImage`, {
-          method: "POST",
-          credentials: "include",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ image: base64 }),
-        });
-      } catch (err) {
-        console.error("Image upload error:", err);
-      }
+    reader.onload = (event) => {
+      setProfileImg(event.target.result);
     };
     reader.readAsDataURL(file);
   };
 
-  const handleEditClick = () => { setEditData({ ...userData }); setIsEditing(true); };
-  const handleCancelClick = () => { setEditData({ ...userData }); setIsEditing(false); };
+  const handleEditClick = () => {
+    setEditData({ ...userData });
+    setIsEditing(true);
+  };
 
-  // ✅ UPDATED FUNCTION (20 char limit)
+  const handleCancelClick = () => {
+    setEditData({ ...userData });
+    setIsEditing(false);
+  };
+
+  // ✅ NAME LIMIT APPLIED HERE
   const handleChange = (field, value) => {
     let v = value;
 
@@ -132,23 +106,6 @@ export default function ViewProfile() {
   };
 
   const handleSave = async () => {
-    if (!editData.email.toLowerCase().endsWith("@buffalo.edu")) {
-      alert("Registration is restricted to @buffalo.edu email addresses.");
-      return;
-    }
-    if (!VALID_STATES.includes(editData.state.toUpperCase())) {
-      alert("Please enter a valid US state abbreviation.");
-      return;
-    }
-    if (!editData.firstName.trim() || !editData.lastName.trim()) {
-      alert("Name fields cannot be empty.");
-      return;
-    }
-    if (editData.zip.length !== 5) {
-      alert("ZIP code must be 5 digits.");
-      return;
-    }
-
     try {
       const res = await fetch(`${API_BASE}?r=updateProfile`, {
         method: "POST",
@@ -156,13 +113,13 @@ export default function ViewProfile() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           username: editData.username,
-          first_name: editData.firstName.trim(),
-          last_name: editData.lastName.trim(),
-          state: editData.state.trim(),
-          city: editData.city.trim(),
-          address: editData.address.trim(),
+          first_name: editData.firstName,
+          last_name: editData.lastName,
+          state: editData.state,
+          city: editData.city,
+          address: editData.address,
           zip: editData.zip,
-          email: editData.email.trim(),
+          email: editData.email,
           phone: editData.phone,
         }),
       });
@@ -170,23 +127,21 @@ export default function ViewProfile() {
       if (data.ok) {
         setUserData({ ...editData });
         setIsEditing(false);
-      } else {
-        alert("Failed to save: " + data.error);
       }
     } catch (err) {
-      console.error("Failed to save profile:", err);
+      console.error(err);
     }
   };
 
   const fields = [
     { label: "First Name", key: "firstName", type: "text" },
     { label: "Last Name", key: "lastName", type: "text" },
-    { label: "State (2-letter)", key: "state", type: "text" },
+    { label: "State", key: "state", type: "text" },
     { label: "City", key: "city", type: "text" },
     { label: "Address", key: "address", type: "text" },
     { label: "ZIP", key: "zip", type: "text" },
-    { label: "E-mail", key: "email", type: "email" },
-    { label: "Phone Number", key: "phone", type: "tel" },
+    { label: "Email", key: "email", type: "email" },
+    { label: "Phone", key: "phone", type: "tel" },
   ];
 
   return (
@@ -195,6 +150,49 @@ export default function ViewProfile() {
       <Navbar />
 
       <div className="vp-content-box">
+
+        {/* ✅ TOP CARD RESTORED */}
+        <div className="vp-top-card">
+          <div className="vp-top-left">
+            <div className="vp-avatar-wrap" onClick={() => fileInputRef.current.click()}>
+              <div className="vp-avatar">
+                {profileImg
+                  ? <img src={profileImg} alt="Profile" className="vp-avatar-img" />
+                  : <div className="vp-avatar-default" />}
+                <div className="vp-avatar-overlay">Change Photo</div>
+              </div>
+            </div>
+
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept="image/*"
+              style={{ display: "none" }}
+              onChange={handlePhotoChange}
+            />
+
+            <div className="vp-user-info">
+              <p className="vp-username">
+                {userData.firstName} {userData.lastName}
+              </p>
+            </div>
+          </div>
+
+          <div className="vp-top-actions">
+            {!isEditing ? (
+              <button className="vp-edit-btn" onClick={handleEditClick}>
+                Edit Profile
+              </button>
+            ) : (
+              <div className="vp-edit-actions">
+                <button className="vp-save-btn" onClick={handleSave}>Save</button>
+                <button className="vp-cancel-btn" onClick={handleCancelClick}>Cancel</button>
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* FORM */}
         <div className="vp-info-card">
           <p className="vp-info-card-title">Account Information</p>
 
@@ -218,6 +216,7 @@ export default function ViewProfile() {
             ))}
           </div>
         </div>
+
       </div>
 
       <SiteFooter />
