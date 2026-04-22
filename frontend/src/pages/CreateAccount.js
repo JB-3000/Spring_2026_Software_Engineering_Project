@@ -28,14 +28,18 @@ export default function CreateAccount({ onCancel }) {
 
     // Apply the same real-time sanitization as ViewProfile
     if (name === "firstName") {
-      sanitizedValue = value.replace(/[^A-Za-z]/g, "");
+      sanitizedValue = value.replace(/[^A-Za-z]/g, "").slice(0, 20);
     } else if (name === "lastName") {
-      sanitizedValue = value.replace(/[^A-Za-z-]/g, "");
+      sanitizedValue = value.replace(/[^A-Za-z-]/g, "").slice(0, 20);
+    } else if (name === "email") {
+      sanitizedValue = value.slice(0, 400);
+    } else if (name === "password" || name === "confirmPassword") {
+      sanitizedValue = value.slice(0, 400);
     }
 
     setFormData({ ...formData, [name]: sanitizedValue });
     setErrors({ ...errors, [name]: "" });
-  };
+};
 
   const validate = () => {
     const newErrors = {};

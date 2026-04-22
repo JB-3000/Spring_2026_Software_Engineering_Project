@@ -39,11 +39,11 @@ const defaultForm = {
 };
 
 const FIELD_LIMITS = {
-    title: 300,
-    authors: 300,
+    title: 400,
+    authors: 200,
     journal: 200,
     publication_year: 4,
-    origin_url: 1000,
+    origin_url: 200,
     abstract_text: 3000,
 };
 
