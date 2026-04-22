@@ -37,10 +37,12 @@ export default function LoginPage() {
 			if (res.ok && data?.ok === true) {
 				// Admin gets priority redirect to /admin
 				if (data.is_admin === true) {
+					localStorage.setItem("is_admin", "true");
 					navigate("/admin");
 					return;
 				}
 
+				localStorage.removeItem("is_admin");
 				// Regular user goes to home
 				navigate("/home");
 				return;

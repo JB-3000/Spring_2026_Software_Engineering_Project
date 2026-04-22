@@ -6,6 +6,9 @@ require __DIR__ . '/../../src/response.php';
 require __DIR__ . '/../../src/auth.php';    // Provides login() and session_start()
 require __DIR__ . '/../../src/profile.php'; // Added for ViewProfile
 
+//start session and handle CORS
+session_start();
+
 header('Content-Type: application/json; charset=utf-8');
 
 $allowedOrigins = [
@@ -121,7 +124,7 @@ try {
         exit;
     }
 
-    if ($route === 'publications-list' || $route === 'publications-submit') {
+    if ($route === 'publications-list' || $route === 'publications-submit' || $route === 'publications-download') {
             require __DIR__ . '/publications.php';
             exit;
     }
@@ -174,6 +177,12 @@ try {
 
     // data page (lexi)
     //  outbreaks: summary stats
+    if ($route === 'detectLocation') {
+    require __DIR__ . '/../../src/location.php';
+    detect_location();
+    exit;
+}
+
     if ($route === 'outbreaks-summary') {
         $pdo       = db();
         $disease   = isset($_GET['disease'])          ? trim((string)$_GET['disease'])          : '';

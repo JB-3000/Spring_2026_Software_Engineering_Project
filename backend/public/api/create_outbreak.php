@@ -51,6 +51,18 @@ try {
     $pdo = db();
     $userId = (int)$_SESSION['user_id'];
 
+    // Users with 10+ rejected self reports can still submit, but the new
+    // report is automatically rejected instead of entering the admin queue.
+    $countStmt = $pdo->prepare("
+        SELECT COUNT(*)
+        FROM outbreaks
+        WHERE User_ID = :user_id AND status = 'rejected'
+    ");
+    $countStmt->execute([':user_id' => $userId]);
+    $rejectedCount = (int)$countStmt->fetchColumn();
+    $autoRejected = $rejectedCount >= 10;
+    $newStatus = $autoRejected ? 'rejected' : 'pending';
+
     $stmt = $pdo->prepare("
         INSERT INTO outbreaks 
         (disease, state, cases, report_date, created_at, disease_type, User_ID, status)
@@ -63,15 +75,19 @@ try {
         ':cases'        => 1,
         ':disease_type' => 'animal',           // or 'animal' — adjust as needed
         ':user_id'      => $userId,
-        ':status'       => 'pending'
+        ':status'       => $newStatus
     ]);
 
     $insertId = $pdo->lastInsertId();
 
     echo json_encode([
-        'ok'        => true,
-        'message'   => 'Outbreak report created successfully',
-        'insert_id' => $insertId
+        'ok'            => true,
+        'message'       => $autoRejected
+            ? 'Too many rejected self reports. This report has been automatically rejected.'
+            : 'Outbreak report created successfully',
+        'insert_id'     => $insertId,
+        'auto_rejected' => $autoRejected,
+        'status'        => $newStatus
     ]);
 
 } catch (Throwable $e) {
