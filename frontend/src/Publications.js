@@ -32,7 +32,6 @@ const defaultForm = {
     journal: '',
     publication_year: '',
     publication_date: '',
-    doi: '',
     origin_url: '',
     abstract_text: '',
     publication_type: '',
@@ -43,7 +42,6 @@ const FIELD_LIMITS = {
     authors: 300,
     journal: 200,
     publication_year: 4,
-    doi: 255,
     origin_url: 1000,
     abstract_text: 3000,
 };
@@ -66,7 +64,6 @@ function validateForm(formData) {
     const journal = normalizeSpaces(formData.journal);
     const publicationYear = normalizeSpaces(formData.publication_year);
     const publicationDate = formData.publication_date.trim();
-    const doi = normalizeSpaces(formData.doi);
     const originUrl = normalizeSpaces(formData.origin_url);
     const abstractText = normalizeSpaces(formData.abstract_text);
     const publicationType = normalizeSpaces(formData.publication_type);
@@ -106,14 +103,6 @@ function validateForm(formData) {
 
     if (publicationDate && !/^\d{4}-\d{2}-\d{2}$/.test(publicationDate)) {
         errors.publication_date = 'Publication date must be in YYYY-MM-DD format.';
-    }
-
-    if (doi) {
-        if (doi.length > FIELD_LIMITS.doi) {
-            errors.doi = `DOI must be ${FIELD_LIMITS.doi} characters or fewer.`;
-        } else if (!/^10\.\d{4,9}\/[-._;()/:A-Z0-9]+$/i.test(doi)) {
-            errors.doi = 'DOI must be in a valid format.';
-        }
     }
 
     if (originUrl) {
@@ -158,7 +147,6 @@ function sanitizePayload(formData) {
         journal: normalizeSpaces(formData.journal),
         publication_year: normalizeSpaces(formData.publication_year),
         publication_date: formData.publication_date.trim(),
-        doi: normalizeSpaces(formData.doi),
         origin_url: normalizeSpaces(formData.origin_url),
         abstract_text: normalizeSpaces(formData.abstract_text),
         publication_type: normalizeSpaces(formData.publication_type),
@@ -305,7 +293,6 @@ function Publications() {
         if (name === 'title') nextValue = value.slice(0, FIELD_LIMITS.title);
         if (name === 'authors') nextValue = value.slice(0, FIELD_LIMITS.authors);
         if (name === 'journal') nextValue = value.slice(0, FIELD_LIMITS.journal);
-        if (name === 'doi') nextValue = value.slice(0, FIELD_LIMITS.doi);
         if (name === 'origin_url') nextValue = value.slice(0, FIELD_LIMITS.origin_url);
         if (name === 'abstract_text') nextValue = value.slice(0, FIELD_LIMITS.abstract_text);
 
@@ -397,7 +384,7 @@ function Publications() {
                         <p className="publications-card__meta">
                             <strong>Platform Source:</strong> {pub.display_source}
                         </p>
-                        {pub.doi && (
+                        {pub.bucket === 'api' && pub.doi && (
                             <p className="publications-card__meta">
                                 <strong>DOI:</strong> {pub.doi}
                             </p>
@@ -623,19 +610,6 @@ function Publications() {
                                         className={formErrors.publication_date ? 'publications-field--error' : ''}
                                     />
                                     {formErrors.publication_date && <span className="publications-field-error">{formErrors.publication_date}</span>}
-                                </label>
-
-                                <label>
-                                    DOI
-                                    <input
-                                        name="doi"
-                                        value={formData.doi}
-                                        onChange={handleFormChange}
-                                        maxLength={FIELD_LIMITS.doi}
-                                        placeholder="10.1000/xyz123"
-                                        className={formErrors.doi ? 'publications-field--error' : ''}
-                                    />
-                                    {formErrors.doi && <span className="publications-field-error">{formErrors.doi}</span>}
                                 </label>
 
                                 <label>

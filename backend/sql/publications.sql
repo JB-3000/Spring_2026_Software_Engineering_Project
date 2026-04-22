@@ -30,7 +30,6 @@ CREATE TABLE IF NOT EXISTS user_publications (
     journal VARCHAR(255) DEFAULT '',
     publication_year INT DEFAULT NULL,
     publication_date DATE DEFAULT NULL,
-    doi VARCHAR(255) DEFAULT '',
     origin_url VARCHAR(1000) DEFAULT '',
     abstract_text MEDIUMTEXT,
     publication_type VARCHAR(100) DEFAULT '',
@@ -44,6 +43,16 @@ CREATE TABLE IF NOT EXISTS user_publications (
     CONSTRAINT fk_user_publications_user
     FOREIGN KEY (user_id) REFERENCES users(id)
                                                    ON DELETE CASCADE
+    );
+
+CREATE TABLE IF NOT EXISTS publication_sync_status (
+                                                       id INT AUTO_INCREMENT PRIMARY KEY,
+                                                       provider VARCHAR(100) NOT NULL,
+    status VARCHAR(20) NOT NULL,
+    message VARCHAR(500) DEFAULT '',
+    ran_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    KEY idx_publication_sync_provider (provider),
+    KEY idx_publication_sync_ran_at (ran_at)
     );
 
 CREATE TABLE IF NOT EXISTS publication_sync_status (

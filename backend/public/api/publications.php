@@ -24,78 +24,49 @@ function publications_openalex_queries(): array {
         'foot and mouth disease cattle livestock outbreak surveillance',
         'bovine tuberculosis cattle livestock outbreak surveillance',
         'bluetongue sheep cattle livestock outbreak surveillance',
-        'brucellosis cattle goat sheep livestock outbreak surveillance',
-        'livestock epidemic disease surveillance cattle swine poultry'
+        'livestock epidemic disease surveillance agriculture outbreak',
+        'zoonotic livestock disease spread agriculture surveillance',
     ];
-}
-
-function publications_livestock_terms(): array {
-    return [
-        'livestock', 'cattle', 'bovine', 'cow', 'dairy', 'swine', 'pig', 'porcine',
-        'poultry', 'avian', 'chicken', 'broiler', 'turkey', 'sheep', 'ovine',
-        'goat', 'caprine', 'herd', 'flock'
-    ];
-}
-
-function publications_disease_terms(): array {
-    return [
-        'outbreak', 'epidemic', 'epizootic', 'surveillance', 'transmission',
-        'avian influenza', 'h5n1', 'african swine fever', 'foot and mouth',
-        'foot-and-mouth', 'bovine tuberculosis', 'brucellosis', 'bluetongue',
-        'disease', 'pathogen', 'infection'
-    ];
-}
-
-function publications_join_authors(array $authorships): string {
-    $names = [];
-    foreach ($authorships as $author) {
-        $name = trim((string)($author['author']['display_name'] ?? ''));
-        if ($name !== '') {
-            $names[] = $name;
-        }
-    }
-    return implode(', ', $names);
-}
-
-function publications_extract_journal(array $work): string {
-    return trim((string)($work['primary_location']['source']['display_name'] ?? ''));
-}
-
-function publications_extract_origin_url(array $work): string {
-    $landing = trim((string)($work['primary_location']['landing_page_url'] ?? ''));
-    if ($landing !== '') return $landing;
-
-    $doi = trim((string)($work['doi'] ?? ''));
-    if ($doi !== '') return $doi;
-
-    return trim((string)($work['id'] ?? ''));
-}
-
-function publications_rebuild_abstract($invertedIndex): string {
-    if (!is_array($invertedIndex) || empty($invertedIndex)) {
-        return '';
-    }
-
-    $positionToWord = [];
-    foreach ($invertedIndex as $word => $positions) {
-        if (!is_array($positions)) continue;
-        foreach ($positions as $pos) {
-            $positionToWord[(int)$pos] = $word;
-        }
-    }
-
-    if (empty($positionToWord)) return '';
-
-    ksort($positionToWord);
-    return trim(implode(' ', $positionToWord));
 }
 
 function publications_is_relevant(string $text): bool {
-    $text = strtolower($text);
+    $haystack = mb_strtolower($text);
+
+    $mustHaveOne = [
+        'livestock',
+        'cattle',
+        'swine',
+        'pig',
+        'poultry',
+        'chicken',
+        'turkey',
+        'goat',
+        'sheep',
+        'dairy',
+        'farm',
+        'agriculture',
+        'bovine',
+        'avian',
+    ];
+
+    $mustHaveDisease = [
+        'disease',
+        'outbreak',
+        'epidemic',
+        'virus',
+        'influenza',
+        'flu',
+        'tuberculosis',
+        'fever',
+        'infection',
+        'pathogen',
+        'surveillance',
+        'biosecurity',
+    ];
 
     $hasLivestock = false;
-    foreach (publications_livestock_terms() as $term) {
-        if (str_contains($text, strtolower($term))) {
+    foreach ($mustHaveOne as $term) {
+        if (str_contains($haystack, $term)) {
             $hasLivestock = true;
             break;
         }
@@ -103,8 +74,8 @@ function publications_is_relevant(string $text): bool {
 
     if (!$hasLivestock) return false;
 
-    foreach (publications_disease_terms() as $term) {
-        if (str_contains($text, strtolower($term))) {
+    foreach ($mustHaveDisease as $term) {
+        if (str_contains($haystack, $term)) {
             return true;
         }
     }
@@ -112,34 +83,71 @@ function publications_is_relevant(string $text): bool {
     return false;
 }
 
+function publications_join_authors(array $authorships): string {
+    $names = [];
+    foreach ($authorships as $entry) {
+        $display = trim((string)($entry['author']['display_name'] ?? ''));
+        if ($display !== '') {
+            $names[] = $display;
+        }
+    }
+    return implode(', ', array_slice($names, 0, 8));
+}
+
+function publications_extract_journal(array $work): string {
+    return trim((string)(
+        $work['primary_location']['source']['display_name']
+        ?? $work['host_venue']['display_name']
+        ?? ''
+    ));
+}
+
+function publications_extract_origin_url(array $work): string {
+    $landing = trim((string)($work['primary_location']['landing_page_url'] ?? ''));
+    if ($landing !== '') return $landing;
+
+    $pdf = trim((string)($work['primary_location']['pdf_url'] ?? ''));
+    if ($pdf !== '') return $pdf;
+
+    $doi = trim((string)($work['doi'] ?? ''));
+    if ($doi !== '') return $doi;
+
+    return '';
+}
+
+function publications_rebuild_abstract(?array $abstractIndex): string {
+    if (!$abstractIndex || !is_array($abstractIndex)) return '';
+
+    $positions = [];
+    foreach ($abstractIndex as $word => $indexes) {
+        if (!is_array($indexes)) continue;
+        foreach ($indexes as $pos) {
+            $positions[(int)$pos] = (string)$word;
+        }
+    }
+
+    if (!$positions) return '';
+    ksort($positions);
+    return implode(' ', $positions);
+}
+
 function publications_http_get_json(string $url): array {
-    $ch = curl_init($url);
-    curl_setopt_array($ch, [
-        CURLOPT_RETURNTRANSFER => true,
-        CURLOPT_TIMEOUT => 12,
-        CURLOPT_CONNECTTIMEOUT => 8,
-        CURLOPT_FOLLOWLOCATION => true,
-        CURLOPT_HTTPHEADER => [
-            'Accept: application/json',
-            'User-Agent: LivestockEpidemicTracker/1.0'
+    $opts = [
+        'http' => [
+            'method' => 'GET',
+            'timeout' => 15,
+            'header' => "Accept: application/json\r\nUser-Agent: CSE442-Publications/1.0\r\n",
         ],
-    ]);
+    ];
 
-    $body = curl_exec($ch);
-    $errno = curl_errno($ch);
-    $error = curl_error($ch);
-    $status = (int)curl_getinfo($ch, CURLINFO_HTTP_CODE);
-    curl_close($ch);
+    $context = stream_context_create($opts);
+    $response = @file_get_contents($url, false, $context);
 
-    if ($errno !== 0) {
-        throw new RuntimeException('cURL error: ' . $error);
+    if ($response === false) {
+        throw new RuntimeException('Failed to reach publications provider');
     }
 
-    if ($status < 200 || $status >= 300) {
-        throw new RuntimeException('HTTP status ' . $status);
-    }
-
-    $decoded = json_decode((string)$body, true);
+    $decoded = json_decode($response, true);
     if (!is_array($decoded)) {
         throw new RuntimeException('Invalid JSON response');
     }
@@ -384,7 +392,6 @@ function publications_fetch_user_rows(PDO $pdo, string $search, string $sourceMo
             up.journal,
             up.publication_year,
             up.publication_date,
-            up.doi,
             up.origin_url,
             up.abstract_text,
             up.publication_type,
@@ -412,10 +419,9 @@ function publications_fetch_user_rows(PDO $pdo, string $search, string $sourceMo
             OR up.authors LIKE ?
             OR up.journal LIKE ?
             OR up.abstract_text LIKE ?
-            OR up.doi LIKE ?
         )";
         $like = '%' . $search . '%';
-        array_push($params, $like, $like, $like, $like, $like);
+        array_push($params, $like, $like, $like, $like);
     }
 
     if (!empty($clauses)) {
@@ -439,59 +445,73 @@ function publications_fetch_user_rows(PDO $pdo, string $search, string $sourceMo
     return $rows;
 }
 
-function publications_sort_rows(array &$rows): void {
-    usort($rows, function ($a, $b) {
-        $dateA = $a['publication_date'] ?: (($a['publication_year'] ?? '') ? ($a['publication_year'] . '-01-01') : '1900-01-01');
-        $dateB = $b['publication_date'] ?: (($b['publication_year'] ?? '') ? ($b['publication_year'] . '-01-01') : '1900-01-01');
-        return strcmp($dateB, $dateA);
-    });
-}
-
-function publications_handle_list(): void {
-    $pdo = db();
-
-    $search = trim((string)($_GET['q'] ?? ''));
-    $source = trim((string)($_GET['source'] ?? 'all'));
-    $page = max(1, (int)($_GET['page'] ?? 1));
-    $perPage = (int)($_GET['perPage'] ?? 10);
-
-    if (!in_array($source, ['all', 'api', 'user', 'mine'], true)) {
-        $source = 'all';
-    }
-
-    if (!in_array($perPage, [10, 20, 30, 40, 50], true)) {
-        $perPage = 10;
-    }
-
-    $syncStatus = publications_ensure_cache($pdo);
-
-    $rows = [];
-    if ($source === 'all' || $source === 'api') {
-        $rows = array_merge($rows, publications_fetch_api_rows($pdo, $search));
-    }
-    if ($source === 'all' || $source === 'user' || $source === 'mine') {
-        $rows = array_merge($rows, publications_fetch_user_rows($pdo, $search, $source));
-    }
-
-    publications_sort_rows($rows);
-
+function publications_paginate(array $rows, int $page, int $perPage): array {
     $total = count($rows);
     $totalPages = max(1, (int)ceil($total / $perPage));
-    if ($page > $totalPages) $page = $totalPages;
-
+    $page = max(1, min($page, $totalPages));
     $offset = ($page - 1) * $perPage;
-    $items = array_slice($rows, $offset, $perPage);
 
-    publications_json([
-        'ok' => true,
-        'items' => array_values($items),
+    return [
+        'items' => array_slice($rows, $offset, $perPage),
         'pagination' => [
             'page' => $page,
             'perPage' => $perPage,
             'total' => $total,
             'totalPages' => $totalPages,
-        ],
-        'apiStatus' => $syncStatus,
+        ]
+    ];
+}
+
+function publications_handle_list(): void {
+    $pdo = db();
+    $apiStatus = publications_ensure_cache($pdo);
+
+    $search = trim((string)($_GET['q'] ?? ''));
+    $source = strtolower(trim((string)($_GET['source'] ?? 'all')));
+    $page = max(1, (int)($_GET['page'] ?? 1));
+    $perPage = (int)($_GET['perPage'] ?? 10);
+    if (!in_array($perPage, [10, 20, 30, 40, 50], true)) {
+        $perPage = 10;
+    }
+
+    $apiRows = [];
+    $userRows = [];
+
+    if ($source === 'all' || $source === 'api') {
+        $apiRows = publications_fetch_api_rows($pdo, $search);
+    }
+
+    if ($source === 'all' || $source === 'user' || $source === 'mine') {
+        $userRows = publications_fetch_user_rows($pdo, $search, $source);
+    }
+
+    $combined = array_merge($apiRows, $userRows);
+
+    usort($combined, static function (array $a, array $b): int {
+        $dateA = strtotime((string)($a['publication_date'] ?? ''));
+        $dateB = strtotime((string)($b['publication_date'] ?? ''));
+
+        if ($dateA && $dateB) {
+            return $dateB <=> $dateA;
+        }
+
+        $yearA = (int)($a['publication_year'] ?? 0);
+        $yearB = (int)($b['publication_year'] ?? 0);
+
+        if ($yearA !== $yearB) {
+            return $yearB <=> $yearA;
+        }
+
+        return ((int)$b['id']) <=> ((int)$a['id']);
+    });
+
+    $paged = publications_paginate($combined, $page, $perPage);
+
+    publications_json([
+        'ok' => true,
+        'items' => $paged['items'],
+        'pagination' => $paged['pagination'],
+        'apiStatus' => $apiStatus,
         'isLoggedIn' => isLoggedIn(),
     ]);
 }
@@ -539,7 +559,6 @@ function publications_handle_submit(): void {
     $journal = publications_clean_input($payload['journal'] ?? '', 200);
     $publicationYear = publications_clean_input($payload['publication_year'] ?? '', 4);
     $publicationDate = publications_clean_input($payload['publication_date'] ?? '', 10);
-    $doi = publications_clean_input($payload['doi'] ?? '', 255);
     $originUrl = publications_clean_input($payload['origin_url'] ?? '', 1000);
     $abstractText = publications_clean_input($payload['abstract_text'] ?? '', 3000);
     $publicationType = strtolower(publications_clean_input($payload['publication_type'] ?? '', 100));
@@ -596,10 +615,6 @@ function publications_handle_submit(): void {
         publications_json(['ok' => false, 'error' => 'Publication date year must match publication year.'], 400);
     }
 
-    if ($doi !== '' && !preg_match('/^10\.\d{4,9}\/[-._;()\/:A-Z0-9]+$/i', $doi)) {
-        publications_json(['ok' => false, 'error' => 'DOI must be in a valid format.'], 400);
-    }
-
     if ($originUrl !== '' && !filter_var($originUrl, FILTER_VALIDATE_URL)) {
         publications_json(['ok' => false, 'error' => 'Origin URL must be a valid URL.'], 400);
     }
@@ -624,12 +639,11 @@ function publications_handle_submit(): void {
             journal,
             publication_year,
             publication_date,
-            doi,
             origin_url,
             abstract_text,
             publication_type,
             approval_status
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'pending')
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'pending')
     ");
 
     $stmt->execute([
@@ -639,7 +653,6 @@ function publications_handle_submit(): void {
         $journal,
         $publicationYear !== '' ? (int)$publicationYear : null,
         $publicationDate !== '' ? $publicationDate : null,
-        $doi,
         $originUrl,
         $abstractText,
         $publicationType,
@@ -660,5 +673,3 @@ if ($route === 'publications-list') {
 if ($route === 'publications-submit') {
     publications_handle_submit();
 }
-
-publications_json(['ok' => false, 'error' => 'Invalid publications route.'], 400);
