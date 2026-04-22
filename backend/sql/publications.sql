@@ -31,6 +31,10 @@ CREATE TABLE IF NOT EXISTS user_publications (
     publication_year INT DEFAULT NULL,
     publication_date DATE DEFAULT NULL,
     origin_url VARCHAR(1000) DEFAULT '',
+    uploaded_file_path VARCHAR(1000) DEFAULT NULL,
+    uploaded_original_filename VARCHAR(255) DEFAULT NULL,
+    uploaded_mime_type VARCHAR(100) DEFAULT NULL,
+    uploaded_file_size INT UNSIGNED DEFAULT NULL,
     abstract_text MEDIUMTEXT,
     publication_type VARCHAR(100) DEFAULT '',
     approval_status ENUM('pending', 'approved', 'denied') NOT NULL DEFAULT 'pending',
@@ -43,16 +47,6 @@ CREATE TABLE IF NOT EXISTS user_publications (
     CONSTRAINT fk_user_publications_user
     FOREIGN KEY (user_id) REFERENCES users(id)
                                                    ON DELETE CASCADE
-    );
-
-CREATE TABLE IF NOT EXISTS publication_sync_status (
-                                                       id INT AUTO_INCREMENT PRIMARY KEY,
-                                                       provider VARCHAR(100) NOT NULL,
-    status VARCHAR(20) NOT NULL,
-    message VARCHAR(500) DEFAULT '',
-    ran_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    KEY idx_publication_sync_provider (provider),
-    KEY idx_publication_sync_ran_at (ran_at)
     );
 
 CREATE TABLE IF NOT EXISTS publication_sync_status (

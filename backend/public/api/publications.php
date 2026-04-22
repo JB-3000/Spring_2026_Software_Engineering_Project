@@ -4,11 +4,13 @@ declare(strict_types=1);
 require_once __DIR__ . '/../../src/db.php';
 require_once __DIR__ . '/../../src/auth.php';
 
-const PUBLICATIONS_CACHE_TTL_SECONDS = 1800; // 30 minutes
+const PUBLICATIONS_CACHE_TTL_SECONDS = 1800;
 const PUBLICATIONS_SYNC_PROVIDER = 'OpenAlex';
+const PUBLICATIONS_MAX_UPLOAD_BYTES = 5242880; // 5 MB
 
 function publications_json(array $payload, int $status = 200): void {
     http_response_code($status);
+    header('Content-Type: application/json; charset=utf-8');
     echo json_encode($payload, JSON_UNESCAPED_SLASHES);
     exit;
 }
@@ -72,7 +74,9 @@ function publications_is_relevant(string $text): bool {
         }
     }
 
-    if (!$hasLivestock) return false;
+    if (!$hasLivestock) {
+        return false;
+    }
 
     foreach ($mustHaveDisease as $term) {
         if (str_contains($haystack, $term)) {
@@ -104,29 +108,42 @@ function publications_extract_journal(array $work): string {
 
 function publications_extract_origin_url(array $work): string {
     $landing = trim((string)($work['primary_location']['landing_page_url'] ?? ''));
-    if ($landing !== '') return $landing;
+    if ($landing !== '') {
+        return $landing;
+    }
 
     $pdf = trim((string)($work['primary_location']['pdf_url'] ?? ''));
-    if ($pdf !== '') return $pdf;
+    if ($pdf !== '') {
+        return $pdf;
+    }
 
     $doi = trim((string)($work['doi'] ?? ''));
-    if ($doi !== '') return $doi;
+    if ($doi !== '') {
+        return $doi;
+    }
 
     return '';
 }
 
 function publications_rebuild_abstract(?array $abstractIndex): string {
-    if (!$abstractIndex || !is_array($abstractIndex)) return '';
+    if (!$abstractIndex || !is_array($abstractIndex)) {
+        return '';
+    }
 
     $positions = [];
     foreach ($abstractIndex as $word => $indexes) {
-        if (!is_array($indexes)) continue;
+        if (!is_array($indexes)) {
+            continue;
+        }
         foreach ($indexes as $pos) {
             $positions[(int)$pos] = (string)$word;
         }
     }
 
-    if (!$positions) return '';
+    if (!$positions) {
+        return '';
+    }
+
     ksort($positions);
     return implode(' ', $positions);
 }
@@ -265,14 +282,17 @@ function publications_sync_openalex(PDO $pdo): array {
     return [
         'ok' => true,
         'status' => 'up',
-        'message' => $message
+        'message' => $message,
     ];
 }
 
 function publications_get_last_cache_time(PDO $pdo): ?int {
     $stmt = $pdo->query("SELECT MAX(cached_at) AS latest FROM api_publications_cache");
     $row = $stmt->fetch();
-    if (!$row || empty($row['latest'])) return null;
+    if (!$row || empty($row['latest'])) {
+        return null;
+    }
+
     $ts = strtotime((string)$row['latest']);
     return $ts !== false ? $ts : null;
 }
@@ -292,14 +312,14 @@ function publications_get_last_sync_status(PDO $pdo): array {
         return [
             'status' => 'unknown',
             'message' => 'No sync has run yet.',
-            'ran_at' => null
+            'ran_at' => null,
         ];
     }
 
     return [
         'status' => (string)$row['status'],
         'message' => (string)$row['message'],
-        'ran_at' => (string)$row['ran_at']
+        'ran_at' => (string)$row['ran_at'],
     ];
 }
 
@@ -316,7 +336,7 @@ function publications_ensure_cache(PDO $pdo): array {
         return [
             'status' => $sync['status'],
             'message' => $sync['message'],
-            'ran_at' => date('Y-m-d H:i:s')
+            'ran_at' => date('Y-m-d H:i:s'),
         ];
     } catch (Throwable $e) {
         $message = 'OpenAlex sync failed. Serving cached publications instead. ' . $e->getMessage();
@@ -325,7 +345,7 @@ function publications_ensure_cache(PDO $pdo): array {
         return [
             'status' => 'down',
             'message' => $message,
-            'ran_at' => date('Y-m-d H:i:s')
+            'ran_at' => date('Y-m-d H:i:s'),
         ];
     }
 }
@@ -372,7 +392,10 @@ function publications_fetch_api_rows(PDO $pdo, string $search): array {
         $row['bucket'] = 'api';
         $row['display_source'] = 'OpenAlex';
         $row['submitted_by_me'] = false;
+        $row['uploaded_file_available'] = false;
+        $row['uploaded_original_filename'] = null;
     }
+
     return $rows;
 }
 
@@ -393,6 +416,10 @@ function publications_fetch_user_rows(PDO $pdo, string $search, string $sourceMo
             up.publication_year,
             up.publication_date,
             up.origin_url,
+            up.uploaded_file_path,
+            up.uploaded_original_filename,
+            up.uploaded_mime_type,
+            up.uploaded_file_size,
             up.abstract_text,
             up.publication_type,
             up.approval_status,
@@ -419,9 +446,10 @@ function publications_fetch_user_rows(PDO $pdo, string $search, string $sourceMo
             OR up.authors LIKE ?
             OR up.journal LIKE ?
             OR up.abstract_text LIKE ?
+            OR up.uploaded_original_filename LIKE ?
         )";
         $like = '%' . $search . '%';
-        array_push($params, $like, $like, $like, $like);
+        array_push($params, $like, $like, $like, $like, $like);
     }
 
     if (!empty($clauses)) {
@@ -440,6 +468,7 @@ function publications_fetch_user_rows(PDO $pdo, string $search, string $sourceMo
         $row['source_name'] = 'User Submission';
         $row['display_source'] = $fullName !== '' ? 'User Submission • ' . $fullName : 'User Submission';
         $row['submitted_by_me'] = isLoggedIn() && ((int)$row['user_id'] === (int)$_SESSION['user_id']);
+        $row['uploaded_file_available'] = !empty($row['uploaded_file_path']);
     }
 
     return $rows;
@@ -458,7 +487,7 @@ function publications_paginate(array $rows, int $page, int $perPage): array {
             'perPage' => $perPage,
             'total' => $total,
             'totalPages' => $totalPages,
-        ]
+        ],
     ];
 }
 
@@ -542,6 +571,18 @@ function publications_clean_url_input($value, int $maxLength = 0): string {
     return $value;
 }
 
+function publications_sanitize_filename(string $filename): string {
+    $filename = basename($filename);
+    $filename = preg_replace('/[^A-Za-z0-9._ -]/', '_', $filename) ?? 'publication.pdf';
+    $filename = trim($filename);
+
+    if ($filename === '') {
+        return 'publication.pdf';
+    }
+
+    return mb_substr($filename, 0, 255);
+}
+
 function publications_is_repeated_garbage(string $value): bool {
     $compact = preg_replace('/\s+/u', '', $value);
     return mb_strlen($compact) >= 3 && preg_match('/^([A-Za-z0-9])\1+$/u', $compact) === 1;
@@ -590,6 +631,97 @@ function publications_validate_user_url(string $url): ?string {
     return null;
 }
 
+function publications_validate_uploaded_pdf(array $file): ?string {
+    if (($file['error'] ?? UPLOAD_ERR_NO_FILE) === UPLOAD_ERR_NO_FILE) {
+        return null;
+    }
+
+    if (($file['error'] ?? UPLOAD_ERR_OK) !== UPLOAD_ERR_OK) {
+        return 'Uploaded file could not be processed.';
+    }
+
+    $filename = strtolower((string)($file['name'] ?? ''));
+    if (!str_ends_with($filename, '.pdf')) {
+        return 'Uploaded file must be a PDF.';
+    }
+
+    $size = (int)($file['size'] ?? 0);
+    if ($size <= 0) {
+        return 'Uploaded file is empty.';
+    }
+
+    if ($size > PUBLICATIONS_MAX_UPLOAD_BYTES) {
+        return 'Uploaded PDF must be 5 MB or smaller.';
+    }
+
+    $tmpName = (string)($file['tmp_name'] ?? '');
+    if ($tmpName === '' || !is_uploaded_file($tmpName)) {
+        return 'Uploaded file is invalid.';
+    }
+
+    $finfo = new finfo(FILEINFO_MIME_TYPE);
+    $mimeType = strtolower((string)$finfo->file($tmpName));
+    if (!in_array($mimeType, ['application/pdf', 'application/x-pdf'], true)) {
+        return 'Uploaded file must be a PDF.';
+    }
+
+    $handle = @fopen($tmpName, 'rb');
+    if ($handle === false) {
+        return 'Uploaded file could not be inspected.';
+    }
+
+    $signature = fread($handle, 5);
+    fclose($handle);
+
+    if ($signature !== '%PDF-') {
+        return 'Uploaded file must be a valid PDF.';
+    }
+
+    return null;
+}
+
+function publications_upload_storage_dir(): string {
+    return dirname(__DIR__, 2) . '/storage/publication_uploads';
+}
+
+function publications_store_uploaded_pdf(array $file): array {
+    $storageDir = publications_upload_storage_dir();
+
+    if (!is_dir($storageDir) && !mkdir($storageDir, 0755, true) && !is_dir($storageDir)) {
+        throw new RuntimeException('Upload storage directory could not be created.');
+    }
+
+    $randomName = bin2hex(random_bytes(16)) . '.pdf';
+    $absolutePath = $storageDir . '/' . $randomName;
+
+    if (!move_uploaded_file((string)$file['tmp_name'], $absolutePath)) {
+        throw new RuntimeException('Uploaded PDF could not be saved.');
+    }
+
+    $finfo = new finfo(FILEINFO_MIME_TYPE);
+    $mimeType = (string)$finfo->file($absolutePath);
+
+    return [
+        'uploaded_file_path' => 'storage/publication_uploads/' . $randomName,
+        'uploaded_original_filename' => publications_sanitize_filename((string)($file['name'] ?? 'publication.pdf')),
+        'uploaded_mime_type' => $mimeType !== '' ? $mimeType : 'application/pdf',
+        'uploaded_file_size' => (int)filesize($absolutePath),
+        'absolute_path' => $absolutePath,
+    ];
+}
+
+function publications_current_user_is_admin(PDO $pdo): bool {
+    if (!isLoggedIn()) {
+        return false;
+    }
+
+    $stmt = $pdo->prepare("SELECT is_admin FROM users WHERE id = ? LIMIT 1");
+    $stmt->execute([(int)$_SESSION['user_id']]);
+    $row = $stmt->fetch();
+
+    return $row && (int)$row['is_admin'] === 1;
+}
+
 function publications_handle_submit(): void {
     if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
         publications_json(['ok' => false, 'error' => 'POST required'], 405);
@@ -599,7 +731,13 @@ function publications_handle_submit(): void {
         publications_json(['ok' => false, 'error' => 'You must be logged in to upload a publication.'], 401);
     }
 
-    $payload = json_decode((string)file_get_contents('php://input'), true) ?? [];
+    $isMultipart = !empty($_POST) || !empty($_FILES);
+
+    if ($isMultipart) {
+        $payload = $_POST;
+    } else {
+        $payload = json_decode((string)file_get_contents('php://input'), true) ?? [];
+    }
 
     $title = publications_clean_input($payload['title'] ?? '', 300);
     $authors = publications_clean_input($payload['authors'] ?? '', 300);
@@ -609,6 +747,7 @@ function publications_handle_submit(): void {
     $originUrl = publications_clean_url_input($payload['origin_url'] ?? '', 1000);
     $abstractText = publications_clean_input($payload['abstract_text'] ?? '', 3000);
     $publicationType = strtolower(publications_clean_input($payload['publication_type'] ?? '', 100));
+    $uploadedFile = $_FILES['uploaded_file'] ?? null;
 
     $allowedPublicationTypes = [
         '',
@@ -667,42 +806,131 @@ function publications_handle_submit(): void {
         publications_json(['ok' => false, 'error' => $urlError], 400);
     }
 
+    $fileError = $uploadedFile ? publications_validate_uploaded_pdf($uploadedFile) : null;
+    if ($fileError !== null) {
+        publications_json(['ok' => false, 'error' => $fileError], 400);
+    }
+
+    if ($originUrl === '' && !$uploadedFile) {
+        publications_json(['ok' => false, 'error' => 'Provide either an external link or upload a PDF.'], 400);
+    }
+
     if (!in_array($publicationType, $allowedPublicationTypes, true)) {
         publications_json(['ok' => false, 'error' => 'Publication type is invalid.'], 400);
     }
 
-    $pdo = db();
-    $stmt = $pdo->prepare("
-        INSERT INTO user_publications (
-            user_id,
-            title,
-            authors,
-            journal,
-            publication_year,
-            publication_date,
-            origin_url,
-            abstract_text,
-            publication_type,
-            approval_status
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'pending')
-    ");
+    $storedFile = null;
 
-    $stmt->execute([
-        (int)$_SESSION['user_id'],
-        $title,
-        $authors,
-        $journal,
-        $publicationYear !== '' ? (int)$publicationYear : null,
-        $publicationDate !== '' ? $publicationDate : null,
-        $originUrl,
-        $abstractText,
-        $publicationType,
-    ]);
+    try {
+        if ($uploadedFile && ($uploadedFile['error'] ?? UPLOAD_ERR_NO_FILE) !== UPLOAD_ERR_NO_FILE) {
+            $storedFile = publications_store_uploaded_pdf($uploadedFile);
+        }
+
+        $pdo = db();
+        $stmt = $pdo->prepare("
+            INSERT INTO user_publications (
+                user_id,
+                title,
+                authors,
+                journal,
+                publication_year,
+                publication_date,
+                origin_url,
+                uploaded_file_path,
+                uploaded_original_filename,
+                uploaded_mime_type,
+                uploaded_file_size,
+                abstract_text,
+                publication_type,
+                approval_status
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'pending')
+        ");
+
+        $stmt->execute([
+            (int)$_SESSION['user_id'],
+            $title,
+            $authors,
+            $journal,
+            $publicationYear !== '' ? (int)$publicationYear : null,
+            $publicationDate !== '' ? $publicationDate : null,
+            $originUrl,
+            $storedFile['uploaded_file_path'] ?? null,
+            $storedFile['uploaded_original_filename'] ?? null,
+            $storedFile['uploaded_mime_type'] ?? null,
+            $storedFile['uploaded_file_size'] ?? null,
+            $abstractText,
+            $publicationType,
+        ]);
+    } catch (Throwable $e) {
+        if ($storedFile && !empty($storedFile['absolute_path']) && file_exists($storedFile['absolute_path'])) {
+            @unlink($storedFile['absolute_path']);
+        }
+        publications_json(['ok' => false, 'error' => 'Submission failed.'], 500);
+    }
 
     publications_json([
         'ok' => true,
-        'message' => 'Publication submitted for admin approval.'
+        'message' => 'Publication submitted for admin approval.',
     ]);
+}
+
+function publications_handle_download(): void {
+    if ($_SERVER['REQUEST_METHOD'] !== 'GET') {
+        publications_json(['ok' => false, 'error' => 'GET required'], 405);
+    }
+
+    $id = (int)($_GET['id'] ?? 0);
+    if ($id <= 0) {
+        publications_json(['ok' => false, 'error' => 'Valid publication id required.'], 400);
+    }
+
+    $pdo = db();
+    $stmt = $pdo->prepare("
+        SELECT
+            id,
+            user_id,
+            approval_status,
+            uploaded_file_path,
+            uploaded_original_filename,
+            uploaded_mime_type
+        FROM user_publications
+        WHERE id = ?
+        LIMIT 1
+    ");
+    $stmt->execute([$id]);
+    $row = $stmt->fetch();
+
+    if (!$row || empty($row['uploaded_file_path'])) {
+        publications_json(['ok' => false, 'error' => 'Uploaded file not found.'], 404);
+    }
+
+    $isOwner = isLoggedIn() && (int)$row['user_id'] === (int)($_SESSION['user_id'] ?? 0);
+    $isAdmin = publications_current_user_is_admin($pdo);
+    $isApproved = (string)$row['approval_status'] === 'approved';
+
+    if (!$isApproved && !$isOwner && !$isAdmin) {
+        publications_json(['ok' => false, 'error' => 'You are not allowed to view this file.'], 403);
+    }
+
+    $relativePath = str_replace(['..\\', '../', "\0"], '', (string)$row['uploaded_file_path']);
+    $absolutePath = dirname(__DIR__, 2) . '/' . ltrim($relativePath, '/');
+
+    if (!is_file($absolutePath)) {
+        publications_json(['ok' => false, 'error' => 'Uploaded file not found on server.'], 404);
+    }
+
+    $filename = publications_sanitize_filename((string)($row['uploaded_original_filename'] ?? 'publication.pdf'));
+    $mimeType = (string)($row['uploaded_mime_type'] ?? 'application/pdf');
+
+    header_remove('Content-Type');
+    http_response_code(200);
+    header('Content-Type: ' . $mimeType);
+    header('Content-Length: ' . (string)filesize($absolutePath));
+    header('X-Content-Type-Options: nosniff');
+    header('Content-Disposition: inline; filename="' . addslashes($filename) . '"');
+
+    readfile($absolutePath);
+    exit;
 }
 
 $route = $_GET['r'] ?? '';
@@ -713,4 +941,8 @@ if ($route === 'publications-list') {
 
 if ($route === 'publications-submit') {
     publications_handle_submit();
+}
+
+if ($route === 'publications-download') {
+    publications_handle_download();
 }
