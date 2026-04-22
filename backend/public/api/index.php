@@ -124,6 +124,22 @@ try {
         exit;
     }
 
+    if ($route === 'checkSession') {
+        if (isset($_SESSION['user_id'])) {
+            echo json_encode(['ok' => true, 'user_id' => $_SESSION['user_id']], JSON_UNESCAPED_SLASHES);
+        } else {
+            http_response_code(401);
+            echo json_encode(['ok' => false], JSON_UNESCAPED_SLASHES);
+        }
+        exit;
+    }
+
+    if ($route === 'logout') {
+        session_destroy();
+        echo json_encode(['ok' => true], JSON_UNESCAPED_SLASHES);
+        exit;
+    }
+
     if ($route === 'publications-list' || $route === 'publications-submit') {
             require __DIR__ . '/publications.php';
             exit;
