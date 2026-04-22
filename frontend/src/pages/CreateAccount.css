@@ -2,160 +2,131 @@
   min-height: 100vh;
   display: flex;
   flex-direction: column;
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen',
-    'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue',
-    sans-serif;
+  background: var(--light-bg);
 }
 
-.app-header {
-  background-color: white;
-  padding: 20px;
-  border-bottom: 3px solid #667eea;
-}
-
-.logo-container {
-  display: flex;
-  align-items: center;
-  gap: 15px;
-  max-width: 1200px;
-  margin: 0 auto;
-}
-
-.logo-icon {
-  width: 80px;
-  height: 80px;
-  object-fit: contain;
-}
-
-.app-header h1 {
-  margin: 0;
-  font-size: 24px;
-  font-weight: bold;
-  color: #333;
-}
-
-.form-container {
+.ca-main {
   flex: 1;
+  padding: 28px 16px;
   display: flex;
-  flex-direction: column;
-  align-items: center;
   justify-content: center;
-  padding: 40px 20px;
-  max-width: 600px;
-  margin: 0 auto;
-  width: 100%;
+  align-items: flex-start;
 }
 
-form {
-  background-color: #d3d3d3;
-  padding: 30px;
-  border-radius: 5px;
-  width: 100%;
-  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+.ca-card {
+  width: min(520px, 100%);
+  background: var(--card-bg);
+  border: 2px solid var(--border);
 }
 
-.form-group {
-  margin-bottom: 20px;
+.ca-card__title {
+  background: var(--header-bar);
+  border-bottom: 2px solid var(--border);
+  text-align: center;
+  font-weight: 900;
+  padding: 10px 12px;
+  font-size: 1.5rem;
 }
 
-.form-group label {
-  display: block;
-  margin-bottom: 5px;
-  font-weight: 500;
-  color: #333;
-  font-size: 14px;
-}
-
-.form-group input {
-  width: 100%;
-  padding: 10px;
-  border: 1px solid #ccc;
-  border-radius: 4px;
-  font-size: 16px;
-  box-sizing: border-box;
-  background-color: white;
-}
-
-.form-group input.error {
-  border-color: #dc3545;
-}
-
-.error-message {
-  display: block;
-  color: #dc3545;
-  font-size: 13px;
-  margin-top: 5px;
-  font-weight: 500;
-}
-
-.button-group {
+.ca-form {
+  padding: 20px 22px 18px 22px;
   display: flex;
   flex-direction: column;
-  gap: 15px;
-  margin-top: 20px;
+  gap: 14px;
 }
 
-.create-btn,
-.login-btn {
+.ca-field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.ca-label {
+  font-size: 0.85rem;
+  color: var(--muted);
+  font-weight: 700;
+}
+
+.ca-input {
+  height: 36px;
+  border: 2px solid var(--border);
+  background: #fff;
+  padding: 0 10px;
+  font-size: 0.95rem;
+  outline: none;
+  box-sizing: border-box;
   width: 100%;
-  padding: 12px 24px;
-  border: none;
-  border-radius: 25px;
-  font-size: 16px;
-  font-weight: 600;
-  cursor: pointer;
-  transition: all 0.3s ease;
 }
 
-.create-btn {
-  background-color: #667eea;
-  color: white;
+.ca-input:focus {
+  border-color: var(--primary);
 }
 
-.create-btn:hover:not(:disabled) {
-  background-color: #5568d3;
-  transform: translateY(-2px);
-  box-shadow: 0 4px 8px rgba(102, 126, 234, 0.3);
+.ca-input.error {
+  border-color: crimson;
 }
 
-.login-btn {
-  background-color: #f0f0f0;
-  color: #333;
+.ca-error-msg {
+  font-size: 0.82rem;
+  color: crimson;
+  font-weight: 700;
+  margin-top: 2px;
 }
 
-.login-btn:hover {
-  background-color: #e0e0e0;
-  transform: translateY(-2px);
-}
-/* Added Policy notice */
-
-.policy-notice {
+.ca-policy {
   text-align: center;
-  font-size: 13px;
-  color: #444;
-  margin: 16px 0 4px;
-  line-height: 1.6;
+  font-size: 0.85rem;
+  color: var(--muted);
+  line-height: 1.8;
+  margin: 4px 0 0;
+  word-break: keep-all;
 }
 
-.policy-link {
+.ca-policy-link {
   background: none;
   border: none;
   padding: 0;
-  font-size: 13px;
+  font-size: 0.85rem;
   color: #333;
   text-decoration: underline;
   cursor: pointer;
   font-family: inherit;
-  font-weight: 500;
+  font-weight: 600;
 }
 
-.policy-link:hover {
-  color: #667eea;
+.ca-policy-link:hover {
+  color: var(--primary);
+}
+
+.ca-btn {
+  width: 100%;
+  height: 40px;
+  border-radius: 999px;
+  border: 2px solid #2b2b2b;
+  font-weight: 800;
+  font-size: 1rem;
+  cursor: pointer;
+}
+
+.ca-btn--primary {
+  background: var(--primary);
+  color: #fff;
+}
+
+.ca-btn--primary:hover:not(:disabled) {
+  background: var(--primary-dk);
+}
+
+.ca-btn--secondary {
+  background: #d9d9d9;
+  color: #333;
+}
+
+.ca-btn--secondary:hover {
+  filter: brightness(0.95);
 }
 
 /* Policy Modal */
-
 .modal-overlay {
   position: fixed;
   inset: 0;
@@ -169,13 +140,13 @@ form {
 
 .modal-box {
   background: #fff;
-  border-radius: 8px;
+  border: 2px solid var(--border);
   width: 100%;
   max-width: 540px;
   max-height: 80vh;
   display: flex;
   flex-direction: column;
-  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.25);
+  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.2);
   position: relative;
 }
 
@@ -204,13 +175,14 @@ form {
 
 .modal-content h3 {
   margin: 0 0 8px;
-  font-size: 20px;
+  font-size: 1.2rem;
+  font-weight: 900;
   color: #222;
 }
 
 .modal-content h4 {
-  margin: 20px 0 6px;
-  font-size: 14px;
+  margin: 16px 0 4px;
+  font-size: 0.82rem;
   font-weight: 700;
   color: #333;
   text-transform: uppercase;
@@ -219,7 +191,7 @@ form {
 
 .modal-content p {
   margin: 0 0 8px;
-  font-size: 14px;
+  font-size: 0.9rem;
   color: #555;
   line-height: 1.65;
 }
@@ -230,50 +202,31 @@ form {
 }
 
 .modal-content ul li {
-  font-size: 14px;
+  font-size: 0.9rem;
   color: #555;
   line-height: 1.65;
   margin-bottom: 4px;
 }
 
 .modal-footer {
-  padding: 16px 30px 20px;
+  padding: 14px 30px 18px;
   display: flex;
   justify-content: center;
-  border-top: 1px solid #eee;
+  border-top: 2px solid var(--border);
 }
 
 .modal-ok-btn {
-  background-color: #667eea;
-  color: white;
-  border: none;
-  border-radius: 25px;
-  padding: 10px 40px;
-  font-size: 15px;
-  font-weight: 600;
+  width: min(200px, 100%);
+  height: 40px;
+  border-radius: 999px;
+  border: 2px solid #2b2b2b;
+  background: var(--primary);
+  color: #fff;
+  font-weight: 800;
+  font-size: 1rem;
   cursor: pointer;
-  transition: background-color 0.2s ease;
 }
 
 .modal-ok-btn:hover {
-  background-color: #5568d3;
-}
-
-/* Responsive Design */
-@media (max-width: 768px) {
-  .app-header h1 {
-    font-size: 18px;
-  }
-  .form-container {
-    padding: 20px 15px;
-  }
-  form {
-    padding: 20px;
-  }
-  .modal-content {
-    padding: 20px 20px 10px;
-  }
-  .modal-footer {
-    padding: 12px 20px 16px;
-  }
+  background: var(--primary-dk);
 }
