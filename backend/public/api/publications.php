@@ -529,6 +529,19 @@ function publications_clean_input($value, int $maxLength = 0): string {
     return $value;
 }
 
+function publications_clean_url_input($value, int $maxLength = 0): string {
+    $value = strip_tags((string)$value);
+    $value = html_entity_decode($value, ENT_QUOTES | ENT_HTML5, 'UTF-8');
+    $value = preg_replace('/\s+/u', '', $value ?? '');
+    $value = trim((string)$value);
+
+    if ($maxLength > 0) {
+        $value = mb_substr($value, 0, $maxLength);
+    }
+
+    return $value;
+}
+
 function publications_is_repeated_garbage(string $value): bool {
     $compact = preg_replace('/\s+/u', '', $value);
     return mb_strlen($compact) >= 3 && preg_match('/^([A-Za-z0-9])\1+$/u', $compact) === 1;
@@ -541,6 +554,40 @@ function publications_validate_iso_date(string $date): bool {
 
     [$year, $month, $day] = array_map('intval', explode('-', $date));
     return checkdate($month, $day, $year);
+}
+
+function publications_validate_user_url(string $url): ?string {
+    if ($url === '') {
+        return null;
+    }
+
+    if (mb_strlen($url) > 1000) {
+        return 'Origin URL is too long.';
+    }
+
+    if (preg_match('/[<>]/u', $url)) {
+        return 'Origin URL contains invalid characters.';
+    }
+
+    if (preg_match('/(javascript:|data:|vbscript:|file:|<script)/iu', $url)) {
+        return 'Origin URL contains disallowed content.';
+    }
+
+    if (!filter_var($url, FILTER_VALIDATE_URL)) {
+        return 'Origin URL must be a valid URL.';
+    }
+
+    $scheme = strtolower((string)parse_url($url, PHP_URL_SCHEME));
+    if (!in_array($scheme, ['http', 'https'], true)) {
+        return 'Origin URL must start with http:// or https://';
+    }
+
+    $host = (string)parse_url($url, PHP_URL_HOST);
+    if ($host === '' || mb_strlen($host) < 2) {
+        return 'Origin URL must include a valid domain.';
+    }
+
+    return null;
 }
 
 function publications_handle_submit(): void {
@@ -559,7 +606,7 @@ function publications_handle_submit(): void {
     $journal = publications_clean_input($payload['journal'] ?? '', 200);
     $publicationYear = publications_clean_input($payload['publication_year'] ?? '', 4);
     $publicationDate = publications_clean_input($payload['publication_date'] ?? '', 10);
-    $originUrl = publications_clean_input($payload['origin_url'] ?? '', 1000);
+    $originUrl = publications_clean_url_input($payload['origin_url'] ?? '', 1000);
     $abstractText = publications_clean_input($payload['abstract_text'] ?? '', 3000);
     $publicationType = strtolower(publications_clean_input($payload['publication_type'] ?? '', 100));
 
@@ -615,15 +662,9 @@ function publications_handle_submit(): void {
         publications_json(['ok' => false, 'error' => 'Publication date year must match publication year.'], 400);
     }
 
-    if ($originUrl !== '' && !filter_var($originUrl, FILTER_VALIDATE_URL)) {
-        publications_json(['ok' => false, 'error' => 'Origin URL must be a valid URL.'], 400);
-    }
-
-    if ($originUrl !== '') {
-        $scheme = strtolower((string)parse_url($originUrl, PHP_URL_SCHEME));
-        if (!in_array($scheme, ['http', 'https'], true)) {
-            publications_json(['ok' => false, 'error' => 'Origin URL must start with http:// or https://'], 400);
-        }
+    $urlError = publications_validate_user_url($originUrl);
+    if ($urlError !== null) {
+        publications_json(['ok' => false, 'error' => $urlError], 400);
     }
 
     if (!in_array($publicationType, $allowedPublicationTypes, true)) {

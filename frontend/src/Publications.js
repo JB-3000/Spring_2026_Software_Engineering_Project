@@ -50,9 +50,45 @@ function normalizeSpaces(value) {
     return value.replace(/\s+/g, ' ').trim();
 }
 
+function normalizeUrl(value) {
+    return value.replace(/\s+/g, '').trim();
+}
+
 function isRepeatedGarbage(value) {
     const compact = value.replace(/\s+/g, '');
     return compact.length >= 3 && /^([A-Za-z0-9])\1+$/.test(compact);
+}
+
+function validateUserUrl(url) {
+    if (!url) return '';
+
+    if (url.length > FIELD_LIMITS.origin_url) {
+        return `External link must be ${FIELD_LIMITS.origin_url} characters or fewer.`;
+    }
+
+    if (/[<>]/.test(url)) {
+        return 'External link contains invalid characters.';
+    }
+
+    if (/(javascript:|data:|vbscript:|file:|<script)/i.test(url)) {
+        return 'External link contains disallowed content.';
+    }
+
+    try {
+        const parsedUrl = new URL(url);
+
+        if (!['http:', 'https:'].includes(parsedUrl.protocol)) {
+            return 'External link must start with http:// or https://';
+        }
+
+        if (!parsedUrl.hostname || parsedUrl.hostname.length < 2) {
+            return 'External link must include a valid domain.';
+        }
+    } catch {
+        return 'External link must be a valid URL.';
+    }
+
+    return '';
 }
 
 function validateForm(formData) {
@@ -64,7 +100,7 @@ function validateForm(formData) {
     const journal = normalizeSpaces(formData.journal);
     const publicationYear = normalizeSpaces(formData.publication_year);
     const publicationDate = formData.publication_date.trim();
-    const originUrl = normalizeSpaces(formData.origin_url);
+    const originUrl = normalizeUrl(formData.origin_url);
     const abstractText = normalizeSpaces(formData.abstract_text);
     const publicationType = normalizeSpaces(formData.publication_type);
 
@@ -106,17 +142,9 @@ function validateForm(formData) {
     }
 
     if (originUrl) {
-        if (originUrl.length > FIELD_LIMITS.origin_url) {
-            errors.origin_url = `External link must be ${FIELD_LIMITS.origin_url} characters or fewer.`;
-        } else {
-            try {
-                const parsedUrl = new URL(originUrl);
-                if (!['http:', 'https:'].includes(parsedUrl.protocol)) {
-                    errors.origin_url = 'External link must start with http:// or https://';
-                }
-            } catch {
-                errors.origin_url = 'External link must be a valid URL.';
-            }
+        const urlError = validateUserUrl(originUrl);
+        if (urlError) {
+            errors.origin_url = urlError;
         }
     }
 
@@ -147,7 +175,7 @@ function sanitizePayload(formData) {
         journal: normalizeSpaces(formData.journal),
         publication_year: normalizeSpaces(formData.publication_year),
         publication_date: formData.publication_date.trim(),
-        origin_url: normalizeSpaces(formData.origin_url),
+        origin_url: normalizeUrl(formData.origin_url),
         abstract_text: normalizeSpaces(formData.abstract_text),
         publication_type: normalizeSpaces(formData.publication_type),
     };
@@ -619,7 +647,7 @@ function Publications() {
                                         type="url"
                                         value={formData.origin_url}
                                         onChange={handleFormChange}
-                                        placeholder="https://..."
+                                        placeholder="https://example.org/publication"
                                         maxLength={FIELD_LIMITS.origin_url}
                                         className={formErrors.origin_url ? 'publications-field--error' : ''}
                                     />
