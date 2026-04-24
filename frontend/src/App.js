@@ -48,7 +48,7 @@ function App() {
         <Route path="/createAccount" element={<CreateAccount />} />
 
         {/* Protected routes */}
-        <Route path="/" element={<PrivateRoute element={<HomePage />} />} />
+        <Route path="/" element={<LoginPage />} />
         <Route path="/home" element={<PrivateRoute element={<HomePage />} />} />
         <Route path="/news" element={<PrivateRoute element={<News />} />} />
         <Route path="/data" element={<PrivateRoute element={<Data />} />} />
