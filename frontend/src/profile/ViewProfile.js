@@ -71,18 +71,20 @@ export default function ViewProfile() {
           // This keeps localStorage as a fast-load cache, not the primary store.
           let city  = sanitized.city;
           let state = sanitized.state;
+          let zip   = sanitized.zip;
           if (!city || !state) {
             try {
               const raw = localStorage.getItem(STORAGE_KEY);
               if (raw) {
                 const saved = JSON.parse(raw);
-                if (!city  && saved.city)                  city  = saved.city;
+                if (!city  && saved.city)                    city  = saved.city;
                 if (!state && (saved.region || saved.state)) state = saved.region || saved.state;
+                if (!zip   && saved.zip)                     zip   = saved.zip;
               }
             } catch (_) {}
           }
 
-          const merged = { ...sanitized, city, state };
+          const merged = { ...sanitized, city, state, zip };
           setUserData(merged);
           setEditData(merged);
           if (data.profileImg) setProfileImg(data.profileImg);
@@ -119,7 +121,7 @@ export default function ViewProfile() {
 
   // ── Edit / Save / Cancel ──────────────────────────────────────────────────
   const handleEditClick   = () => { setEditData({ ...userData }); setIsEditing(true); };
-  const handleCancelClick = () => { setEditData({ ...userData }); setIsEditing(false); };
+  const handleCancelClick = () => { setEditData({ ...userData }); setIsEditing(false); setLocationStatus(""); };
 
   const handleChange = (field, value) => {
     let v = value;
@@ -170,12 +172,14 @@ export default function ViewProfile() {
         // Keep localStorage in sync with manual edits too
         try {
           localStorage.setItem(STORAGE_KEY, JSON.stringify({
-            city: editData.city,
+            city:   editData.city,
             region: editData.state,
+            zip:    editData.zip,
           }));
         } catch (_) {}
         setUserData({ ...editData });
         setIsEditing(false);
+        setLocationStatus("");
       } else {
         alert("Failed to save: " + data.error);
       }
@@ -184,17 +188,17 @@ export default function ViewProfile() {
     }
   };
 
-  // ── Shared helper: apply detected city/state everywhere ──────────────────
+  // ── Shared helper: apply detected city/state/zip everywhere ──────────────
   // Now also writes to the DB so location survives logout/session expiry.
-  const applyLocation = async (city, state) => {
+  const applyLocation = async (city, state, zip = "") => {
     // 1. Update UI immediately
-    setUserData((prev) => ({ ...prev, city, state }));
-    setEditData((prev) => ({ ...prev, city, state }));
+    setUserData((prev) => ({ ...prev, city, state, ...(zip && { zip }) }));
+    setEditData((prev) => ({ ...prev, city, state, ...(zip && { zip }) }));
 
     // 2. Persist to localStorage (fast cache for next load)
     try {
       localStorage.setItem(STORAGE_KEY, JSON.stringify({
-        city, region: state, detectedAt: new Date().toISOString(),
+        city, region: state, zip, detectedAt: new Date().toISOString(),
       }));
     } catch (_) {}
 
@@ -214,7 +218,7 @@ export default function ViewProfile() {
           state:      state,
           city:       city,
           address:    current.address,
-          zip:        current.zip,
+          zip:        zip || current.zip,
           email:      current.email,
           phone:      current.phone,
         }),
@@ -226,7 +230,7 @@ export default function ViewProfile() {
 
     setLocationStatus(
       city || state
-        ? `Location detected: ${[city, state].filter(Boolean).join(", ")}`
+        ? `Location detected: ${[city, state, zip].filter(Boolean).join(", ")}`
         : "Location detected (city/state unavailable)."
     );
     setLocationLoading(false);
@@ -258,7 +262,8 @@ export default function ViewProfile() {
             const stateCode = rawCode.includes("-") ? rawCode.split("-")[1] : rawCode;
             const city      = geo.city || geo.locality || "";
             const state     = VALID_STATES.includes(stateCode) ? stateCode : (geo.principalSubdivision || "");
-            applyLocation(city, state);
+            const zip       = geo.postcode || "";
+            applyLocation(city, state, zip);
           })
           .catch(() => {
             setLocationStatus("Could not look up city/state. Try again.");
@@ -274,7 +279,8 @@ export default function ViewProfile() {
             if (data.ok) {
               const c = data.city   === "Unknown" ? "" : (data.city   || "");
               const s = data.region === "Unknown" ? "" : (data.region || "");
-              applyLocation(c, s);
+              const z = data.zip    === "Unknown" ? "" : (data.zip    || "");
+              applyLocation(c, s, z);
             } else {
               setLocationStatus("Failed to detect location.");
               setLocationLoading(false);
@@ -292,8 +298,8 @@ export default function ViewProfile() {
   // ── Clear Location ────────────────────────────────────────────────────────
   const handleClearLocation = () => {
     try { localStorage.removeItem(STORAGE_KEY); } catch (_) {}
-    setUserData((prev) => ({ ...prev, city: "", state: "" }));
-    setEditData((prev) => ({ ...prev, city: "", state: "" }));
+    setUserData((prev) => ({ ...prev, city: "", state: "", zip: "" }));
+    setEditData((prev) => ({ ...prev, city: "", state: "", zip: "" }));
     setLocationStatus("Location cleared.");
   };
 
@@ -384,33 +390,35 @@ export default function ViewProfile() {
             ))}
           </div>
 
-          {/* ── Location detection ── */}
-          <div className="vp-location-section">
-            <button
-              className="vp-edit-btn"
-              onClick={handleDetectLocation}
-              disabled={locationLoading}
-              aria-busy={locationLoading}
-              aria-label="Detect my current location"
-            >
-              {locationLoading ? "Detecting…" : "Detect My Location"}
-            </button>
+          {/* ── Location detection — only visible in edit mode ── */}
+          {isEditing && (
+            <div className="vp-location-section">
+              <button
+                className="vp-edit-btn"
+                onClick={handleDetectLocation}
+                disabled={locationLoading}
+                aria-busy={locationLoading}
+                aria-label="Detect my current location"
+              >
+                {locationLoading ? "Detecting…" : "Detect My Location"}
+              </button>
 
-            <button
-              className="vp-cancel-btn"
-              onClick={handleClearLocation}
-              disabled={locationLoading}
-              style={{ marginLeft: "10px" }}
-            >
-              Clear Location
-            </button>
+              <button
+                className="vp-cancel-btn"
+                onClick={handleClearLocation}
+                disabled={locationLoading}
+                style={{ marginLeft: "10px" }}
+              >
+                Clear Location
+              </button>
 
-            {locationStatus && (
-              <p className="vp-location-status" role="status" aria-live="polite">
-                {locationStatus}
-              </p>
-            )}
-          </div>
+              {locationStatus && (
+                <p className="vp-location-status" role="status" aria-live="polite">
+                  {locationStatus}
+                </p>
+              )}
+            </div>
+          )}
         </div>
 
       </div>
