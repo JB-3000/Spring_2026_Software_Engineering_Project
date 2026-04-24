@@ -123,9 +123,9 @@ export default function ViewProfile() {
 
   const handleChange = (field, value) => {
     let v = value;
-    if (field === "firstName")     v = value.replace(/[^A-Za-z]/g, "");
-    else if (field === "lastName") v = value.replace(/[^A-Za-z-]/g, "");
-    else if (field === "phone")    v = value.replace(/\D/g, "");
+    if (field === "firstName")     v = value.replace(/[^A-Za-z]/g, "").slice(0, 20);
+    else if (field === "lastName") v = value.replace(/[^A-Za-z-]/g, "").slice(0, 20);
+    else if (field === "phone")    v = value.replace(/\D/g, "").slice(0, 10);
     else if (field === "zip")      v = value.replace(/\D/g, "").slice(0, 5);
     else if (field === "state")    v = value.replace(/[^A-Za-z]/g, "").toUpperCase().slice(0, 2);
     setEditData((prev) => ({ ...prev, [field]: v }));

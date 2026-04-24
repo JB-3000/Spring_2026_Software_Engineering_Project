@@ -125,7 +125,7 @@ try {
         exit;
     }
 
-    if ($route === 'publications-list' || $route === 'publications-submit') {
+    if ($route === 'publications-list' || $route === 'publications-submit' || $route === 'publications-download') {
             require __DIR__ . '/publications.php';
             exit;
     }
