@@ -87,6 +87,7 @@ try {
         // Set session
         $_SESSION['user_id'] = (int)$user['id'];
         // Return user info including admin status
+       $_SESSION['is_admin'] = (int)$user['is_admin'] === 1 ? 1 : 0;
         echo json_encode([
             'ok'       => true,
             'user_id'  => (int)$user['id'],
@@ -180,6 +181,11 @@ try {
     if ($route === 'detectLocation') {
     require __DIR__ . '/../../src/location.php';
     detect_location();
+    exit;
+}
+// Save confidence score (lexi)
+    if ($route === 'save_confidence_score') {
+    require __DIR__ . '/save_confidence_score.php';
     exit;
 }
 
