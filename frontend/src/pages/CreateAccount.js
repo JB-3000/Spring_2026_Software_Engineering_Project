@@ -28,14 +28,18 @@ export default function CreateAccount({ onCancel }) {
 
     // Apply the same real-time sanitization as ViewProfile
     if (name === "firstName") {
-      sanitizedValue = value.replace(/[^A-Za-z]/g, "");
+      sanitizedValue = value.replace(/[^A-Za-z]/g, "").slice(0, 20);
     } else if (name === "lastName") {
-      sanitizedValue = value.replace(/[^A-Za-z-]/g, "");
+      sanitizedValue = value.replace(/[^A-Za-z-]/g, "").slice(0, 20);
+    } else if (name === "email") {
+      sanitizedValue = value.slice(0, 400);
+    } else if (name === "password" || name === "confirmPassword") {
+      sanitizedValue = value.slice(0, 400);
     }
 
     setFormData({ ...formData, [name]: sanitizedValue });
     setErrors({ ...errors, [name]: "" });
-  };
+};
 
   const validate = () => {
     const newErrors = {};
@@ -110,92 +114,93 @@ export default function CreateAccount({ onCancel }) {
         </div>
       </div>
 
-      <main className="form-container">
-        <h2>Create Account</h2>
-        <form onSubmit={handleSubmit}>
-          <div className="form-group">
-            <label>First Name</label>
-            <input
-              name="firstName"
-              placeholder="Letters only"
-              value={formData.firstName}
-              onChange={handleChange}
-              className={errors.firstName ? "error" : ""}
-            />
-            {errors.firstName && <span className="error-message">{errors.firstName}</span>}
-          </div>
+      <main className="ca-main">
+        <section className="ca-card">
+          <div className="ca-card__title">Create Account</div>
 
-          <div className="form-group">
-            <label>Last Name</label>
-            <input
-              name="lastName"
-              placeholder="Letters and hyphens"
-              value={formData.lastName}
-              onChange={handleChange}
-              className={errors.lastName ? "error" : ""}
-            />
-            {errors.lastName && <span className="error-message">{errors.lastName}</span>}
-          </div>
+          <form className="ca-form" onSubmit={handleSubmit}>
+            <label className="ca-field">
+              <span className="ca-label">First Name</span>
+              <input
+                className={`ca-input${errors.firstName ? " error" : ""}`}
+                name="firstName"
+                placeholder="Letters only"
+                value={formData.firstName}
+                onChange={handleChange}
+              />
+              {errors.firstName && <span className="ca-error-msg">{errors.firstName}</span>}
+            </label>
 
-          <div className="form-group">
-            <label>Email</label>
-            <input
-              name="email"
-              type="email"
-              placeholder="user@buffalo.edu"
-              value={formData.email}
-              onChange={handleChange}
-              className={errors.email ? "error" : ""}
-            />
-            {errors.email && <span className="error-message">{errors.email}</span>}
-          </div>
+            <label className="ca-field">
+              <span className="ca-label">Last Name</span>
+              <input
+                className={`ca-input${errors.lastName ? " error" : ""}`}
+                name="lastName"
+                placeholder="Letters and hyphens"
+                value={formData.lastName}
+                onChange={handleChange}
+              />
+              {errors.lastName && <span className="ca-error-msg">{errors.lastName}</span>}
+            </label>
 
-          <div className="form-group">
-            <label>Password</label>
-            <input
-              name="password"
-              type="password"
-              value={formData.password}
-              onChange={handleChange}
-              className={errors.password ? "error" : ""}
-            />
-            {errors.password && <span className="error-message">{errors.password}</span>}
-          </div>
+            <label className="ca-field">
+              <span className="ca-label">Email</span>
+              <input
+                className={`ca-input${errors.email ? " error" : ""}`}
+                name="email"
+                type="email"
+                placeholder="user@buffalo.edu"
+                value={formData.email}
+                onChange={handleChange}
+              />
+              {errors.email && <span className="ca-error-msg">{errors.email}</span>}
+            </label>
 
-          <div className="form-group">
-            <label>Confirm Password</label>
-            <input
-              name="confirmPassword"
-              type="password"
-              value={formData.confirmPassword}
-              onChange={handleChange}
-              className={errors.confirmPassword ? "error" : ""}
-            />
-            {errors.confirmPassword && <span className="error-message">{errors.confirmPassword}</span>}
-          </div>
+            <label className="ca-field">
+              <span className="ca-label">Password</span>
+              <input
+                className={`ca-input${errors.password ? " error" : ""}`}
+                name="password"
+                type="password"
+                value={formData.password}
+                onChange={handleChange}
+              />
+              {errors.password && <span className="ca-error-msg">{errors.password}</span>}
+            </label>
 
-          <p className="policy-notice">
-            By signing up for a JNWSL Corp tm account
-            <br />
-            you agree to our{" "}
-            <button type="button" className="policy-link" onClick={() => setModalType("privacy")}>
-              Privacy Policy
-            </button>
-            {" & "}
-            <button type="button" className="policy-link" onClick={() => setModalType("terms")}>
-              Terms of Service
-            </button>
-          </p>
+            <label className="ca-field">
+              <span className="ca-label">Confirm Password</span>
+              <input
+                className={`ca-input${errors.confirmPassword ? " error" : ""}`}
+                name="confirmPassword"
+                type="password"
+                value={formData.confirmPassword}
+                onChange={handleChange}
+              />
+              {errors.confirmPassword && <span className="ca-error-msg">{errors.confirmPassword}</span>}
+            </label>
 
-          <div className="button-group">
-            <button type="submit" className="create-btn">
+            <p className="ca-policy">
+              By signing up for a JNWSL Corp tm account
+              <br />
+              you agree to our{" "}
+              <button type="button" className="ca-policy-link" onClick={() => setModalType("privacy")}>
+                Privacy Policy
+              </button>
+              {" & "}
+              <button type="button" className="ca-policy-link" onClick={() => setModalType("terms")}>
+                Terms of Service
+              </button>
+            </p>
+
+            <button type="submit" className="ca-btn ca-btn--primary">
               Create Account
             </button>
-            <button type="button" className="login-btn" onClick={() => navigate("/")}>
+            <button type="button" className="ca-btn ca-btn--secondary" onClick={() => navigate("/login")}>
               Already have an account?
             </button>
-          </div>
-        </form>
+          </form>
+        </section>
       </main>
 
       <SiteFooter />
