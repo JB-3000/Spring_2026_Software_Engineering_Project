@@ -88,7 +88,6 @@ export default function SelfReport() {
       }
 
       if (data.auto_rejected) {
-        alert("Too many rejected self reports. This report has been automatically rejected.");
         setError(data.message || "Too many rejected self reports. This report has been automatically rejected.");
       } else {
         setSuccess("Report submitted successfully!");
