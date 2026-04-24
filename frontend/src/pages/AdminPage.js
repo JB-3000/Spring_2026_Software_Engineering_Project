@@ -10,6 +10,8 @@ export default function AdminPage() {
   const [outbreaks, setOutbreaks] = useState([]);
   const [notification, setNotification] = useState(null);
   const [loadingOutbreaks, setLoadingOutbreaks] = useState(false);
+  const [scores, setScores] = useState({});
+  const [scoreFeedback, setScoreFeedback] = useState({});
   const navigate = useNavigate();
 
   const FLAGGED_OUTBREAKS_URL = "https://aptitude.cse.buffalo.edu/CSE442/2026-Spring/cse-442c/backend/public/api/view_flagged_outbreak.php";
@@ -33,11 +35,11 @@ export default function AdminPage() {
         if (data.ok && Array.isArray(data.outbreaks)) {
           const formatted = data.outbreaks.map((o) => ({
             id: o.id,
-            // FIXED: Use 'disease' column for the actual disease name (Bluetongue, etc.)
             diseaseType: o.diseaseType || o.disease || o.disease_type || "Unknown Disease",
             userId: o.reportedBy || o.User_ID || "Unknown",
             location: o.location || o.state || "Unknown",
             timeCreated: o.date_flagged || o.created_at || o.report_date || "N/A",
+            confidence_score: o.confidence_score ?? null,
           }));
           setOutbreaks(formatted);
         } else {
@@ -91,6 +93,38 @@ export default function AdminPage() {
     }
   };
 
+  const handleSaveScore = async (id) => {
+    const raw = scores[id];
+    const score = Number(raw);
+
+    if (raw === undefined || raw === "" || !Number.isInteger(score) || score < 0 || score > 100) {
+      setScoreFeedback((prev) => ({ ...prev, [id]: { msg: "Enter a whole number 0–100.", ok: false } }));
+      return;
+    }
+
+    try {
+      const res = await fetch(
+        "https://aptitude.cse.buffalo.edu/CSE442/2026-Spring/cse-442c/backend/public/api/index.php?r=save_confidence_score",
+        {
+          method: "POST",
+          credentials: "include",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ id, confidence_score: score }),
+        }
+      );
+      const data = await res.json();
+      if (data.ok) {
+        setScoreFeedback((prev) => ({ ...prev, [id]: { msg: "Saved.", ok: true } }));
+        setOutbreaks((prev) =>
+          prev.map((o) => o.id === id ? { ...o, confidence_score: score } : o)
+        );
+      } else {
+        setScoreFeedback((prev) => ({ ...prev, [id]: { msg: data.error || "Error.", ok: false } }));
+      }
+    } catch {
+      setScoreFeedback((prev) => ({ ...prev, [id]: { msg: "Network error.", ok: false } }));
+    }
+  };
 
   if (isAdmin === null) {
     return (
@@ -155,6 +189,34 @@ export default function AdminPage() {
                     <button className="ap-reject-btn" onClick={() => handleReject(outbreak.id)}>
                       Reject
                     </button>
+                  </div>
+                  <div style={{ display: "flex", alignItems: "center", gap: "8px", marginTop: "8px", flexWrap: "wrap" }}>
+                    <label style={{ fontSize: "0.85rem", color: "#555", whiteSpace: "nowrap" }}>
+                      Current score: {outbreak.confidence_score !== null && outbreak.confidence_score !== undefined
+                        ? `${outbreak.confidence_score}/100`
+                        : "Not set"}
+                    </label>
+                    <input
+                      type="number"
+                      min="0"
+                      max="100"
+                      step="1"
+                      placeholder="0–100"
+                      value={scores[outbreak.id] ?? ""}
+                      onChange={(e) => setScores((prev) => ({ ...prev, [outbreak.id]: e.target.value }))}
+                      style={{ width: "90px", padding: "6px 10px", borderRadius: "6px", border: "1px solid #ccc" }}
+                    />
+                    <button
+                      onClick={() => handleSaveScore(outbreak.id)}
+                      style={{ padding: "6px 14px", borderRadius: "6px", background: "#3498db", color: "white", border: "none", cursor: "pointer", fontWeight: "600" }}
+                    >
+                      Save Score
+                    </button>
+                    {scoreFeedback[outbreak.id] && (
+                      <span style={{ fontSize: "0.85rem", color: scoreFeedback[outbreak.id].ok ? "green" : "red" }}>
+                        {scoreFeedback[outbreak.id].msg}
+                      </span>
+                    )}
                   </div>
                 </li>
               ))}
