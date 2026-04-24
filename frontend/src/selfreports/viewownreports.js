@@ -18,7 +18,7 @@ export default function MyReports() {
     const fetchMyReports = async () => {
       try {
         const response = await fetch(
-          `${window.location.origin}/CSE442/2026-Spring/cse-442c/backend/public/api/get_all_outbreaks.php` ,
+          `${window.location.origin}/CSE442/2026-Spring/cse-442c/backend/public/api/get_my_outbreaks.php`,
           {
             method: "GET",
             credentials: "include",
