@@ -62,7 +62,8 @@ export default function SelfReport() {
 
     try {
       const response = await fetch(
-        "https://aptitude.cse.buffalo.edu/CSE442/2026-Spring/cse-442c/backend/public/api/create_outbreak.php",
+        `${window.location.origin}/CSE442/2026-Spring/cse-442c/backend/public/api/create_outbreak.php`,
+
         {
           method: "POST",
           credentials: "include",
@@ -87,7 +88,11 @@ export default function SelfReport() {
         throw new Error(data.error || "Failed to submit report.");
       }
 
-      setSuccess("Report submitted successfully!");
+      if (data.auto_rejected) {
+        setError(data.message || "Too many rejected self reports. This report has been automatically rejected.");
+      } else {
+        setSuccess("Report submitted successfully!");
+      }
 
       setFormData({
         diseaseType: "",

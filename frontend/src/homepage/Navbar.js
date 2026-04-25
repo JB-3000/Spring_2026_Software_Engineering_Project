@@ -2,13 +2,25 @@ import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import './Navbar.css';
 
+const API_BASE =
+  process.env.NODE_ENV === "production"
+    ? "/CSE442/2026-Spring/cse-442c/backend/public/api/index.php"
+    : "http://localhost:8000/api/index.php";
+
 const Navbar = () => {
+  const isAdmin = localStorage.getItem("is_admin") === "true";
   const navigate = useNavigate();
   const [menuOpen, setMenuOpen] = useState(false);
 
   const handleNav = (path) => {
     navigate(path);
     setMenuOpen(false);
+  };
+
+  const handleLogout = async () => {
+    localStorage.removeItem("is_admin");
+    await fetch(`${API_BASE}?r=logout`, { credentials: "include" }).catch(() => {});
+    navigate("/");
   };
 
   return (
@@ -30,7 +42,10 @@ const Navbar = () => {
         <button className="navbar__btn" onClick={() => handleNav('/education')}>Education</button>
         <button className="navbar__btn" onClick={() => handleNav('/publications')}>Publications</button>
         <button className="navbar__btn" onClick={() => handleNav('/profile')}>Profile</button>
-        <button className="navbar__btn" onClick={() => handleNav('/')}>Log Out</button>
+        {isAdmin && (
+          <button className="navbar__btn" onClick={() => handleNav('/admin')}>Admin Dashboard</button>
+        )}
+        <button className="navbar__btn" onClick={handleLogout}>Log Out</button>
       </div>
     </nav>
   );

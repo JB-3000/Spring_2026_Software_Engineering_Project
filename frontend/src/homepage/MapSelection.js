@@ -3,6 +3,8 @@ import axios from 'axios';
 import { CircleMarker, MapContainer, TileLayer, Tooltip } from 'react-leaflet';
 import 'leaflet/dist/leaflet.css';
 import { resolveCountyCoordinates } from './countyCoordinates';
+import WindOverlay from '../components/WindOverlay';
+import MapWindController from '../components/MapWindController';
 
 const IS_LOCAL = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
 
@@ -12,6 +14,15 @@ const API_ROOT = IS_LOCAL
 
 const HOMEPAGE_API = `${API_ROOT}/homepage.php`;
 const MAP_POINTS_API = `${API_ROOT}/homepageMapPoints.php`;
+const WIND_API = IS_LOCAL
+  ? 'http://localhost/s26-jnswl-corp/backend/public/api/index.php'
+  : 'https://aptitude.cse.buffalo.edu/CSE442/2026-Spring/cse-442c/backend/public/api/index.php';
+
+// Fixed bounds covering the continental US for cartogram wind fetch
+const US_NORTH = 49.5;
+const US_SOUTH = 24.5;
+const US_EAST = -66.5;
+const US_WEST = -124.5;
 
 const BLUE = '#3d5af1';
 const MAP_BG = '#e8f0ff';
@@ -207,7 +218,7 @@ function MapGrid({ stateMap, maxVal, metricLabel, onTooltip, clearTooltip }) {
   );
 }
 
-function FullscreenMap({ stateMap, maxVal, metricLabel, onClose }) {
+function FullscreenMap({ stateMap, maxVal, metricLabel, windEnabled, onWindToggle, onClose }) {
   const [tooltip, setTooltip] = useState(null);
   const [zoom, setZoom] = useState(1);
   const containerRef = useRef(null);
@@ -278,6 +289,14 @@ function FullscreenMap({ stateMap, maxVal, metricLabel, onClose }) {
             Reset
           </button>
           <button
+            onClick={onWindToggle}
+            style={{ ...filterBtn(windEnabled), display: 'inline-flex', alignItems: 'center', gap: 5 }}
+            title={windEnabled ? 'Turn off wind overlay' : 'Turn on wind overlay'}
+          >
+            <span style={{ fontSize: 14 }}>🌬</span>
+            Weather {windEnabled ? 'ON' : 'OFF'}
+          </button>
+          <button
             onClick={onClose}
             style={{ background: '#fee2e2', border: '1px solid #fca5a5', color: '#dc2626', borderRadius: 8, width: 36, height: 36, fontSize: 18, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
           >
@@ -290,6 +309,7 @@ function FullscreenMap({ stateMap, maxVal, metricLabel, onClose }) {
         <div style={{ position: 'relative', width: Math.max(scaledW, 100), height: scaledH, flexShrink: 0 }}>
           <div style={{ position: 'absolute', top: 0, left: 0, width: NATURAL_W, height: NATURAL_H, transform: `scale(${scale})`, transformOrigin: 'top left' }}>
             <MapGrid stateMap={stateMap} maxVal={maxVal} metricLabel={metricLabel} onTooltip={setTooltip} clearTooltip={() => setTooltip(null)} />
+            <CartogramWindLayer windEnabled={windEnabled} />
           </div>
         </div>
       </div>
@@ -316,7 +336,97 @@ function FullscreenMap({ stateMap, maxVal, metricLabel, onClose }) {
   );
 }
 
-function DashboardMap({ stateMap, maxVal, metricLabel }) {
+function CartogramWindLayer({ windEnabled }) {
+  const [windPoints, setWindPoints] = useState([]);
+
+  useEffect(() => {
+    if (!windEnabled) {
+      setWindPoints([]);
+      return;
+    }
+
+    const controller = new AbortController();
+    const params = new URLSearchParams({
+      r: 'weather',
+      north: US_NORTH.toFixed(6),
+      south: US_SOUTH.toFixed(6),
+      east: US_EAST.toFixed(6),
+      west: US_WEST.toFixed(6),
+      zoom: '4',
+    });
+
+    fetch(`${WIND_API}?${params}`, { signal: controller.signal })
+      .then((r) => r.json())
+      .then((data) => {
+        if (data.ok && Array.isArray(data.points)) setWindPoints(data.points);
+      })
+      .catch(() => {});
+
+    return () => controller.abort();
+  }, [windEnabled]);
+
+  if (!windEnabled || windPoints.length === 0) return null;
+
+  return (
+    <>
+      <style>{`
+        .cgram-wind-arrow { animation: windFloat 1.8s ease-in-out infinite; }
+        .cgram-delay-0 { animation-delay: 0s; }
+        .cgram-delay-1 { animation-delay: 0.18s; }
+        .cgram-delay-2 { animation-delay: 0.36s; }
+        .cgram-delay-3 { animation-delay: 0.54s; }
+        .cgram-delay-4 { animation-delay: 0.72s; }
+        .cgram-delay-5 { animation-delay: 0.90s; }
+        .cgram-delay-6 { animation-delay: 1.08s; }
+        @keyframes windFloat {
+          0%   { transform: translateY(0px); opacity: 0.7; }
+          50%  { transform: translateY(-3px); opacity: 1; }
+          100% { transform: translateY(0px); opacity: 0.7; }
+        }
+      `}</style>
+      {windPoints.map((point, index) => {
+        const x = ((point.lng - US_WEST) / (US_EAST - US_WEST)) * NATURAL_W;
+        const y = ((US_NORTH - point.lat) / (US_NORTH - US_SOUTH)) * NATURAL_H;
+        const direction = Number(point.wind_direction) || 0;
+        const speed = Number(point.wind_speed) || 0;
+        const scale = Math.max(0.7, Math.min(1.2, 0.7 + speed / 60));
+        const opacity = Math.max(0.5, Math.min(0.9, 0.5 + speed / 60));
+
+        return (
+          <div
+            key={index}
+            style={{
+              position: 'absolute',
+              left: x,
+              top: y,
+              transform: 'translate(-50%, -50%)',
+              zIndex: 10,
+              pointerEvents: 'none',
+            }}
+          >
+            <div
+              style={{
+                opacity,
+                transform: `rotate(${(direction + 180) % 360}deg) scale(${scale})`,
+                transformOrigin: 'center',
+                filter: 'drop-shadow(0 1px 2px rgba(0,0,0,0.2))',
+              }}
+            >
+              <div className={`cgram-wind-arrow cgram-delay-${index % 7}`}>
+                <svg viewBox="0 0 32 32" width="20" height="20" aria-hidden="true">
+                  <line x1="16" y1="25" x2="16" y2="10" stroke="#1f3c88" strokeWidth="3" strokeLinecap="round" />
+                  <polygon points="16,4 9,13 13,13 13,18 19,18 19,13 23,13" fill="#1f3c88" />
+                </svg>
+              </div>
+            </div>
+          </div>
+        );
+      })}
+    </>
+  );
+}
+
+function DashboardMap({ stateMap, maxVal, metricLabel, windEnabled }) {
   const containerRef = useRef(null);
   const [scale, setScale] = useState(1);
   const [isMobile, setIsMobile] = useState(window.innerWidth < 700);
@@ -353,6 +463,7 @@ function DashboardMap({ stateMap, maxVal, metricLabel }) {
       <div style={{ position: 'relative', width: isMobile ? NATURAL_W : NATURAL_W * scale, height: isMobile ? NATURAL_H : NATURAL_H * scale }}>
         <div style={{ position: 'absolute', top: 0, left: 0, width: NATURAL_W, height: NATURAL_H, transform: isMobile ? 'none' : `scale(${scale})`, transformOrigin: 'top left', overflow: 'visible' }}>
           <MapGrid stateMap={stateMap} maxVal={maxVal} metricLabel={metricLabel} onTooltip={setTooltip} clearTooltip={() => setTooltip(null)} />
+          <CartogramWindLayer windEnabled={windEnabled} />
         </div>
       </div>
       {tooltip && (
@@ -367,47 +478,47 @@ function DashboardMap({ stateMap, maxVal, metricLabel }) {
   );
 }
 
-function DotPlotMap({ points, isLoading, error }) {
+function DotPlotMapInner({ points, isLoading, error, windEnabled }) {
+  const [windPoints, setWindPoints] = useState([]);
+  const [windLoading, setWindLoading] = useState(false);
+  const [windError, setWindError] = useState('');
+
   return (
-    <div style={{ height: 500, borderRadius: 8, overflow: 'hidden', border: '1px solid #d7dfeb', position: 'relative', background: '#dce8f8' }}>
-      <MapContainer center={[39.5, -98.35]} zoom={4} scrollWheelZoom={false} style={{ height: '100%', width: '100%' }}>
-        <TileLayer
-          url="https://{s}.basemaps.cartocdn.com/light_nolabels/{z}/{x}/{y}{r}.png"
-          attribution='&copy; <a href="https://carto.com/">CARTO</a>'
-        />
+    <>
+      <MapWindController
+        enabled={windEnabled}
+        onWindData={setWindPoints}
+        onWindError={setWindError}
+        onWindLoading={setWindLoading}
+      />
+      <WindOverlay enabled={windEnabled} windPoints={windPoints} />
 
-        {points.map((point) => {
-          const color = MORTALITY_COLORS[point.mortality_status] || BLUE;
-
-          return (
-            <CircleMarker
-              key={point.id}
-              center={[point.lat, point.lng]}
-              radius={pointRadius(point.cases)}
-              pathOptions={{
-                color,
-                fillColor: color,
-                fillOpacity: point.usedFallback ? 0.6 : 0.82,
-                weight: point.usedFallback ? 1 : 1.5,
-              }}
-            >
-              <Tooltip direction="top" offset={[0, -8]} opacity={1}>
-                <div style={{ minWidth: 170, color: '#0f172a', lineHeight: 1.35 }}>
-                  <div style={{ fontWeight: 700, marginBottom: 2 }}>{point.disease}</div>
-                  <div>{buildLocationLabel(point)}</div>
-                  <div>{Number(point.cases).toLocaleString()} cases</div>
-                  <div>Reported {formatDate(point.report_date)}</div>
-                  {point.usedFallback && <div style={{ color: '#475569' }}>State-center fallback</div>}
-                </div>
-              </Tooltip>
-            </CircleMarker>
-          );
-        })}
-      </MapContainer>
-
-      <div style={{ position: 'absolute', top: 12, left: '50%', transform: 'translateX(-50%)', zIndex: 1000, background: 'rgba(255,255,255,0.96)', border: '1px solid #dbe2ea', borderRadius: 999, padding: '6px 12px', fontSize: 12, fontWeight: 600, color: '#334155', pointerEvents: 'none', boxShadow: '0 2px 8px rgba(0,0,0,0.08)' }}>
-        Map View: one dot per outbreak entry
-      </div>
+      {points.map((point) => {
+        const color = MORTALITY_COLORS[point.mortality_status] || BLUE;
+        return (
+          <CircleMarker
+            key={point.id}
+            center={[point.lat, point.lng]}
+            radius={pointRadius(point.cases)}
+            pathOptions={{
+              color,
+              fillColor: color,
+              fillOpacity: point.usedFallback ? 0.6 : 0.82,
+              weight: point.usedFallback ? 1 : 1.5,
+            }}
+          >
+            <Tooltip direction="top" offset={[0, -8]} opacity={1}>
+              <div style={{ minWidth: 170, color: '#0f172a', lineHeight: 1.35 }}>
+                <div style={{ fontWeight: 700, marginBottom: 2 }}>{point.disease}</div>
+                <div>{buildLocationLabel(point)}</div>
+                <div>{Number(point.cases).toLocaleString()} cases</div>
+                <div>Reported {formatDate(point.report_date)}</div>
+                {point.usedFallback && <div style={{ color: '#475569' }}>State-center fallback</div>}
+              </div>
+            </Tooltip>
+          </CircleMarker>
+        );
+      })}
 
       {isLoading && (
         <div style={{ position: 'absolute', inset: 0, zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(232,240,255,0.55)', pointerEvents: 'none' }}>
@@ -424,6 +535,93 @@ function DotPlotMap({ points, isLoading, error }) {
           </div>
         </div>
       )}
+
+      {windEnabled && windLoading && (
+        <div style={{ position: 'absolute', bottom: 12, right: 12, zIndex: 1001, background: 'rgba(255,255,255,0.9)', border: '1px solid #dbe2ea', borderRadius: 8, padding: '6px 10px', fontSize: 11, color: '#334155', pointerEvents: 'none' }}>
+          Loading wind data...
+        </div>
+      )}
+
+      {windEnabled && windError && !windLoading && (
+        <div style={{ position: 'absolute', bottom: 12, right: 12, zIndex: 1001, background: 'rgba(255,255,255,0.95)', border: '1px solid #fecaca', borderRadius: 8, padding: '6px 10px', fontSize: 11, color: '#b91c1c', pointerEvents: 'none' }}>
+          Wind Data Unavailable
+        </div>
+      )}
+    </>
+  );
+}
+
+function DotPlotMap({ points, isLoading, error, windEnabled }) {
+  return (
+    <div style={{ height: 500, borderRadius: 8, overflow: 'hidden', border: '1px solid #d7dfeb', position: 'relative', background: '#dce8f8' }}>
+      <MapContainer center={[39.5, -98.35]} zoom={4} scrollWheelZoom={false} style={{ height: '100%', width: '100%' }}>
+        <TileLayer
+          url="https://{s}.basemaps.cartocdn.com/light_nolabels/{z}/{x}/{y}{r}.png"
+          attribution='&copy; <a href="https://carto.com/">CARTO</a>'
+        />
+        <DotPlotMapInner
+          points={points}
+          isLoading={isLoading}
+          error={error}
+          windEnabled={windEnabled}
+        />
+      </MapContainer>
+
+      <div style={{ position: 'absolute', top: 12, left: '50%', transform: 'translateX(-50%)', zIndex: 1000, background: 'rgba(255,255,255,0.96)', border: '1px solid #dbe2ea', borderRadius: 999, padding: '6px 12px', fontSize: 12, fontWeight: 600, color: '#334155', pointerEvents: 'none', boxShadow: '0 2px 8px rgba(0,0,0,0.08)' }}>
+        Map View: one dot per outbreak entry
+      </div>
+    </div>
+  );
+}
+
+function DotPlotFullscreenMap({ points, windEnabled, onWindToggle, onClose }) {
+  useEffect(() => {
+    const prev = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    return () => { document.body.style.overflow = prev; };
+  }, []);
+
+  useEffect(() => {
+    const handler = (e) => { if (e.key === 'Escape') onClose(); };
+    window.addEventListener('keydown', handler);
+    return () => window.removeEventListener('keydown', handler);
+  }, [onClose]);
+
+  return (
+    <div style={{ position: 'fixed', inset: 0, zIndex: 10000, background: '#dce8f8', display: 'flex', flexDirection: 'column' }}>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '10px 16px', background: '#fff', borderBottom: '1px solid #ccd5df', flexShrink: 0 }}>
+        <h3 style={{ margin: 0, fontSize: 'clamp(13px,3vw,16px)' }}>Map View: Outbreak Locations</h3>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+          <button
+            onClick={onWindToggle}
+            style={{ ...filterBtn(windEnabled), display: 'inline-flex', alignItems: 'center', gap: 5 }}
+            title={windEnabled ? 'Turn off wind overlay' : 'Turn on wind overlay'}
+          >
+            <span style={{ fontSize: 14 }}>🌬</span>
+            Weather {windEnabled ? 'ON' : 'OFF'}
+          </button>
+          <button
+            onClick={onClose}
+            style={{ background: '#fee2e2', border: '1px solid #fca5a5', color: '#dc2626', borderRadius: 8, width: 36, height: 36, fontSize: 18, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+          >
+            x
+          </button>
+        </div>
+      </div>
+      <div style={{ flex: 1, position: 'relative' }}>
+        <MapContainer center={[39.5, -98.35]} zoom={4} scrollWheelZoom style={{ height: '100%', width: '100%' }}>
+          <TileLayer
+            url="https://{s}.basemaps.cartocdn.com/light_nolabels/{z}/{x}/{y}{r}.png"
+            attribution='&copy; <a href="https://carto.com/">CARTO</a>'
+          />
+          <DotPlotMapInner
+            points={points}
+            isLoading={false}
+            error=""
+            windEnabled={windEnabled}
+          />
+        </MapContainer>
+      </div>
     </div>
   );
 }
@@ -439,6 +637,7 @@ const MapSection = () => {
   const [viewMode, setViewMode] = useState('cartogram');
   const [pointLoading, setPointLoading] = useState(true);
   const [pointError, setPointError] = useState('');
+  const [windEnabled, setWindEnabled] = useState(false);
   const listBtnRef = useRef(null);
 
   useEffect(() => {
@@ -539,7 +738,8 @@ const MapSection = () => {
 
   return (
     <>
-      {fullscreen && <FullscreenMap stateMap={stateMap} maxVal={maxVal} metricLabel={metricLabel} onClose={() => setFullscreen(false)} />}
+      {fullscreen && viewMode === 'cartogram' && <FullscreenMap stateMap={stateMap} maxVal={maxVal} metricLabel={metricLabel} windEnabled={windEnabled} onWindToggle={() => setWindEnabled((v) => !v)} onClose={() => setFullscreen(false)} />}
+      {fullscreen && viewMode === 'map' && <DotPlotFullscreenMap points={mapPoints} windEnabled={windEnabled} onWindToggle={() => setWindEnabled((v) => !v)} onClose={() => setFullscreen(false)} />}
 
       <div style={{ width: '100%', minWidth: 0, background: MAP_BG, border: '1px solid #ccd5df', borderRadius: '8px', padding: '1rem', boxShadow: '0 2px 8px rgba(0,0,0,0.08)' }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '0.25rem', gap: 8 }}>
@@ -549,9 +749,7 @@ const MapSection = () => {
             <button type="button" style={viewToggleStyle(viewMode === 'map')} onClick={() => setViewMode('map')}>Map View</button>
             <button
               onClick={() => setFullscreen(true)}
-              disabled={viewMode !== 'cartogram'}
-              title={viewMode === 'cartogram' ? 'Open full cartogram view' : 'Full screen is available in Cartogram view'}
-              style={{ padding: '4px 8px', background: viewMode === 'cartogram' ? '#fff' : '#f8fafc', color: viewMode === 'cartogram' ? '#111827' : '#94a3b8', border: '1px solid #ccc', borderRadius: 6, cursor: viewMode === 'cartogram' ? 'pointer' : 'not-allowed', fontSize: 11, whiteSpace: 'nowrap' }}
+              style={{ padding: '4px 8px', background: '#fff', color: '#111827', border: '1px solid #ccc', borderRadius: 6, cursor: 'pointer', fontSize: 11, whiteSpace: 'nowrap' }}
             >
               Full
             </button>
@@ -574,6 +772,19 @@ const MapSection = () => {
             <option value="">All {diseaseType !== 'all' ? diseaseType : ''} diseases</option>
             {diseases.map((disease) => <option key={disease} value={disease}>{disease}</option>)}
           </select>
+          <button
+            style={{
+              ...filterBtn(windEnabled),
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: 5,
+            }}
+            onClick={() => setWindEnabled((v) => !v)}
+            title={windEnabled ? 'Turn off wind overlay' : 'Turn on wind overlay'}
+          >
+            <span style={{ fontSize: 14 }}>🌬</span>
+            Weather {windEnabled ? 'ON' : 'OFF'}
+          </button>
           <span style={{ fontSize: 12, color: '#3d5af1', fontWeight: 600 }}>
             {viewMode === 'cartogram' ? `Metric: ${metricLabel.charAt(0).toUpperCase()}${metricLabel.slice(1)}` : 'Hover a dot to inspect a report'}
           </span>
@@ -584,9 +795,9 @@ const MapSection = () => {
             No data available for the selected filter.
           </div>
         ) : viewMode === 'cartogram' ? (
-          <DashboardMap stateMap={stateMap} maxVal={maxVal} metricLabel={metricLabel} />
+          <DashboardMap stateMap={stateMap} maxVal={maxVal} metricLabel={metricLabel} windEnabled={windEnabled} />
         ) : (
-          <DotPlotMap points={mapPoints} isLoading={pointLoading} error={pointError} />
+          <DotPlotMap points={mapPoints} isLoading={pointLoading} error={pointError} windEnabled={windEnabled} />
         )}
 
         {viewMode === 'cartogram' ? (

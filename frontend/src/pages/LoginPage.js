@@ -37,10 +37,12 @@ export default function LoginPage() {
 			if (res.ok && data?.ok === true) {
 				// Admin gets priority redirect to /admin
 				if (data.is_admin === true) {
+					localStorage.setItem("is_admin", "true");
 					navigate("/admin");
 					return;
 				}
 
+				localStorage.removeItem("is_admin");
 				// Regular user goes to home
 				navigate("/home");
 				return;
@@ -88,7 +90,7 @@ export default function LoginPage() {
 									className="field__input"
 									type="email"
 									value={email}
-									onChange={(e) => setEmail(e.target.value)}
+									onChange={(e) => setEmail(e.target.value.slice(0, 400))}
 									placeholder="Email"
 									autoComplete="email"
 									required
@@ -101,7 +103,7 @@ export default function LoginPage() {
 									className="field__input"
 									type="password"
 									value={password}
-									onChange={(e) => setPassword(e.target.value)}
+									onChange={(e) => setPassword(e.target.value.slice(0, 400))}
 									placeholder="Password"
 									autoComplete="current-password"
 									required

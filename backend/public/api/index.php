@@ -6,6 +6,9 @@ require __DIR__ . '/../../src/response.php';
 require __DIR__ . '/../../src/auth.php';    // Provides login() and session_start()
 require __DIR__ . '/../../src/profile.php'; // Added for ViewProfile
 
+//start session and handle CORS
+session_start();
+
 header('Content-Type: application/json; charset=utf-8');
 
 $allowedOrigins = [
@@ -84,6 +87,7 @@ try {
         // Set session
         $_SESSION['user_id'] = (int)$user['id'];
         // Return user info including admin status
+       $_SESSION['is_admin'] = (int)$user['is_admin'] === 1 ? 1 : 0;
         echo json_encode([
             'ok'       => true,
             'user_id'  => (int)$user['id'],
@@ -121,7 +125,23 @@ try {
         exit;
     }
 
-    if ($route === 'publications-list' || $route === 'publications-submit') {
+    if ($route === 'checkSession') {
+        if (isset($_SESSION['user_id'])) {
+            echo json_encode(['ok' => true, 'user_id' => $_SESSION['user_id']], JSON_UNESCAPED_SLASHES);
+        } else {
+            http_response_code(401);
+            echo json_encode(['ok' => false], JSON_UNESCAPED_SLASHES);
+        }
+        exit;
+    }
+
+    if ($route === 'logout') {
+        session_destroy();
+        echo json_encode(['ok' => true], JSON_UNESCAPED_SLASHES);
+        exit;
+    }
+
+    if ($route === 'publications-list' || $route === 'publications-submit' || $route === 'publications-download') {
             require __DIR__ . '/publications.php';
             exit;
     }
@@ -174,6 +194,17 @@ try {
 
     // data page (lexi)
     //  outbreaks: summary stats
+    if ($route === 'detectLocation') {
+    require __DIR__ . '/../../src/location.php';
+    detect_location();
+    exit;
+}
+// Save confidence score (lexi)
+    if ($route === 'save_confidence_score') {
+    require __DIR__ . '/save_confidence_score.php';
+    exit;
+}
+
     if ($route === 'outbreaks-summary') {
         $pdo       = db();
         $disease   = isset($_GET['disease'])          ? trim((string)$_GET['disease'])          : '';

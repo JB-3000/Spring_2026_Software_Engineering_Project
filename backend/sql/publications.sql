@@ -30,15 +30,20 @@ CREATE TABLE IF NOT EXISTS user_publications (
     journal VARCHAR(255) DEFAULT '',
     publication_year INT DEFAULT NULL,
     publication_date DATE DEFAULT NULL,
-    doi VARCHAR(255) DEFAULT '',
     origin_url VARCHAR(1000) DEFAULT '',
+    uploaded_file_path VARCHAR(1000) DEFAULT NULL,
+    uploaded_original_filename VARCHAR(255) DEFAULT NULL,
+    uploaded_mime_type VARCHAR(100) DEFAULT NULL,
+    uploaded_file_size INT UNSIGNED DEFAULT NULL,
     abstract_text MEDIUMTEXT,
     publication_type VARCHAR(100) DEFAULT '',
+    approval_status ENUM('pending', 'approved', 'denied') NOT NULL DEFAULT 'pending',
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
     KEY idx_user_publications_user_id (user_id),
     KEY idx_user_publications_year (publication_year),
     KEY idx_user_publications_date (publication_date),
+    KEY idx_user_publications_status (approval_status),
     CONSTRAINT fk_user_publications_user
     FOREIGN KEY (user_id) REFERENCES users(id)
                                                    ON DELETE CASCADE
