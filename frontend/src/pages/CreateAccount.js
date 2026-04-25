@@ -196,7 +196,7 @@ export default function CreateAccount({ onCancel }) {
             <button type="submit" className="ca-btn ca-btn--primary">
               Create Account
             </button>
-            <button type="button" className="ca-btn ca-btn--secondary" onClick={() => navigate("/login")}>
+            <button type="button" className="ca-btn ca-btn--secondary" onClick={() => navigate("/")}>
               Already have an account?
             </button>
           </form>
