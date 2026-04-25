@@ -130,6 +130,9 @@ export default function ViewProfile() {
     else if (field === "phone")    v = value.replace(/\D/g, "").slice(0, 10);
     else if (field === "zip")      v = value.replace(/\D/g, "").slice(0, 5);
     else if (field === "state")    v = value.replace(/[^A-Za-z]/g, "").toUpperCase().slice(0, 2);
+    else if (field === "email")    v = value.replace(/\s/g, "").slice(0, 50);
+    else if (field === "address")  v = value.replace(/[^A-Za-z0-9\s.,-]/g, "").slice(0, 100);
+    else if (field === "city")     v = value.replace(/[^A-Za-z\s.-]/g, "").slice(0, 50);
     setEditData((prev) => ({ ...prev, [field]: v }));
   };
 
