@@ -57,8 +57,6 @@ export default function ViewProfile() {
             username:  DOMPurify.sanitize(data.username  || ""),
             firstName: DOMPurify.sanitize(data.firstName || ""),
             lastName:  DOMPurify.sanitize(data.lastName  || ""),
-            // DB is now the source of truth for city/state; localStorage is
-            // only a secondary cache used when the DB fields are empty.
             state:     DOMPurify.sanitize(data.state     || ""),
             city:      DOMPurify.sanitize(data.city      || ""),
             address:   DOMPurify.sanitize(data.address   || ""),
@@ -67,8 +65,6 @@ export default function ViewProfile() {
             phone:     DOMPurify.sanitize(data.phone     || ""),
           };
 
-          // Only fall back to localStorage when the DB has no city/state.
-          // This keeps localStorage as a fast-load cache, not the primary store.
           let city  = sanitized.city;
           let state = sanitized.state;
           let zip   = sanitized.zip;
@@ -123,6 +119,8 @@ export default function ViewProfile() {
   const handleEditClick   = () => { setEditData({ ...userData }); setIsEditing(true); };
   const handleCancelClick = () => { setEditData({ ...userData }); setIsEditing(false); setLocationStatus(""); };
 
+  // FIX: Added length limits for city (20) and address (60) to prevent
+  // oversized input (e.g. Bee Movie script) from crashing the server.
   const handleChange = (field, value) => {
     let v = value;
     if (field === "firstName")     v = value.replace(/[^A-Za-z]/g, "").slice(0, 20);
@@ -133,6 +131,8 @@ export default function ViewProfile() {
     else if (field === "email")    v = value.replace(/\s/g, "").slice(0, 50);
     else if (field === "address")  v = value.replace(/[^A-Za-z0-9\s.,-]/g, "").slice(0, 100);
     else if (field === "city")     v = value.replace(/[^A-Za-z\s.-]/g, "").slice(0, 50);
+    else if (field === "city")     v = value.replace(/[^A-Za-z\s\-']/g, "").slice(0, 20); // FIX
+    else if (field === "address")  v = value.slice(0, 60);                                 // FIX
     setEditData((prev) => ({ ...prev, [field]: v }));
   };
 
@@ -172,7 +172,6 @@ export default function ViewProfile() {
       });
       const data = await res.json();
       if (data.ok) {
-        // Keep localStorage in sync with manual edits too
         try {
           localStorage.setItem(STORAGE_KEY, JSON.stringify({
             city:   editData.city,
@@ -192,7 +191,9 @@ export default function ViewProfile() {
   };
 
   // ── Shared helper: apply detected city/state/zip everywhere ──────────────
-  // Now also writes to the DB so location survives logout/session expiry.
+  // FIX: Only writes to DB when city or state is non-empty, preventing a
+  // bad updateProfile call when IP lookup returns nothing useful (e.g. on
+  // a private/VPN IP that ip-api.com can't geolocate).
   const applyLocation = async (city, state, zip = "") => {
     // 1. Update UI immediately
     setUserData((prev) => ({ ...prev, city, state, ...(zip && { zip }) }));
@@ -205,30 +206,31 @@ export default function ViewProfile() {
       }));
     } catch (_) {}
 
-    // 3. Persist to DB — this is the key fix for cross-session persistence.
-    //    Use the ref so we always have the latest profile values even though
-    //    this function can be called from inside async callbacks.
-    const current = userDataRef.current;
-    try {
-      await fetch(`${API_BASE}?r=updateProfile`, {
-        method: "POST",
-        credentials: "include",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          username:   current.username,
-          first_name: current.firstName,
-          last_name:  current.lastName,
-          state:      state,
-          city:       city,
-          address:    current.address,
-          zip:        zip || current.zip,
-          email:      current.email,
-          phone:      current.phone,
-        }),
-      });
-    } catch (err) {
-      console.error("Failed to persist detected location to DB:", err);
-      // Not fatal — localStorage cache will still help on same-browser refresh
+    // 3. Only persist to DB if we got something useful — skipping this when
+    //    both are empty prevents overwriting existing profile data with blanks.
+    if (city || state) {
+      const current = userDataRef.current;
+      try {
+        await fetch(`${API_BASE}?r=updateProfile`, {
+          method: "POST",
+          credentials: "include",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            username:   current.username,
+            first_name: current.firstName,
+            last_name:  current.lastName,
+            state:      state,
+            city:       city,
+            address:    current.address,
+            zip:        zip || current.zip,
+            email:      current.email,
+            phone:      current.phone,
+          }),
+        });
+      } catch (err) {
+        console.error("Failed to persist detected location to DB:", err);
+        // Not fatal — localStorage cache will still help on same-browser refresh
+      }
     }
 
     setLocationStatus(
@@ -317,15 +319,17 @@ export default function ViewProfile() {
     }
   };
 
+  // FIX: Added maxLength to all fields as a second layer of browser-level
+  // enforcement against oversized input.
   const fields = [
-    { label: "First Name",       key: "firstName", type: "text"  },
-    { label: "Last Name",        key: "lastName",  type: "text"  },
-    { label: "State (2-letter)", key: "state",     type: "text"  },
-    { label: "City",             key: "city",      type: "text"  },
-    { label: "Address",          key: "address",   type: "text"  },
-    { label: "ZIP",              key: "zip",       type: "text"  },
-    { label: "E-mail",           key: "email",     type: "email" },
-    { label: "Phone Number",     key: "phone",     type: "tel"   },
+    { label: "First Name",       key: "firstName", type: "text",  maxLength: 20  },
+    { label: "Last Name",        key: "lastName",  type: "text",  maxLength: 20  },
+    { label: "State (2-letter)", key: "state",     type: "text",  maxLength: 2   },
+    { label: "City",             key: "city",      type: "text",  maxLength: 20  },
+    { label: "Address",          key: "address",   type: "text",  maxLength: 60  },
+    { label: "ZIP",              key: "zip",       type: "text",  maxLength: 5   },
+    { label: "E-mail",           key: "email",     type: "email", maxLength: 100 },
+    { label: "Phone Number",     key: "phone",     type: "tel",   maxLength: 10  },
   ];
 
   return (
@@ -384,6 +388,7 @@ export default function ViewProfile() {
                 <input
                   className="vp-input"
                   type={field.type}
+                  maxLength={field.maxLength}
                   value={isEditing ? editData[field.key] : userData[field.key]}
                   readOnly={!isEditing}
                   onChange={(e) => handleChange(field.key, e.target.value)}
