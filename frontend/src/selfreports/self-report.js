@@ -62,7 +62,8 @@ export default function SelfReport() {
 
     try {
       const response = await fetch(
-        "https://aptitude.cse.buffalo.edu/CSE442/2026-Spring/cse-442c/backend/public/api/create_outbreak.php",
+        `${window.location.origin}/CSE442/2026-Spring/cse-442c/backend/public/api/create_outbreak.php`,
+
         {
           method: "POST",
           credentials: "include",
